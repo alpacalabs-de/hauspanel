@@ -5,11 +5,22 @@ import { openSheet } from "./dialogs.js";
 
 const STATUSES = new Set(["registered", "in_transit", "out_for_delivery", "at_pickup_point", "returning", "problem", "unknown"]);
 
+const AGGREGATOR = "parcel_aggregator";
+const isAggregator = (hass, id) => hass.entities?.[id]?.platform === AGGREGATOR || id.startsWith(`sensor.${AGGREGATOR}_`);
+
+/** Whether a sensor lists the parcels of one kind. Goes by the integration's own key, so renamed or translated sensors count too;
+ *  the entity id is only the fallback when the registry doesn't say. Pickup and outgoing lists are left out. */
+function isParcelSensor(hass, id, kind) {
+  const key = hass.entities?.[id]?.translation_key;
+  if (key) return key === `${kind}_parcels` || (key === kind && isAggregator(hass, id));
+  return id.endsWith(`_${kind}_parcels`) || (isAggregator(hass, id) && id.endsWith(`_${kind}`));
+}
+
 /** Sensors that list parcels ("incoming" or "delivered"): the aggregator's if there is one, otherwise each carrier's own. */
 export function parcelSensors(hass, kind = "incoming") {
-  const ids = Object.keys(hass.states).filter((id) => id.startsWith("sensor.") && id.endsWith(`_${kind}_parcels`)
-    && Array.isArray(hass.states[id].attributes.parcels));
-  const agg = ids.filter((id) => hass.entities?.[id]?.platform === "parcel_aggregator" || id.startsWith("sensor.parcel_aggregator_"));
+  const ids = Object.keys(hass.states).filter((id) => id.startsWith("sensor.") && Array.isArray(hass.states[id].attributes.parcels)
+    && isParcelSensor(hass, id, kind));
+  const agg = ids.filter((id) => isAggregator(hass, id));
   return agg.length ? agg : ids;
 }
 

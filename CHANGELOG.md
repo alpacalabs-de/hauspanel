@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.6.2
+
+- Parcels: the sensors are now found by what they are, not by their name, so the chip also works when the parcel sensors are named in another language or renamed. Pickup and outgoing lists are left out as before.
+
 ## 1.6.1
 
 - **Parcels** are now a status chip at the top of Home, like Waste and Maintenance: it shows when the next parcel comes or how many are on the way, and only while one is coming or just came. A tap opens the list with the parcels on their way and the ones delivered in the last two days; a tap on a parcel opens its tracking page. Switch the chip off under *Settings → Home → Status chips* or with − in edit mode. The parcel list further down on Home is gone.

@@ -50,3 +50,26 @@ test("delivered in the last two days, and what the chip says", () => {
   assert.equal(parcelChipText(hass, [], [], now), "");
   assert.equal(hasParcels(fakeHass()), false);
 });
+
+test("sensors in another language are found by the integration's own key, pickup lists are not", () => {
+  const list = { state: "1", attributes: { parcels: [p("DHL", "1", "in_transit", "2026-11-13T10:00:00Z")] } };
+  const hass = fakeHass({
+    states: {
+      "sensor.dhl_eingehende_pakete": list,
+      "sensor.dhl_zugestellte_pakete": list,
+      "sensor.dhl_abholbereit": list,
+      "sensor.paket_sammler_eingehende_pakete": list,
+      "sensor.paket_sammler_unterwegs_zur_abholstelle": list,
+    },
+    entities: {
+      "sensor.dhl_eingehende_pakete": { platform: "dhl", translation_key: "incoming_parcels" },
+      "sensor.dhl_zugestellte_pakete": { platform: "dhl", translation_key: "delivered_parcels" },
+      "sensor.dhl_abholbereit": { platform: "dhl", translation_key: "awaiting_pickup" },
+    },
+  });
+  assert.deepEqual(parcelSensors(hass), ["sensor.dhl_eingehende_pakete"]);
+  assert.deepEqual(parcelSensors(hass, "delivered"), ["sensor.dhl_zugestellte_pakete"]);
+  hass.entities["sensor.paket_sammler_eingehende_pakete"] = { entity_id: "x", platform: "parcel_aggregator", translation_key: "incoming" };
+  hass.entities["sensor.paket_sammler_unterwegs_zur_abholstelle"] = { entity_id: "x", platform: "parcel_aggregator", translation_key: "en_route_to_pickup_point" };
+  assert.deepEqual(parcelSensors(hass), ["sensor.paket_sammler_eingehende_pakete"], "the aggregator still wins");
+});
