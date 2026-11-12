@@ -78,7 +78,7 @@ Installing the integration adds three entries to the Home Assistant sidebar. Eac
 - Cameras open full screen with a tap; swipe for the next one.
 
 **Energy and devices**
-- **Energy page** from Home Assistant's energy settings: now, day, week, month, year, costs, solar, self-sufficiency, biggest consumers.
+- **Energy page** from Home Assistant's energy settings: now, day, week, month, year, costs, solar, self-sufficiency, gas, home battery, biggest consumers.
 - **Sockets that measure power** show watts and usage; set any of them to *meter only* so a fridge can't be switched off by accident.
 - **Maintenance** chip appears only when a battery is low or a device is unreachable.
 
@@ -86,7 +86,7 @@ Installing the integration adds three entries to the Home Assistant sidebar. Eac
 - Settings are stored in Home Assistant and reach every open screen at once. Layout and tile size are remembered per device.
 - *My own settings* gives one person their own arrangement of a panel.
 - Any panel can be made visible to administrators only.
-- In English, German, French, Dutch, Spanish, Italian, Polish and Swedish, following the language of Home Assistant.
+- In English, German, French, Dutch, Spanish, Italian, Polish, Swedish and Turkish, following the language of Home Assistant.
 
 ## Popups for your devices
 
@@ -201,7 +201,7 @@ Bugs and ideas are welcome as [issues](https://github.com/alpacalabs-de/hauspane
 
 ## Help with translations
 
-English and German are written by hand. French, Dutch, Spanish, Italian, Polish and Swedish were translated by machine, so a native speaker's eye helps a lot.
+English and German are written by hand. French, Dutch, Spanish, Italian, Polish, Swedish and Turkish were translated by machine, so a native speaker's eye helps a lot.
 
 - **Just tell us:** open a [translation issue](https://github.com/alpacalabs-de/hauspanel/issues/new?template=translation.yml) with the text you saw and your better wording.
 - **Change it yourself:** each language is one file, `custom_components/hauspanel/frontend/lib/lang/<code>.js` (one line per text, `key: "text"`). Edit the text on GitHub (pencil icon) and propose the change. Keep words in `{braces}` as they are, they are filled in by HausPanel. The setup texts are in `custom_components/hauspanel/translations/<code>.json`.
@@ -246,7 +246,7 @@ Home Assistant kennt dein Haus schon: welche Räume auf welcher Etage liegen und
 - **Sicherheit**: was offen ist, Alarm mit Modi, Rauchmelder, die letzten Bewegungen von Frigate mit kurzen Clips. Pro Tür, Tor oder Schloss ein **Zeitraum, in dem es offen sein darf**, z. B. das Einfahrtstor tagsüber.
 - **Gute-Nacht-Check**, **Haus verlassen** mit Rückgängig, **Türklingel** mit Kamera im Vollbild, **Babyfon**.
 - Eigene Popups für Wetter, Thermostat, Wärmepumpe, Waschmaschine und Trockner, Auto, Wallbox, Solar, Saugroboter, Tore, Haustür, Garten, Pool, 3D-Drucker, Lautsprecher und Netzwerk.
-- **Energie-Seite** aus den Energie-Einstellungen von Home Assistant. Steckdosen mit Messung können auf *nur messen* gestellt werden.
+- **Energie-Seite** aus den Energie-Einstellungen von Home Assistant, mit Kosten, Solar, Gas und Hausbatterie. Steckdosen mit Messung können auf *nur messen* gestellt werden.
 - **Einstellungen** in übersichtlichen Tabs: Startseite, Räume & Geräte, Sicherheit, Aussehen, Dieser Bildschirm, Navigation, Kalender und Wetter, Ausblenden, System. Jeder Tab erklärt oben in einem Satz, wofür er da ist.
 
 **Installieren:** In HACS unter „Benutzerdefinierte Repositories“ `https://github.com/alpacalabs-de/hauspanel` als „Integration“ hinzufügen, HausPanel installieren, Home Assistant neu starten, dann **Einstellungen → Geräte & Dienste → Integration hinzufügen → HausPanel**.

@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.6.3
+
+- **Gas and battery** on the energy page: a gas card in the unit of your meter (m³ or kWh) with its costs, and a battery card with what it gave and what it took. Both come from *Settings → Dashboards → Energy*. Thanks to @ComPExperTR.
+- **Turkish**, translated by machine like the other languages besides English and German. Thanks to @ComPExperTR.
+
 ## 1.6.2
 
 - Parcels: the sensors are now found by what they are, not by their name, so the chip also works when the parcel sensors are named in another language or renamed. Pickup and outgoing lists are left out as before.
