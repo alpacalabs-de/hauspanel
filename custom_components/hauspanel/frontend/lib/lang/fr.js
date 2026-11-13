@@ -1,5 +1,6 @@
 // French texts. Keys and {placeholders} as in English.
 export default {
+  room_names: "Noms de pièce longs", room_names_cut: "Couper", room_names_shrink: "Plus petit", room_names_wrap: "Deux lignes", room_names_hint: "Quand un nom ne tient pas à côté des boutons : le couper avec …, l'écrire plus petit ou le passer sur deux lignes.",
   temp_decimal: "Température des pièces avec décimale", temp_decimal_hint: "Affiche 21,7° au lieu de 22° sur les tuiles des pièces.",
   gas: "Gaz", battery: "Batterie", charged: "{v} chargés",
   playlists: "Playlists",

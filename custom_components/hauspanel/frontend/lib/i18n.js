@@ -2,6 +2,7 @@ import { EN_POP, DE_POP } from "./i18n_popups.js";
 // Texts: German and English here, other languages in lang/; follows Home Assistant's language.
 
 const EN = {
+  room_names: "Long room names", room_names_cut: "Cut", room_names_shrink: "Smaller", room_names_wrap: "Two lines", room_names_hint: "When a name doesn't fit next to the buttons: cut it with …, set it smaller, or let it wrap onto a second line.",
   temp_decimal: "Room temperature with a decimal", temp_decimal_hint: "Shows 21.7° instead of 22° on the room tiles.",
   gas: "Gas", battery: "Battery", charged: "{v} charged",
   playlists: "Playlists", search_playlists: "Search playlists", playing_x: "Playing {name}", play_failed: "Could not start playback.", no_playlists: "No playlists in Music Assistant yet.",
@@ -83,6 +84,7 @@ const EN = {
 };
 
 const DE = {
+  room_names: "Lange Raumnamen", room_names_cut: "Abkürzen", room_names_shrink: "Kleiner", room_names_wrap: "Zwei Zeilen", room_names_hint: "Wenn ein Name nicht neben die Knöpfe passt: mit … abkürzen, kleiner schreiben oder in eine zweite Zeile umbrechen.",
   temp_decimal: "Raumtemperatur mit Komma", temp_decimal_hint: "Zeigt auf den Raumkacheln 21,7° statt 22°.",
   gas: "Gas", battery: "Batterie", charged: "{v} geladen",
   playlists: "Playlists", search_playlists: "Playlists suchen", playing_x: "Spielt {name}", play_failed: "Wiedergabe konnte nicht starten.", no_playlists: "Noch keine Playlists in Music Assistant.",

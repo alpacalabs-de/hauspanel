@@ -1,5 +1,6 @@
 // Turkish texts. Keys and {placeholders} as in English.
 export default {
+  room_names: "Uzun oda adları", room_names_cut: "Kısalt", room_names_shrink: "Daha küçük", room_names_wrap: "İki satır", room_names_hint: "Bir ad düğmelerin yanına sığmadığında: … ile kısalt, daha küçük yaz veya ikinci satıra geçir.",
   temp_decimal: "Oda sıcaklığı ondalıklı", temp_decimal_hint: "Oda kutucuklarında 22° yerine 21,7° gösterir.",
   gas: "Gaz",
   battery: "Batarya",

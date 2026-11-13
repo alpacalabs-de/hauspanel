@@ -2660,6 +2660,10 @@ a.hp-parcel-row { color: inherit; text-decoration: none; }
 .ov-sec-edit .hp-qrow { gap: 8px; }
 .ov-sec-edit .hp-qrow.off { opacity: .55; }
 
+/* Long room names (Settings → Rooms): wrapped onto a second line next to the buttons, hyphenated in HA's language. */
+.hp-roomcard.names-wrap:not(.short) .hp-roomcard-name { white-space: normal; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-height: 1.2; hyphens: auto; }
+.hp-roomcard.names-wrap:not(.short) .hp-roomcard-name.one { display: block; white-space: nowrap; text-overflow: ellipsis; }
+
 `;
 
 /** The font has to be declared on the page itself; shadow roots ignore @font-face. */

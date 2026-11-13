@@ -323,6 +323,11 @@ export function openSettings(ctx) {
           S.update((x) => { x.groupShades = !x.groupShades; });
           draw();
         }), t("group_shades_hint")),
+        row(t("room_names"), h("div", { class: "hp-seg" }, [["cut", "room_names_cut"], ["shrink", "room_names_shrink"], ["wrap", "room_names_wrap"]].map(([v, l]) => {
+          const b = h("button", { class: (s.roomNames || "cut") === v ? "active" : "" }, t(l));
+          b.addEventListener("click", () => { S.update((x) => { x.roomNames = v; }); draw(); });
+          return b;
+        })), t("room_names_hint")),
         row(t("temp_decimal"), toggleSwitch(!!s.tempDecimal, () => {
           S.update((x) => { x.tempDecimal = !x.tempDecimal; });
           draw();

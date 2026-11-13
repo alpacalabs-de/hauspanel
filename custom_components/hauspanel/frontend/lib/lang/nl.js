@@ -1,5 +1,6 @@
 // Dutch texts. Keys and {placeholders} as in English.
 export default {
+  room_names: "Lange kamernamen", room_names_cut: "Afkorten", room_names_shrink: "Kleiner", room_names_wrap: "Twee regels", room_names_hint: "Als een naam niet naast de knoppen past: afkorten met …, kleiner tonen of over twee regels laten lopen.",
   temp_decimal: "Kamertemperatuur met decimaal", temp_decimal_hint: "Toont 21,7° in plaats van 22° op de kamertegels.",
   gas: "Gas", battery: "Batterij", charged: "{v} geladen",
   playlists: "Afspeellijsten",

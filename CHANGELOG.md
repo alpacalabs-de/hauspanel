@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.6.5
+
+- **Long room names** (*Settings → Rooms*): when a name doesn't fit next to the buttons, cut it with … as before, set it smaller, or let it wrap onto a second line.
+
 ## 1.6.4
 
 - **Room temperature with a decimal** (*Settings → Rooms*): shows 21.7° instead of 22° on the room tiles.

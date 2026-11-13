@@ -1,5 +1,6 @@
 // Spanish texts. Keys and {placeholders} as in English.
 export default {
+  room_names: "Nombres de habitación largos", room_names_cut: "Cortar", room_names_shrink: "Más pequeño", room_names_wrap: "Dos líneas", room_names_hint: "Si un nombre no cabe junto a los botones: cortarlo con …, mostrarlo más pequeño o pasarlo a una segunda línea.",
   temp_decimal: "Temperatura de la habitación con decimal", temp_decimal_hint: "Muestra 21,7° en lugar de 22° en las tarjetas de las habitaciones.",
   gas: "Gas", battery: "Batería", charged: "{v} cargados",
   playlists: "Listas de reproducción",

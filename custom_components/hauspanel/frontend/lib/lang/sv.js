@@ -1,5 +1,6 @@
 // Swedish texts. Keys and {placeholders} as in English.
 export default {
+  room_names: "Långa rumsnamn", room_names_cut: "Korta", room_names_shrink: "Mindre", room_names_wrap: "Två rader", room_names_hint: "När ett namn inte får plats bredvid knapparna: korta det med …, visa det mindre eller låt det bryta till en andra rad.",
   temp_decimal: "Rumstemperatur med decimal", temp_decimal_hint: "Visar 21,7° i stället för 22° på rumsrutorna.",
   gas: "Gas", battery: "Batteri", charged: "{v} laddade",
   playlists: "Spellistor",

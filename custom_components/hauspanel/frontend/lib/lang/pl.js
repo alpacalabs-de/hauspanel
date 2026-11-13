@@ -1,5 +1,6 @@
 // Polish texts. Keys and {placeholders} as in English.
 export default {
+  room_names: "Długie nazwy pomieszczeń", room_names_cut: "Skróć", room_names_shrink: "Mniejsze", room_names_wrap: "Dwie linie", room_names_hint: "Gdy nazwa nie mieści się obok przycisków: skróć ją …, pokaż mniejszą lub przenieś do drugiej linii.",
   temp_decimal: "Temperatura w pomieszczeniu z miejscem po przecinku", temp_decimal_hint: "Pokazuje 21,7° zamiast 22° na kafelkach pomieszczeń.",
   gas: "Gaz", battery: "Bateria", charged: "{v} naładowane",
   playlists: "Playlisty",

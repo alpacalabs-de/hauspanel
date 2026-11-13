@@ -4,7 +4,7 @@ import { isOn, roomPresence, roomHasContent } from "./model.js";
 import { createTile, createSeparator, createScenePill } from "./tile.js";
 import { MEDIA, entityIcon, stateText } from "./domains.js";
 import { sortable } from "./drag.js";
-import { t } from "./i18n.js";
+import { t, currentLang } from "./i18n.js";
 import { sideWidgets, SIDE_DEFAULTS } from "./sidepanel.js";
 import { openCalendar } from "./agenda.js";
 import { openLightSheet, openClimateSheet, openEnergySheet, openMaintenanceSheet, maintenanceItems } from "./catsheets.js";
@@ -325,6 +325,28 @@ function editMinus(ctx, container, key) {
   return b;
 }
 
+/** A room's name on its card. Too long for the space next to the buttons, it is cut ("…"), set smaller, or wraps onto a
+ *  second line (Settings → Rooms); a single word that still doesn't fit is cut after all. */
+function roomName(ctx, area) {
+  const mode = ctx.settings?.s?.roomNames || "cut";
+  const name = h("div", { class: "hp-roomcard-name", lang: currentLang() }, area.name);
+  if (mode === "cut" || typeof ResizeObserver !== "function") return name;
+  name.fit = () => {
+    name.classList.remove("one");
+    name.style.fontSize = "";
+    if (!name.clientWidth || name.scrollWidth <= name.clientWidth) return;
+    if (mode === "shrink") {
+      const size = parseFloat(getComputedStyle(name).fontSize);
+      // A little air against rounding; never below 80 %, beyond that the name is cut after all.
+      name.style.fontSize = `${Math.max(size * 0.8, (size * name.clientWidth * 0.97) / name.scrollWidth).toFixed(1)}px`;
+    } else name.classList.add("one");
+  };
+  new ResizeObserver(() => name.fit()).observe(name);
+  // The font may arrive after the first measure and change the width of the text.
+  document.fonts?.ready.then(() => name.fit());
+  return name;
+}
+
 /** A room on Home: icon, power, "1 of 3 on", a dot per light, temperature. */
 function roomCard(ctx, area, container) {
   const ic = h("div", { class: "hp-tile-icon" }, icon(area.icon || "mdi:texture-box"));
@@ -337,11 +359,12 @@ function roomCard(ctx, area, container) {
   // Someone in the room (presence sensor; motion only without one), for people who switched it on.
   const pres = h("span", { class: "hp-presence", hidden: true, title: t("rp_motion_now") }, icon("mdi:account"));
   const temp = h("div", { class: "hp-roomcard-temp" }, pres, shadeInfo, flame, h("span", { class: "hp-temp-val" }));
+  const name = roomName(ctx, area);
   // Icon and temperature on top; name, what is on and a bar per light below, the buttons bottom right.
-  const el = h("div", { class: "hp-card hp-roomcard", dataset: { key: `room:${area.id}` }, role: "button", tabindex: "0" },
+  const el = h("div", { class: `hp-card hp-roomcard names-${ctx.settings?.s?.roomNames || "cut"}`, dataset: { key: `room:${area.id}` }, role: "button", tabindex: "0" },
     h("div", { class: "hp-roomcard-top" }, ic, temp),
     h("div", { class: "hp-roomcard-bottom" },
-      h("div", { class: "hp-roomcard-info" }, h("div", { class: "hp-roomcard-name" }, area.name), sub, dots),
+      h("div", { class: "hp-roomcard-info" }, name, sub, dots),
       h("div", { class: "hp-roomcard-btns" }, shadeBtn, power)),
     editMinus(ctx, container, `room:${area.id}`));
   let stats;
