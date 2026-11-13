@@ -1,5 +1,6 @@
 // Dutch texts. Keys and {placeholders} as in English.
 export default {
+  temp_decimal: "Kamertemperatuur met decimaal", temp_decimal_hint: "Toont 21,7° in plaats van 22° op de kamertegels.",
   gas: "Gas", battery: "Batterij", charged: "{v} geladen",
   playlists: "Afspeellijsten",
   search_playlists: "Afspeellijsten zoeken",

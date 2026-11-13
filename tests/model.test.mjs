@@ -227,3 +227,21 @@ test("a room with only a door contact shows too", async () => {
   const m = buildModel(hass, {});
   assert.equal(roomHasContent(m.areaById.get("shed")), true);
 });
+
+test("the room's own name doesn't rule out its thermometer; a winter garden is indoors", () => {
+  const hass = house();
+  const add = (area, name, id, temp, fname) => {
+    hass.areas[area] = { area_id: area, name };
+    hass.entities[id] = { entity_id: id, area_id: area, platform: "zha" };
+    hass.states[id] = { entity_id: id, state: temp, attributes: { device_class: "temperature", unit_of_measurement: "°C", friendly_name: fname } };
+  };
+  add("dachboden", "Dachboden", "sensor.dachboden_temperatur", "6.0", "Dachboden Temperatur");
+  add("wintergarten", "Wintergarten", "sensor.wintergarten_temperatur", "18.2", "Wintergarten Temperatur");
+  add("aussen", "Außen", "sensor.aussen_temperatur", "3.2", "Außen Temperatur");
+  add("bad", "Bad", "sensor.bad_fussboden", "24", "Bad Fußboden");
+  const m = buildModel(hass, {});
+  assert.equal(m.areaById.get("dachboden").temperature, "sensor.dachboden_temperatur");
+  assert.equal(m.areaById.get("wintergarten").temperature, "sensor.wintergarten_temperatur");
+  assert.equal(m.areaById.get("aussen").temperature, "sensor.aussen_temperatur", "outside keeps its own sensor");
+  assert.equal(m.areaById.get("bad").temperature, null, "a floor heating sensor is still no air");
+});

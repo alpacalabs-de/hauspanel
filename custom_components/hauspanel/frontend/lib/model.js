@@ -65,21 +65,27 @@ export function isHelperGroup(hass, entityId, reg) {
 /** Sensors that measure a thing, not the air of the room: pool, oven, heating water, printer, fridge, tank. */
 const NOT_AIR = /pool|wasser|water|vorlauf|r(ü|u|ue)cklauf|flow|return|speicher|kessel|boiler|misch|tank|zisterne|cistern|level|kondens|garraum|oven|ofen|dampf|steam|druck|d(ü|u|ue)se|nozzle|bett|bed_temp|cpu|chip|board|akku|batter|k(ü|u|ue)hl|gefrier|fridge|freezer|sauna|grill|soil|boden|ziel|target|soll|setpoint/i;
 const OUTSIDE = /au(ß|ss)en|outdoor|outside|exterior/i;
-const OUTDOOR_ROOM = /garten|garden|terrasse|terrace|patio|balkon|balcony|einfahrt|driveway|hof|yard|outdoor|au(ß|ss)en|pool|carport/i;
+// A winter garden is indoors.
+const OUTDOOR_ROOM = /(?<!winter[ _-]?)(?:garten|garden)|terrasse|terrace|patio|balkon|balcony|einfahrt|driveway|hof|yard|outdoor|au(ß|ss)en|pool|carport/i;
 const PREFERRED = /heizung|thermostat|raum|room|zimmer|klima|wandthermostat|bwth|climate/i;
 
 const isOutdoorRoom = (area) => OUTDOOR_ROOM.test(`${area.name || ""} ${area.floor?.name || ""}`);
 
 function roomTemperature(hass, area, ids) {
   const outdoor = isOutdoorRoom(area);
-  const label = (id) => `${hass.states[id]?.attributes.friendly_name || ""} ${id}`;
+  // The room's own name doesn't count: "Dachboden Temperatur" is no floor sensor, "Poolhaus" no pool water.
+  const slug = (x) => x.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/ß/g, "ss").replace(/[^a-z0-9]+/g, "_");
+  const esc = (x) => x.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const own = area.name ? new RegExp([...new Set([area.name, slug(area.name)])].filter(Boolean).map(esc).join("|"), "gi") : null;
+  const full = (id) => `${hass.states[id]?.attributes.friendly_name || ""} ${id}`;
+  const label = (id) => (own ? full(id).replace(own, " ") : full(id));
   const plausible = (id) => {
     const v = Number(hass.states[id]?.state);
     return !Number.isFinite(v) || (v > -35 && v < 50);
   };
   const ok = ids.filter((id) => !NOT_AIR.test(label(id)) && plausible(id)
     // Outside only an outdoor sensor counts; inside an outdoor sensor (heat pump's) does not.
-    && (outdoor ? OUTSIDE.test(label(id)) : !OUTSIDE.test(label(id))));
+    && (outdoor ? OUTSIDE.test(full(id)) : !OUTSIDE.test(label(id))));
   const score = (id) => (PREFERRED.test(label(id)) ? 0 : 1) + (/\bac\b|klimaanlage/i.test(label(id)) ? 1 : 0);
   return ok.sort((a, b) => score(a) - score(b))[0] || null;
 }

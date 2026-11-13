@@ -1,5 +1,6 @@
 // Spanish texts. Keys and {placeholders} as in English.
 export default {
+  temp_decimal: "Temperatura de la habitación con decimal", temp_decimal_hint: "Muestra 21,7° en lugar de 22° en las tarjetas de las habitaciones.",
   gas: "Gas", battery: "Batería", charged: "{v} cargados",
   playlists: "Listas de reproducción",
   search_playlists: "Buscar listas de reproducción",

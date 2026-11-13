@@ -1,5 +1,6 @@
 // French texts. Keys and {placeholders} as in English.
 export default {
+  temp_decimal: "Température des pièces avec décimale", temp_decimal_hint: "Affiche 21,7° au lieu de 22° sur les tuiles des pièces.",
   gas: "Gaz", battery: "Batterie", charged: "{v} chargés",
   playlists: "Playlists",
   search_playlists: "Rechercher une playlist",

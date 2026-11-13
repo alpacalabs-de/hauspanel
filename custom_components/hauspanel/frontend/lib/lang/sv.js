@@ -1,5 +1,6 @@
 // Swedish texts. Keys and {placeholders} as in English.
 export default {
+  temp_decimal: "Rumstemperatur med decimal", temp_decimal_hint: "Visar 21,7° i stället för 22° på rumsrutorna.",
   gas: "Gas", battery: "Batteri", charged: "{v} laddade",
   playlists: "Spellistor",
   search_playlists: "Sök spellistor",

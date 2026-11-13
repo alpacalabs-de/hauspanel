@@ -1,5 +1,6 @@
 // Turkish texts. Keys and {placeholders} as in English.
 export default {
+  temp_decimal: "Oda sıcaklığı ondalıklı", temp_decimal_hint: "Oda kutucuklarında 22° yerine 21,7° gösterir.",
   gas: "Gaz",
   battery: "Batarya",
   charged: "{v} şarj edildi",

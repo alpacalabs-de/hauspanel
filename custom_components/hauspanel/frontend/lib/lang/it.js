@@ -1,5 +1,6 @@
 // Italian texts. Keys and {placeholders} as in English.
 export default {
+  temp_decimal: "Temperatura della stanza con decimale", temp_decimal_hint: "Mostra 21,7° invece di 22° sulle schede delle stanze.",
   gas: "Gas", battery: "Batteria", charged: "{v} caricati",
   playlists: "Playlist",
   search_playlists: "Cerca playlist",

@@ -1,5 +1,6 @@
 // Polish texts. Keys and {placeholders} as in English.
 export default {
+  temp_decimal: "Temperatura w pomieszczeniu z miejscem po przecinku", temp_decimal_hint: "Pokazuje 21,7° zamiast 22° na kafelkach pomieszczeń.",
   gas: "Gaz", battery: "Bateria", charged: "{v} naładowane",
   playlists: "Playlisty",
   search_playlists: "Szukaj playlist",

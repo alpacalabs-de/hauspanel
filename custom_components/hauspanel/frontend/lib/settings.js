@@ -322,7 +322,11 @@ export function openSettings(ctx) {
         row(t("group_shades"), toggleSwitch(!!s.groupShades, () => {
           S.update((x) => { x.groupShades = !x.groupShades; });
           draw();
-        }), t("group_shades_hint"))));
+        }), t("group_shades_hint")),
+        row(t("temp_decimal"), toggleSwitch(!!s.tempDecimal, () => {
+          S.update((x) => { x.tempDecimal = !x.tempDecimal; });
+          draw();
+        }), t("temp_decimal_hint"))));
       // Security: the popup behind the Security chip, its doors and when they may be open, the good night check.
       const ed = securityEditor(ctx);
       add("security",

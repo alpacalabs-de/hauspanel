@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.6.4
+
+- **Room temperature with a decimal** (*Settings → Rooms*): shows 21.7° instead of 22° on the room tiles.
+- Rooms whose name sounds like something else now find their thermometer: an attic called *Dachboden* was taken for a floor sensor, a *Wintergarten* for the garden outside.
+
 ## 1.6.3
 
 - **Gas and battery** on the energy page: a gas card in the unit of your meter (m³ or kWh) with its costs, and a battery card with what it gave and what it took. Both come from *Settings → Dashboards → Energy*. Thanks to @ComPExperTR.

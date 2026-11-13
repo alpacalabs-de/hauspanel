@@ -63,7 +63,7 @@ export function roomStats(ctx, area) {
 export function roomTemp(ctx, area) {
   const st = area.temperature && ctx.hass.states[area.temperature];
   if (!st || isNaN(Number(st.state))) return "";
-  return `${formatNumber(ctx.hass, st.state, 0)}°`;
+  return `${formatNumber(ctx.hass, st.state, ctx.settings?.s?.tempDecimal ? 1 : 0)}°`;
 }
 
 /** Turn a room (or the whole home) on or off. */
