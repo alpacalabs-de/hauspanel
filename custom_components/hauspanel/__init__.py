@@ -5,6 +5,7 @@ from __future__ import annotations
 import copy
 import hashlib
 import inspect
+import json
 import os
 from pathlib import Path
 from typing import Any
@@ -119,6 +120,7 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     websocket_api.async_register_command(hass, ws_settings_save)
     websocket_api.async_register_command(hass, ws_settings_personal)
     websocket_api.async_register_command(hass, ws_settings_subscribe)
+    websocket_api.async_register_command(hass, ws_version)
     return True
 
 
@@ -218,6 +220,24 @@ def _build_id() -> str:
         stat = file.stat()
         digest.update(f"{file.name}{stat.st_mtime_ns}{stat.st_size}".encode())
     return f"{VERSION}-{digest.hexdigest()[:8]}"
+
+
+def _installed_version() -> str | None:
+    """The version on disk: newer than VERSION after an update that waits for a restart."""
+    try:
+        return json.loads((Path(__file__).parent / "manifest.json").read_text(encoding="utf-8")).get("version")
+    except (OSError, ValueError):
+        return None
+
+
+@websocket_api.websocket_command({vol.Required("type"): "hauspanel/version"})
+@websocket_api.async_response
+async def ws_version(
+    hass: HomeAssistant, connection: websocket_api.ActiveConnection, msg: dict
+) -> None:
+    """The version Home Assistant runs and the one installed, so the panel can say when a restart or reload is due."""
+    installed = await hass.async_add_executor_job(_installed_version)
+    connection.send_result(msg["id"], {"running": VERSION, "installed": installed or VERSION})
 
 
 def _settings(hass: HomeAssistant) -> PanelSettings | None:

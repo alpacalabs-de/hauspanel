@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.6.6
+
+- **Update notice**: after an update HausPanel tells you when Home Assistant still runs the old version and offers *Restart* (admins only, tap twice). A screen that still shows older code than Home Assistant offers *Reload*. Both can be closed with ×. This works from the next update after this one.
+
 ## 1.6.5
 
 - **Long room names** (*Settings → Rooms*): when a name doesn't fit next to the buttons, cut it with … as before, set it smaller, or let it wrap onto a second line.

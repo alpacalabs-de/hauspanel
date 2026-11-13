@@ -31,6 +31,7 @@ import { loadPlugLinks } from "./lib/usage.js";
 import { securityView, cameraEditor, openSecuritySheet, setSecAllowSource, allowedNow } from "./lib/securityview.js";
 import { fitToScreen } from "./lib/fit.js";
 import { loadEnergyPrefs, hasEnergy, energyView, withEnergyPicks } from "./lib/energy.js";
+import { startUpdateCheck } from "./lib/update.js";
 import { renderPhone, isPhoneScreen, bindEdgeSwipe } from "./lib/phone.js";
 import { renderSecurityPanel, securityBar, securityStatePill, securityPages, bindPageSwipe } from "./lib/securitypanel.js";
 import { openSettings, CARD_COLORS, ACCENTS, BACKGROUNDS } from "./lib/settings.js";
@@ -171,6 +172,7 @@ class HausPanelElement extends HTMLElement {
     // Slow tablet? A second of frames after start tells; Settings → This screen can also force it.
     measureSpeed().then((slow) => { this._slow = slow; if (slow && this.lite) this.rerender(); });
     this._clockTimer = setInterval(() => this._tick(), 1000);
+    this._updateTimer = startUpdateCheck(this, this._rootEl);
     const activity = () => this._activity();
     for (const ev of ["pointerdown", "keydown", "wheel"]) this.shadowRoot.addEventListener(ev, activity, { capture: true });
     this._resize = debounce(() => this.rerender(), 150);

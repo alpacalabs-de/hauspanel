@@ -2660,6 +2660,16 @@ a.hp-parcel-row { color: inherit; text-decoration: none; }
 .ov-sec-edit .hp-qrow { gap: 8px; }
 .ov-sec-edit .hp-qrow.off { opacity: .55; }
 
+/* After an update: reload this screen, or restart Home Assistant. */
+.hp-update { position: absolute; left: 50%; top: max(12px, env(safe-area-inset-top)); transform: translateX(-50%); z-index: 30; display: flex; align-items: center; gap: 10px;
+  width: max-content; max-width: calc(100% - 24px); padding: 6px 6px 6px 14px; border-radius: 22px; background: #f7f1ea; color: #2b2125; box-shadow: 0 8px 24px rgba(0,0,0,.35); font-size: 13.5px; }
+.hp-update[hidden] { display: none; }
+.hp-update > span { min-width: 0; flex: 1; line-height: 1.3; }
+.hp-root.layout-phone .hp-update { left: 12px; right: 12px; width: auto; max-width: none; transform: none; }
+.hp-update ha-icon { --mdc-icon-size: 18px; flex: none; }
+.hp-update-btn { flex: none; height: 32px; padding: 0 14px; border-radius: 999px; background: #2b2125; color: #f7f1ea; font-weight: 500; font-size: 13px; }
+.hp-update-close { flex: none; width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; color: #2b2125; }
+
 /* Long room names (Settings → Rooms): wrapped onto a second line next to the buttons, hyphenated in HA's language. */
 .hp-roomcard.names-wrap:not(.short) .hp-roomcard-name { white-space: normal; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-height: 1.2; hyphens: auto; }
 .hp-roomcard.names-wrap:not(.short) .hp-roomcard-name.one { display: block; white-space: nowrap; text-overflow: ellipsis; }

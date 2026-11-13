@@ -1,5 +1,6 @@
 // Italian texts. Keys and {placeholders} as in English.
 export default {
+  update_reload: "HausPanel {v} è pronto su questo schermo.", update_reload_btn: "Ricarica", update_restart: "HausPanel {v} è installato. Home Assistant deve riavviarsi per usarlo.", update_restart_btn: "Riavvia",
   room_names: "Nomi lunghi delle stanze", room_names_cut: "Tronca", room_names_shrink: "Più piccolo", room_names_wrap: "Due righe", room_names_hint: "Se un nome non entra accanto ai pulsanti: troncarlo con …, scriverlo più piccolo o andare a capo su una seconda riga.",
   temp_decimal: "Temperatura della stanza con decimale", temp_decimal_hint: "Mostra 21,7° invece di 22° sulle schede delle stanze.",
   gas: "Gas", battery: "Batteria", charged: "{v} caricati",
