@@ -462,22 +462,27 @@ function climateCard(ctx, container) {
   return el;
 }
 
+/** Music on Home, shaped like a room card: icon and room on top, what plays in the middle, next and play below.
+ *  While something plays or is paused, its cover sits dimmed behind the card. */
 function mediaCard(ctx, container) {
-  const label = h("div", { class: "hp-card-label" }, icon("mdi:music-note"), h("span", {}));
+  const place = h("span", { class: "hp-roomcard-temp" });
   const title = h("div", { class: "hp-media-title" });
   const sub = h("div", { class: "hp-sub" });
   const bar = h("div", { class: "hp-bar" }, h("i", {}));
   const call = (svc) => { const id = pick(); if (id) ctx.hass.callService("media_player", svc, { entity_id: id }); };
-  const btn = (ic, svc, cls = "") => {
-    const b = h("button", { class: cls, "aria-label": svc }, icon(ic));
+  const btn = (ic, svc) => {
+    const b = h("button", { class: "hp-power", "aria-label": svc }, icon(ic));
     b.addEventListener("pointerdown", (e) => e.stopPropagation());
     b.addEventListener("click", (e) => { e.stopPropagation(); if (!ctx.editing) call(svc); });
     return b;
   };
-  const play = btn("mdi:play", "media_play_pause", "main");
+  const next = btn("mdi:skip-next", "media_next_track");
+  const play = btn("mdi:play", "media_play_pause");
+  play.classList.add("main");
   const el = h("div", { class: "hp-card hp-sumcard media", dataset: { key: "card:media" }, role: "button" },
-    label, title, sub, bar,
-    h("div", { class: "hp-media-btns" }, btn("mdi:skip-previous", "media_previous_track"), play, btn("mdi:skip-next", "media_next_track")),
+    h("div", { class: "hp-roomcard-top" }, h("div", { class: "hp-tile-icon" }, icon("mdi:music")), place),
+    h("div", { class: "hp-media-mid" }, title, sub),
+    h("div", { class: "hp-media-foot" }, bar, h("div", { class: "hp-roomcard-btns" }, next, play)),
     editMinus(ctx, container, "card:media"));
   const pick = () => {
     const m = ctx.model.media;
@@ -490,18 +495,27 @@ function mediaCard(ctx, container) {
     const st = id && hass.states[id];
     if (!st) return;
     const a = st.attributes;
+    const playing = st.state === "playing";
+    const active = playing || st.state === "paused";
     const room = ctx.model.areaById.get(ctx.model.areaOf[id])?.name;
     const src = ctx.model.spotify.includes(id) ? "Spotify" : a.app_name || a.friendly_name;
-    label.lastChild.textContent = [src, room].filter(Boolean).join(" · ");
+    place.textContent = room || src || "";
     title.textContent = a.media_title || (isOn(st) ? hass.formatEntityState?.(st) || st.state : t("nothing_playing"));
-    sub.textContent = a.media_artist || a.friendly_name || "";
+    sub.textContent = a.media_artist || (room ? src : "") || "";
     const d = a.media_duration;
     let p = a.media_position;
-    if (p != null && st.state === "playing" && a.media_position_updated_at) p += (Date.now() - new Date(a.media_position_updated_at)) / 1000;
+    if (p != null && playing && a.media_position_updated_at) p += (Date.now() - new Date(a.media_position_updated_at)) / 1000;
     bar.firstChild.style.width = d && p != null ? `${Math.min(100, (p / d) * 100)}%` : "0";
     bar.hidden = !d;
-    play.querySelector("ha-icon").icon = st.state === "playing" ? "mdi:pause" : "mdi:play";
-    el.querySelector(".hp-media-btns").hidden = !(st.attributes.supported_features & MEDIA.PAUSE) && !(st.attributes.supported_features & MEDIA.PLAY);
+    const pic = active && (a.entity_picture_local || a.entity_picture);
+    const bg = pic ? `linear-gradient(180deg, rgba(20,14,24,.45), rgba(20,14,24,.8)), url("${pic}")` : "";
+    if (el.dataset.bg !== bg) { el.dataset.bg = bg; el.style.backgroundImage = bg; }
+    el.classList.toggle("art", !!pic);
+    el.classList.toggle("playing", playing);
+    play.querySelector("ha-icon").icon = playing ? "mdi:pause" : "mdi:play";
+    const f = a.supported_features || 0;
+    play.hidden = !(f & MEDIA.PAUSE) && !(f & MEDIA.PLAY);
+    next.hidden = !(f & MEDIA.NEXT) || !active;
   };
   el.update(ctx.hass);
   ctx.live.push(el);

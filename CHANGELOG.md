@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.6.7
+
+- **Music card** on Home now looks like a room card: the room on top (or the source when the player has no room), title and artist in the middle, progress and round buttons for play/pause and next below. While something plays or is paused, its cover sits dimmed behind the card. When the card is low, like on the phone, the artist is left out.
+
 ## 1.6.6
 
 - **Update notice**: after an update HausPanel tells you when Home Assistant still runs the old version and offers *Restart* (admins only, tap twice). A screen that still shows older code than Home Assistant offers *Reload*. Both can be closed with ×. This works from the next update after this one.

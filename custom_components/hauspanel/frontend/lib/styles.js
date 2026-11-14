@@ -344,14 +344,20 @@ ha-icon.hp-ic { --mdc-icon-size: 20px; display: inline-flex; flex: none; }
 .hp-sumcard .hp-sub { margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .hp-sumcard.climate .hp-card-big { font-size: 26px; }
 .hp-sumcard.climate .hp-tile-icon { background: #57c27a; color: #fff; border-radius: 50%; }
-.hp-sumcard.media .hp-card-label { color: var(--hp-green); }
-.hp-sumcard.media .hp-media-title { font-size: 15px; font-weight: 500; margin-top: auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.hp-sumcard.media .hp-bar { height: 4px; border-radius: 2px; background: rgba(255,255,255,.2); margin: 8px 0 6px; overflow: hidden; }
+.hp-sumcard.media { background-size: cover; background-position: center; }
+.hp-sumcard.media .hp-media-mid { flex: 1; min-height: 0; container-type: size; overflow: hidden; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; padding: 4px 2px; min-width: 0; }
+.hp-sumcard.media .hp-media-mid > * { max-width: 100%; }
+.hp-sumcard.media .hp-media-title { font-size: 15px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hp-sumcard.media .hp-media-mid .hp-sub { margin-top: 2px; }
+@container (max-height: 40px) { .hp-sumcard.media .hp-media-mid .hp-sub { display: none; } }
+.hp-sumcard.media .hp-media-foot { display: flex; align-items: center; gap: 10px; min-height: 38px; }
+.hp-sumcard.media .hp-roomcard-btns { margin-left: auto; }
+.hp-sumcard.media .hp-bar { flex: 1; max-width: 90px; height: 4px; border-radius: 2px; background: rgba(255,255,255,.2); overflow: hidden; }
+.hp-sumcard.media .hp-bar[hidden] { display: none; }
 .hp-sumcard.media .hp-bar i { display: block; height: 100%; background: #f7f1ea; }
-.hp-sumcard.media .hp-media-btns { display: flex; justify-content: center; align-items: center; gap: 14px; }
-.hp-sumcard.media .hp-media-btns button { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; }
-.hp-sumcard.media .hp-media-btns button.main { background: #f7f1ea; color: #2b2125; }
-.hp-sumcard.media .hp-media-btns ha-icon { --mdc-icon-size: 17px; }
+.hp-sumcard.media .hp-power[hidden] { display: none; }
+.hp-sumcard.media.playing .hp-power.main { background: #f7f1ea; color: #2b2125; }
+.hp-sumcard.media.art .hp-sub, .hp-sumcard.media.art .hp-roomcard-temp { color: rgba(255,255,255,.78); }
 .hp-sumcard.today .hp-ev, .hp-sumcard.today .hp-item { padding: 3px 0; }
 .hp-today-head { font-size: 11px; font-weight: 500; letter-spacing: .12em; text-transform: uppercase; display: flex; align-items: center; gap: 8px; color: var(--hp-sub); margin-bottom: 6px; }
 .hp-today-head ha-icon { --mdc-icon-size: 16px; color: var(--hp-accent); }
