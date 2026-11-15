@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.7.1
+
+- **Time to air** (*Settings → Home → Notices*): a notice on Home for each room with 1400 ppm CO₂ or more, or 70 % humidity or more. Not while a window in the room is open, and not for outdoor rooms or sensors.
+- **Lock changes** (*Settings → System*): Edit and the settings for everyone, only for admins, or only with a PIN. With *Admins only* the buttons are gone for everyone else. After the PIN they stay open for 10 minutes. Meant against changes by accident on a family tablet, Home Assistant's own user rights still apply.
+- **Timers in the room popup**: the Light and Switches tiles show when the next one goes off, and each lamp and switch in the list shows its time left.
+- README: new screenshots, and after an update restart Home Assistant (a reload of the integration is not enough).
+
 ## 1.7.0
 
 - **Screensaver** for wall tablets (*Settings → This screen → Screensaver*): after 2 to 30 minutes without a touch the screen shows the time, the date, the weather and what is left of today. It moves a little every minute and is darker at night. A tap brings HausPanel back, and so does the doorbell. Not on the phone or the security screen.

@@ -1,7 +1,7 @@
 // Notices: entities you pick yourself ("Mail is here", "Washing done") that show on Home only while they say so.
-import { h, icon, domainOf, bindTapHold, entityName, toggleSwitch } from "./util.js";
+import { h, icon, domainOf, bindTapHold, entityName, toggleSwitch, formatNumber } from "./util.js";
 import { entityIcon, stateText } from "./domains.js";
-import { candidateEntities } from "./model.js";
+import { candidateEntities, isOutdoorRoom, OUTSIDE } from "./model.js";
 import { t } from "./i18n.js";
 
 /** Kinds that are simply on or off: shown while on. */
@@ -85,6 +85,73 @@ function windowHeatPill(ctx, room) {
 /** Whether Home warns about open windows while heating (on unless switched off in the settings). */
 export const windowHeatOn = (ctx) => ctx.settings.s.windowHeat !== false;
 
+/** From here on a room asks for fresh air: CO2 in ppm, humidity in %. */
+export const CO2_HIGH = 1400;
+export const HUMID_HIGH = 70;
+
+/**
+ * Rooms that should be aired: [{ area, co2, co2Id, humidity, humidityId }] with CO2 or humidity at or above the limit.
+ * Outdoor rooms and outdoor sensors don't count, nor rooms with a window already open.
+ */
+export function airRooms(hass) {
+  const rooms = new Map();
+  const of = (area) => rooms.get(area) || rooms.set(area, { area, co2: null, co2Id: null, humidity: null, humidityId: null, open: false }).get(area);
+  for (const [id, st] of Object.entries(hass.states)) {
+    if (hass.entities?.[id]?.hidden) continue;
+    const area = areaIdOf(hass, id);
+    if (!area) continue;
+    const dc = st.attributes?.device_class;
+    if (id.startsWith("binary_sensor.") && st.state === "on" && ["window", "opening"].includes(dc)) { of(area).open = true; continue; }
+    if (!id.startsWith("sensor.") || !["carbon_dioxide", "humidity"].includes(dc)) continue;
+    if (OUTSIDE.test(`${st.attributes.friendly_name || ""} ${id}`)) continue;
+    const v = Number(st.state);
+    if (st.state === "" || !Number.isFinite(v)) continue;
+    const r = of(area);
+    if (dc === "carbon_dioxide" && (r.co2 == null || v > r.co2)) { r.co2 = v; r.co2Id = id; }
+    if (dc === "humidity" && v <= 100 && (r.humidity == null || v > r.humidity)) { r.humidity = v; r.humidityId = id; }
+  }
+  const outdoor = (area) => {
+    const a = hass.areas?.[area];
+    return !a || isOutdoorRoom({ name: a.name, floor: hass.floors?.[a.floor_id] });
+  };
+  return [...rooms.values()]
+    .filter((r) => !r.open && !outdoor(r.area) && ((r.co2 ?? 0) >= CO2_HIGH || (r.humidity ?? 0) >= HUMID_HIGH))
+    .map(({ open, ...r }) => r)
+    .sort((a, b) => a.area.localeCompare(b.area));
+}
+
+/** "CO₂ 1,520 ppm" and/or "Humidity 74 %": only the values over the limit. */
+export function airText(hass, r) {
+  return [
+    (r.co2 ?? 0) >= CO2_HIGH ? t("air_co2", { v: formatNumber(hass, r.co2, 0) }) : null,
+    (r.humidity ?? 0) >= HUMID_HIGH ? t("air_humid", { v: formatNumber(hass, r.humidity, 0) }) : null,
+  ].filter(Boolean).join(" · ");
+}
+
+/** Please air the room: one pill per room. A tap opens the sensor. */
+function airPill(ctx, room) {
+  const name = h("b", {});
+  const sub = h("small", {});
+  const ic = icon("mdi:weather-windy");
+  const el = h("div", { class: "hp-onpill notice air on", role: "button", tabindex: "0", dataset: { key: `air:${room.area}` } },
+    h("span", { class: "hp-onpill-ic" }, ic), h("div", { class: "hp-onpill-text" }, name, sub));
+  let r = room;
+  const target = () => ((r.co2 ?? 0) >= CO2_HIGH ? r.co2Id : r.humidityId);
+  bindTapHold(el, { canStart: () => !ctx.editing, tap: () => ctx.openDetails(target()), hold: () => ctx.openDetails(target()) });
+  el.update = (hass, next = r) => {
+    r = next;
+    const areaName = hass.areas?.[r.area]?.name || "";
+    name.textContent = areaName || t("air_title");
+    sub.textContent = [t("air_title"), airText(hass, r)].join(" · ");
+    ic.icon = (r.co2 ?? 0) >= CO2_HIGH ? "mdi:molecule-co2" : "mdi:water-percent";
+  };
+  el.update(ctx.hass);
+  return el;
+}
+
+/** Whether Home asks to air rooms (on unless switched off in the settings). */
+export const airOn = (ctx) => ctx.settings.s.airHint !== false;
+
 /** One notice as a pill: tap opens the details; a helper switch is cleared with its icon. */
 function noticePill(ctx, id) {
   const ic = icon("mdi:bell-outline");
@@ -120,19 +187,23 @@ export function noticesBlock(ctx) {
   let sig = null;
   let pills = [];
   let whPills = [];
+  let airPills = [];
   el.update = (hass) => {
     const now = activeNotices(hass, ctx.settings.s.notices).map((n) => n.id);
     const wh = windowHeatOn(ctx) ? windowHeatRooms(hass) : [];
-    const next = `${wh.map((r) => r.area)}|${now}`;
+    const air = airOn(ctx) ? airRooms(hass) : [];
+    const next = `${wh.map((r) => r.area)}|${air.map((r) => r.area)}|${now}`;
     if (next !== sig) {
       sig = next;
       whPills = wh.map((r) => windowHeatPill(ctx, r));
+      airPills = air.map((r) => airPill(ctx, r));
       pills = now.map((id) => noticePill(ctx, id));
-      box.replaceChildren(...whPills, ...pills);
+      box.replaceChildren(...whPills, ...airPills, ...pills);
     }
     whPills.forEach((p, i) => p.update(hass, wh[i]));
+    airPills.forEach((p, i) => p.update(hass, air[i]));
     pills.forEach((p) => p.update(hass));
-    el.hidden = !now.length && !wh.length;
+    el.hidden = !now.length && !wh.length && !air.length;
   };
   el.update(ctx.hass);
   ctx.live.push(el);
@@ -195,6 +266,9 @@ export function noticesSection(ctx, S, draw, state, { section, row }) {
   const whOn = S.s.windowHeat !== false;
   const wh = row(t("wh_setting"), toggleSwitch(whOn, () => { S.update((x) => { x.windowHeat = !whOn; }); draw(); }), t("wh_setting_hint"));
 
-  return section(t("notices"), h("p", { class: "hp-muted small" }, t("notices_hint")), wh,
+  const airIsOn = S.s.airHint !== false;
+  const air = row(t("air_setting"), toggleSwitch(airIsOn, () => { S.update((x) => { x.airHint = !airIsOn; }); draw(); }), t("air_setting_hint"));
+
+  return section(t("notices"), h("p", { class: "hp-muted small" }, t("notices_hint")), wh, air,
     ...(rows.length ? rows : [h("div", { class: "hp-muted small" }, t("notices_none"))]), search, results);
 }

@@ -67,6 +67,12 @@ export function withTimer(ctx, entityId, text) {
   return at ? `${text} · ${t("timer_off_in", { left: leftText(minutesLeft(at)) })}` : text;
 }
 
+/** For a group (the room popup's Light tile): "off in 12 min" for the timer that goes off first, or "". */
+export function groupTimerText(ctx, ids) {
+  const ats = ids.map((id) => ctx.timers?.at(id)).filter(Boolean).map((at) => new Date(at).getTime());
+  return ats.length ? t("timer_off_in", { left: leftText(minutesLeft(Math.min(...ats))) }) : "";
+}
+
 /** In the device popup: "Off in 15 / 30 / 60 min / 2 h" while it is on, or the running timer with Cancel. */
 export function timerBlock(ctx, entityId) {
   const el = h("div", { class: "hp-timer" });

@@ -10,6 +10,7 @@ import { num, fmt, svgEl, since } from "./popkit.js";
 import { openGate, isGate } from "./gate.js";
 import { deviceKeyTile, deviceKeyInfo, roomItems, machineParts } from "./layouts.js";
 import { createTile } from "./tile.js";
+import { withTimer, groupTimerText } from "./timers.js";
 import { switchLights } from "./switching.js";
 
 const NOT_SHADE = new Set(["garage", "gate", "door", "damper"]);
@@ -214,7 +215,7 @@ export function openRoomPopup(ctx, areaId) {
         icBox.style.background = col || "";
         icBox.style.boxShadow = col ? `0 0 14px ${col}` : "";
         ic.icon = on ? "mdi:lightbulb-on" : "mdi:lightbulb-outline";
-        pct.textContent = st?.state === "unavailable" ? t("unavailable") : on ? (st.attributes.brightness != null ? `${pctOf(st)} %` : t("on")) : t("off");
+        pct.textContent = withTimer(ctx, id, st?.state === "unavailable" ? t("unavailable") : on ? (st.attributes.brightness != null ? `${pctOf(st)} %` : t("on")) : t("off"));
         bar?.update(pctOf(st));
         if (bar) bar.hidden = !on;
       });
@@ -312,7 +313,7 @@ export function openRoomPopup(ctx, areaId) {
         const on = d === "cover" ? st?.state !== "closed" : isOn(st);
         row.classList.toggle("on", on);
         if (d !== "cover") right.classList.toggle("on", on);
-        sub.textContent = hs.formatEntityState?.(st) || st?.state || "";
+        sub.textContent = withTimer(ctx, id, hs.formatEntityState?.(st) || st?.state || "");
         ic.icon = entityIcon(hs, st);
       });
     }
@@ -383,7 +384,8 @@ export function openRoomPopup(ctx, areaId) {
       c.el.classList.toggle("on", on.length > 0);
       c.el.style.setProperty("--lc", on.length ? lightColor(hs.states[on[0]]) || "#ffc46e" : "transparent");
       c.el.style.setProperty("--lv", String(avg / 100));
-      c.val.textContent = on.length ? `${on.length}/${lights.length} · ${avg} %` : t("off");
+      const timer = on.length ? groupTimerText(ctx, on) : "";
+      c.val.textContent = on.length ? `${on.length}/${lights.length} · ${timer || `${avg} %`}` : t("off");
       c.icEl.icon = on.length ? "mdi:lightbulb-group" : "mdi:lightbulb-group-outline";
     });
   }
@@ -440,7 +442,8 @@ export function openRoomPopup(ctx, areaId) {
     updaters.push((hs) => {
       const on = others.filter((id) => (domainOf(id) === "cover" ? hs.states[id]?.state !== "closed" : isOn(hs.states[id]))).length;
       c.el.classList.toggle("on", on > 0);
-      c.val.textContent = on ? t("rp_n_on", { n: on, m: others.length }) : t("off");
+      const timer = on ? groupTimerText(ctx, others) : "";
+      c.val.textContent = on ? (timer ? `${on}/${others.length} · ${timer}` : t("rp_n_on", { n: on, m: others.length })) : t("off");
     });
   }
   // Gates and garage doors: the door moves in the tile, a tap opens the gate popup (camera, two-tap open).

@@ -70,8 +70,8 @@ const MODES = [["disarm", "disarmed", "mdi:shield-off-outline", "ov_mode_off", 0
   ["arm_away", "armed_away", "mdi:shield-lock", "ov_mode_away", 2], ["arm_night", "armed_night", "mdi:shield-moon", "ov_mode_night", 4]];
 
 /** A number pad for the alarm code; the code goes to Home Assistant only. */
-export function codePad(ctx, { title, onCode }) {
-  const sheet = openSheet(ctx, { title, subtitle: t("ov_enter_code"), cls: "small ov-pad" });
+export function codePad(ctx, { title, subtitle, onCode }) {
+  const sheet = openSheet(ctx, { title, subtitle: subtitle ?? t("ov_enter_code"), cls: "small ov-pad" });
   let code = "";
   const dots = h("div", { class: "hp-ov-dots" });
   const paint = () => dots.replaceChildren(...Array.from({ length: Math.max(4, code.length) }, (_, i) => h("i", { class: i < code.length ? "on" : "" })));

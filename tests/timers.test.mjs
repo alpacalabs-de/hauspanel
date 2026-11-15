@@ -27,3 +27,13 @@ test("lights, switches, fans and helpers can have a timer; locks and covers not"
   for (const id of ["light.desk", "switch.plug", "fan.ceiling", "input_boolean.guest"]) assert.equal(canHaveTimer(id), true, id);
   for (const id of ["lock.front", "cover.garage", "climate.living", "media_player.tv"]) assert.equal(canHaveTimer(id), false, id);
 });
+
+test("a group shows the timer that goes off first", async () => {
+  const { groupTimerText } = await import(LIB + "timers.js");
+  const now = Date.now();
+  const map = { "light.a": new Date(now + 40 * 60000).toISOString(), "light.b": new Date(now + 12 * 60000 - 1000).toISOString() };
+  const ctx = { timers: { at: (id) => map[id] || null } };
+  assert.equal(groupTimerText(ctx, ["light.a", "light.b", "light.c"]), "off in 12 min");
+  assert.equal(groupTimerText(ctx, ["light.c"]), "");
+  assert.equal(groupTimerText({}, ["light.a"]), "");
+});

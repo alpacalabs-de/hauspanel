@@ -37,6 +37,7 @@ import { TimerClient } from "./lib/timers.js";
 import { renderPhone, isPhoneScreen, bindEdgeSwipe } from "./lib/phone.js";
 import { renderSecurityPanel, securityBar, securityStatePill, securityPages, bindPageSwipe } from "./lib/securitypanel.js";
 import { openSettings, CARD_COLORS, ACCENTS, BACKGROUNDS } from "./lib/settings.js";
+import { guarded, showChangeButtons } from "./lib/editlock.js";
 import { setLanguage, t } from "./lib/i18n.js";
 import { maybeWelcome } from "./lib/welcome.js";
 import { loadPrefs } from "./lib/userprefs.js";
@@ -145,10 +146,7 @@ class HausPanelElement extends HTMLElement {
     this._main = h("main", { class: "hp-main" });
     this._dock = h("nav", { class: "hp-dock" });
     this._fab = h("button", { class: "hp-fab" });
-    this._fab.addEventListener("click", () => {
-      this.editing = !this.editing;
-      this.rerender();
-    });
+    this._fab.addEventListener("click", () => this.toggleEdit());
     this.layer = h("div", { class: "hp-layer" });
     this._rootEl = h("div", { class: "hp-root" }, this._bgBase, this._bgGlow, this._header, this._main, this._dock, this._fab, this.layer);
     this._rootEl.append(h("div", { class: "hp-loading" }, icon("mdi:view-dashboard-variant"), t("loading")));
@@ -357,6 +355,20 @@ class HausPanelElement extends HTMLElement {
   openShades(opts) {
     if (classicPopups(this)) return openShades(this, opts);
     openShadesOverview(this, opts, () => openShades(this, opts));
+  }
+
+  /** Edit on (after the lock, if any) or off (always allowed). */
+  toggleEdit() {
+    if (this.editing) {
+      this.editing = false;
+      this.rerender();
+      return;
+    }
+    guarded(this, () => { this.editing = true; this.rerender(); });
+  }
+
+  openSettings() {
+    guarded(this, () => openSettings(this));
   }
 
   toast(text) {
@@ -637,6 +649,7 @@ class HausPanelElement extends HTMLElement {
     if (layout === "security" && !this.editing) this._dock.replaceChildren(securityBar(this, (i) => this.goSecurityPage(i)));
     else this._renderDock(tabs);
     this._fab.replaceChildren(icon(this.editing ? "mdi:check" : "mdi:pencil-outline"), h("span", {}, this.editing ? t("done") : t("edit")));
+    this._fab.classList.toggle("locked", !this.editing && !showChangeButtons(this));
     const newScroller = this._main.querySelector(".hp-side-main, .hp-layout");
     const where = `${this.tab}|${this.phoneRoom || ""}|${this.secPage}`;
     if (newScroller && this._lastWhere === where) newScroller.scrollTop = scroll;
@@ -696,11 +709,12 @@ class HausPanelElement extends HTMLElement {
       this.editing ? h("div", { class: "hp-edit-hint" }, t("edit_hint")) : null);
     this._weatherPill = s.header.weather ? this._weatherEl() : null;
     this._persons = h("div", { class: "hp-persons" });
-    const gear = h("button", { class: "hp-icon-btn settings", "aria-label": t("settings"), onclick: () => openSettings(this) }, icon("mdi:cog-outline"));
+    const gear = h("button", { class: "hp-icon-btn settings", "aria-label": t("settings"), onclick: () => this.openSettings() }, icon("mdi:cog-outline"));
     // Edit sits up here in the Sidebar layout (its panel is the navigation, so there is no bar at the bottom).
     const edit = h("button", { class: `hp-icon-btn hp-head-edit ${this.editing ? "on" : ""}`, "aria-label": this.editing ? t("done") : t("edit"),
-      onclick: () => { this.editing = !this.editing; this.rerender(); } }, icon(this.editing ? "mdi:check" : "mdi:pencil-outline"));
-    hdr.append(left, h("div", { class: "hp-head-right" }, this._weatherPill, this.agendaButtons(), this._persons, edit, gear));
+      onclick: () => this.toggleEdit() }, icon(this.editing ? "mdi:check" : "mdi:pencil-outline"));
+    const may = showChangeButtons(this);
+    hdr.append(left, h("div", { class: "hp-head-right" }, this._weatherPill, this.agendaButtons(), this._persons, may ? edit : null, may ? gear : null));
     this._tick(true);
   }
 
@@ -716,10 +730,10 @@ class HausPanelElement extends HTMLElement {
     this._date = s.header.date ? h("div", { class: "hp-date" }) : null;
     this._weatherPill = s.header.weather ? this._weatherEl() : null;
     this._persons = h("div", { class: "hp-persons" });
-    const gear = h("button", { class: "hp-icon-btn settings", "aria-label": t("settings"), onclick: () => openSettings(this) }, icon("mdi:cog-outline"));
+    const gear = h("button", { class: "hp-icon-btn settings", "aria-label": t("settings"), onclick: () => this.openSettings() }, icon("mdi:cog-outline"));
     hdr.append(h("div", { class: "hp-sec-head" }, menu, this._clock, this._date, securityStatePill(this),
       this.editing ? h("div", { class: "hp-edit-hint" }, t("edit_hint")) : null),
-      h("div", { class: "hp-head-right" }, this._weatherPill, this._persons, gear));
+      h("div", { class: "hp-head-right" }, this._weatherPill, this._persons, showChangeButtons(this) ? gear : null));
     this._tick(true);
   }
 
@@ -734,9 +748,9 @@ class HausPanelElement extends HTMLElement {
       : h("button", { class: "hp-icon-btn", "aria-label": t("menu"), onclick: () => fireHass(this, "hass-toggle-menu", { open: true }) }, icon("mdi:menu"));
     this._weatherPill = s.header.weather ? this._weatherEl() : null;
     const edit = h("button", { class: `hp-icon-btn hp-ph-edit ${this.editing ? "on" : ""}`, "aria-label": this.editing ? t("done") : t("edit"),
-      onclick: () => { this.editing = !this.editing; this.rerender(); } }, icon(this.editing ? "mdi:check" : "mdi:pencil-outline"));
-    const gear = h("button", { class: "hp-icon-btn settings", "aria-label": t("settings"), onclick: () => openSettings(this) }, icon("mdi:cog-outline"));
-    const bar = h("div", { class: "hp-ph-bar" }, left, h("div", { class: "hp-ph-right" }, this._weatherPill, edit, gear));
+      onclick: () => this.toggleEdit() }, icon(this.editing ? "mdi:check" : "mdi:pencil-outline"));
+    const gear = h("button", { class: "hp-icon-btn settings", "aria-label": t("settings"), onclick: () => this.openSettings() }, icon("mdi:cog-outline"));
+    const bar = h("div", { class: "hp-ph-bar" }, left, h("div", { class: "hp-ph-right" }, this._weatherPill, ...(showChangeButtons(this) ? [edit, gear] : [])));
 
     this._clock = h("div", { class: "hp-clock" });
     this._date = h("div", { class: "hp-date" });

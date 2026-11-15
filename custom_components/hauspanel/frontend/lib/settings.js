@@ -19,6 +19,7 @@ import { meterSensors, deviceName } from "./usage.js";
 import { doorbells, bellCameras, openers, bellEnabled, bellCamera, bellOpener, ringNow } from "./doorbell.js";
 import { SAVER_MINUTES, saverLayout } from "./screensaver.js";
 import { openDiagnostics } from "./diagnostics.js";
+import { lockMode, choosePin } from "./editlock.js";
 
 /** Soft surface of lit cards. */
 export const CARD_COLORS = {
@@ -576,6 +577,25 @@ export function openSettings(ctx) {
         }
         draw();
       }), t("personal_settings_hint", { user: ctx.hass.user?.name || "", panel: panelTitle(panelId) }))));
+    // Lock Edit and the settings on every screen: only admins, or with a PIN (a house setting).
+    {
+      const mode = lockMode(S.s);
+      const setLock = (m, pin) => S.update((x) => { x.editLock = m; if (pin !== undefined) x.editPin = pin; });
+      const seg = h("div", { class: "hp-seg" }, [["off", t("lock_off")], ["admins", t("lock_admins")], ["pin", t("lock_pin")]].map(([m, label]) => {
+        const b = h("button", { class: mode === m ? "active" : "" }, label);
+        // Only an admin can lock it to admins: everyone else would lock themselves out.
+        if (m === "admins" && !isAdmin) b.disabled = true;
+        b.addEventListener("click", () => {
+          if (m === mode) return;
+          if (m === "pin") choosePin(ctx, (hash) => { setLock("pin", hash); ctx.toast(t("lock_set")); draw(); });
+          else { setLock(m, m === "off" ? null : undefined); draw(); }
+        });
+        return b;
+      }));
+      const change = mode === "pin" ? h("button", { class: "hp-chip" }, icon("mdi:form-textbox-password"), t("lock_change_pin")) : null;
+      change?.addEventListener("click", () => choosePin(ctx, (hash) => { setLock("pin", hash); ctx.toast(t("lock_set")); draw(); }));
+      add("system", section(t("lock_label"), row(t("lock_who"), seg, t("lock_hint")), change ? row(t("lock_pin"), change) : null));
+    }
     // Back up and restore: the settings of this panel (yours or the shared ones, whichever you see) as a file.
     {
       const exp = h("button", { class: "hp-chip" }, icon("mdi:download-outline"), t("backup_export"));
