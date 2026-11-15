@@ -17,6 +17,8 @@ import { takeSettings } from "./store.js";
 import { powerSensors } from "./energy.js";
 import { meterSensors, deviceName } from "./usage.js";
 import { doorbells, bellCameras, openers, bellEnabled, bellCamera, bellOpener, ringNow } from "./doorbell.js";
+import { SAVER_MINUTES, saverLayout } from "./screensaver.js";
+import { openDiagnostics } from "./diagnostics.js";
 
 /** Soft surface of lit cards. */
 export const CARD_COLORS = {
@@ -143,6 +145,21 @@ export function openSettings(ctx) {
       b.addEventListener("click", () => { S.setDevice("lite", v); draw(); });
       return b;
     })), (dev.lite || "auto") === "auto" && ctx._slow ? t("lite_hint_slow") : t("lite_hint"));
+    // Screensaver (wall layouts only): after how long, darker at night, and a button to see it.
+    const saverRows = () => {
+      if (!saverLayout(ctx.layout)) return [];
+      const on = Number(dev.saver) || 0;
+      const pick = row(t("saver"), h("div", { class: "hp-seg" }, SAVER_MINUTES.map((n) => {
+        const b = h("button", { class: on === n ? "active" : "" }, n ? t("saver_min", { n }) : t("off"));
+        b.addEventListener("click", () => { S.setDevice("saver", n); draw(); });
+        return b;
+      })), t("saver_hint"));
+      if (!on) return [pick];
+      const dim = row(t("saver_dim"), toggleSwitch(dev.saverDim !== false, () => { S.setDevice("saverDim", dev.saverDim === false); draw(); }), t("saver_dim_hint"));
+      const tryBtn = h("button", { class: "hp-chip" }, icon("mdi:clock-outline"), t("saver_try"));
+      tryBtn.addEventListener("click", () => ctx._saver?.tryNow());
+      return [pick, dim, row(t("saver_preview"), tryBtn)];
+    };
     // Cameras: which ones the Security page shows (for everyone), and whose movements the security
     // popup lists (only for the signed-in user). Before, both were only in edit mode and the popup.
     const camerasSection = () => {
@@ -212,7 +229,7 @@ export function openSettings(ctx) {
               draw();
             })))));
       }
-      add("device", section(t("set_screen"), sidebarRow(), liteRow(), dev.layout === "security" ? camsRow() : null));
+      add("device", section(t("set_screen"), sidebarRow(), liteRow(), dev.layout === "security" ? camsRow() : null, ...saverRows()));
     } else if (kind === "security") {
       add("device", section(t("set_screen"), camsRow(), sidebarRow(), liteRow()));
     }
@@ -625,6 +642,12 @@ export function openSettings(ctx) {
       const again = h("button", { class: "hp-chip" }, icon("mdi:hand-wave-outline"), t("wel_again"));
       again.addEventListener("click", () => { sheet.close(); setTimeout(() => openWelcome(ctx), 250); });
       add("system", section(t("wel_title"), row(t("wel_again_label"), again, t("wel_again_hint"))));
+    }
+    // Something wrong? Versions, panel, layout and device in a few lines for the issue.
+    {
+      const diag = h("button", { class: "hp-chip" }, icon("mdi:bug-outline"), t("diag_btn"));
+      diag.addEventListener("click", () => openDiagnostics(ctx));
+      add("system", section(t("diag_label"), row(t("diag_btn"), diag, t("diag_hint"))));
     }
     add("system", h("p", { class: "hp-muted small center hp-set-version" }, `HausPanel ${ctx.version}`, " · ",
       h("a", { href: "https://ko-fi.com/alpacalabs", target: "_blank", rel: "noopener" }, t("support_link"))));

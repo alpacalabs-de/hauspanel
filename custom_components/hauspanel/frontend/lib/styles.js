@@ -692,6 +692,9 @@ ha-icon.hp-player-noart { --mdc-icon-size: 44px; opacity: .4; }
 .hp-add-text small { display: block; color: rgba(247,239,233,.55); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .hp-toast { position: absolute; left: 50%; bottom: 90px; transform: translate(-50%, 20px); background: var(--hp-sheet); color: #f7efe9; padding: 11px 18px; border-radius: 999px; opacity: 0; transition: .25s; pointer-events: none; font-weight: 500; box-shadow: 0 10px 30px rgba(0,0,0,.4); }
 .hp-toast.show { opacity: 1; transform: translate(-50%, 0); }
+.hp-toast.act { pointer-events: auto; display: flex; align-items: center; gap: 14px; padding: 8px 8px 8px 18px; max-width: calc(100% - 32px); z-index: 50; }
+.hp-toast.act > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.hp-toast-btn { flex: none; border: 0; border-radius: 999px; padding: 8px 14px; font: inherit; font-weight: 600; background: var(--hp-accent, #e8a87c); color: #1d1418; cursor: pointer; }
 
 /* ---------- settings (full screen with a side menu) ---------- */
 .hp-sheet.settings { width: 100%; height: 100%; max-height: 100%; border-radius: 0; background: transparent; border: 0; box-shadow: none; color: var(--hp-text); }
@@ -1165,6 +1168,8 @@ ha-icon.hp-player-noart { --mdc-icon-size: 44px; opacity: .4; }
 .hp-onpill.printer .hp-onpill-ic { background: #b59cff; color: #1d1433; }
 .hp-notices { margin-bottom: 18px; gap: 8px; }
 .hp-onpill.notice .hp-onpill-ic { background: #ffb259; color: #3a1f05; }
+.hp-onpill.notice.warn .hp-onpill-ic { background: #7cc4f5; color: #062238; }
+.hp-onpill.notice.warn { grid-column: span 2; }
 .hp-notice-ctl { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .hp-notice-ctl > .hp-input, .hp-notice-ctl > .hp-select { flex: 1; min-width: 0; }
 .hp-notice-ctl > .hp-muted { flex: 1; }
@@ -2675,6 +2680,29 @@ a.hp-parcel-row { color: inherit; text-decoration: none; }
 .hp-update ha-icon { --mdc-icon-size: 18px; flex: none; }
 .hp-update-btn { flex: none; height: 32px; padding: 0 14px; border-radius: 999px; background: #2b2125; color: #f7f1ea; font-weight: 500; font-size: 13px; }
 .hp-update-close { flex: none; width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; color: #2b2125; }
+.hp-timer { margin-top: 14px; padding: 12px 14px; border-radius: var(--hp-radius); background: var(--hp-glass); border: 1px solid var(--hp-border); display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
+.hp-timer[hidden] { display: none; }
+.hp-timer-label { display: flex; align-items: center; gap: 8px; font-size: 14px; }
+.hp-timer-label ha-icon { --mdc-icon-size: 20px; color: var(--hp-accent); }
+.hp-timer-btns { display: flex; flex-wrap: wrap; gap: 6px; }
+.hp-diag-text { width: 100%; min-height: 170px; resize: vertical; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12.5px; line-height: 1.5; white-space: pre; }
+.hp-diag-btns { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 6px; }
+.hp-diag-btns a { text-decoration: none; color: inherit; }
+/* Screensaver: time, weather and today on black; dimmed at night; moves a little every minute. */
+.hp-saver { position: absolute; inset: 0; z-index: 40; background: #050608; display: grid; place-items: center; opacity: 0; transition: opacity .8s; cursor: none; touch-action: none; }
+.hp-saver.on { opacity: 1; }
+.hp-saver-box { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 6px; color: #f3f1ee; transition: transform 2s ease, opacity 1s; max-width: 80vw; }
+.hp-saver.night .hp-saver-box { opacity: .38; }
+.hp-saver-time { font-size: clamp(64px, 17vw, 200px); font-weight: 200; line-height: 1; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+.hp-saver-date { font-size: clamp(16px, 2.6vw, 30px); font-weight: 300; color: rgba(243,241,238,.7); }
+.hp-saver-weather { display: flex; align-items: center; gap: 10px; margin-top: 18px; font-size: clamp(15px, 2.2vw, 24px); color: rgba(243,241,238,.8); }
+.hp-saver-weather[hidden], .hp-saver-events[hidden] { display: none; }
+.hp-saver-weather ha-icon { --mdc-icon-size: clamp(26px, 3.6vw, 40px); }
+.hp-saver-weather b { font-weight: 500; color: #f3f1ee; }
+.hp-saver-events { margin-top: 22px; display: flex; flex-direction: column; gap: 6px; font-size: clamp(14px, 1.9vw, 21px); color: rgba(243,241,238,.75); }
+.hp-saver-ev { display: flex; gap: 12px; justify-content: center; min-width: 0; }
+.hp-saver-ev span { flex: none; color: rgba(243,241,238,.5); font-variant-numeric: tabular-nums; }
+.hp-saver-ev b { font-weight: 400; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* Long room names (Settings → Rooms): wrapped onto a second line next to the buttons, hyphenated in HA's language. */
 .hp-roomcard.names-wrap:not(.short) .hp-roomcard-name { white-space: normal; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-height: 1.2; hyphens: auto; }

@@ -57,6 +57,7 @@ Tip: the room icon in HausPanel is the area's icon. Change it in the area settin
    - **Tile size**: *Fill screen* fits everything on one screen.
    - **Hide the Home Assistant sidebar**: gives HausPanel the full screen.
    - **Effects**: *Lite* leaves out blur, glow and endless animations, which helps older or slow tablets. *Automatic* turns it on by itself when the screen seems slow.
+   - **Screensaver**: after 2 to 30 minutes without a touch the screen shows the time, the weather and what is left of today, moving a little every minute. A tap brings HausPanel back, and so does the doorbell. *Darker at night* dims it between sunset and sunrise. If the tablet runs Fully Kiosk with its own screensaver, use only one of the two.
 3. **Settings → System → Start Home Assistant here**, so the tablet opens HausPanel after a restart.
 
 *This screen* is stored on the device: the kitchen tablet and the hallway tablet can have different layouts.

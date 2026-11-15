@@ -32,6 +32,8 @@ import { securityView, cameraEditor, openSecuritySheet, setSecAllowSource, allow
 import { fitToScreen } from "./lib/fit.js";
 import { loadEnergyPrefs, hasEnergy, energyView, withEnergyPicks } from "./lib/energy.js";
 import { startUpdateCheck } from "./lib/update.js";
+import { screensaver } from "./lib/screensaver.js";
+import { TimerClient } from "./lib/timers.js";
 import { renderPhone, isPhoneScreen, bindEdgeSwipe } from "./lib/phone.js";
 import { renderSecurityPanel, securityBar, securityStatePill, securityPages, bindPageSwipe } from "./lib/securitypanel.js";
 import { openSettings, CARD_COLORS, ACCENTS, BACKGROUNDS } from "./lib/settings.js";
@@ -161,6 +163,9 @@ class HausPanelElement extends HTMLElement {
     this._sig = registrySignature(this._hass);
     this.agenda = new Agenda(this, () => this._agendaChanged());
     this.weather = new Weather(this, () => this._weatherChanged());
+    // "Off in 30 min": Home Assistant keeps the timers; tiles and popups show them.
+    this.timers = new TimerClient(this, () => this._timersChanged());
+    this.timers.start();
     this._ready = true;
     this._applyDevice(true);
     this.rerender();
@@ -171,7 +176,8 @@ class HausPanelElement extends HTMLElement {
 
     // Slow tablet? A second of frames after start tells; Settings → This screen can also force it.
     measureSpeed().then((slow) => { this._slow = slow; if (slow && this.lite) this.rerender(); });
-    this._clockTimer = setInterval(() => this._tick(), 1000);
+    this._saver = screensaver(this, this._rootEl);
+    this._clockTimer = setInterval(() => this._second(), 1000);
     this._updateTimer = startUpdateCheck(this, this._rootEl);
     const activity = () => this._activity();
     for (const ev of ["pointerdown", "keydown", "wheel"]) this.shadowRoot.addEventListener(ev, activity, { capture: true });
@@ -181,7 +187,7 @@ class HausPanelElement extends HTMLElement {
   }
 
   connectedCallback() {
-    if (this._ready && !this._clockTimer) this._clockTimer = setInterval(() => this._tick(), 1000);
+    if (this._ready && !this._clockTimer) this._clockTimer = setInterval(() => this._second(), 1000);
   }
 
   disconnectedCallback() {
@@ -236,6 +242,12 @@ class HausPanelElement extends HTMLElement {
     this._updateAgendaBtns();
     for (const p of this.live) p.sideRefresh?.();
     this._today?.update();
+    for (const s of this.sheets) s.update(this._hass);
+  }
+
+  _timersChanged() {
+    if (!this._hass) return;
+    for (const el of this.live) el.update(this._hass);
     for (const s of this.sheets) s.update(this._hass);
   }
 
@@ -824,8 +836,15 @@ class HausPanelElement extends HTMLElement {
     }
   }
 
+  /** Every second: the clock, and the screensaver counting the time without a touch. */
+  _second() {
+    this._tick();
+    this._saver?.tick();
+  }
+
   _activity() {
     this._secIdle = 0;
+    this._saver?.activity();
   }
 
 }

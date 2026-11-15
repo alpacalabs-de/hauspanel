@@ -57,6 +57,7 @@ Tipp: Das Raumsymbol in HausPanel ist das Symbol des Bereichs. Du änderst es in
    - **Kachelgröße**: *Bildschirm füllen* passt alles auf einen Bildschirm.
    - **Home-Assistant-Seitenleiste ausblenden**: gibt HausPanel den ganzen Bildschirm.
    - **Effekte**: *Sparsam* lässt Unschärfe, Leuchten und Dauer-Animationen weg, das hilft älteren oder langsamen Tablets. *Automatisch* schaltet das von selbst ein, wenn der Bildschirm langsam wirkt.
+   - **Ruhebildschirm**: Nach 2 bis 30 Minuten ohne Berührung zeigt der Bildschirm Uhrzeit, Wetter und was heute noch ansteht, und rückt jede Minute ein Stück weiter. Ein Tipp holt HausPanel zurück, die Türklingel auch. *Nachts dunkler* dimmt ihn zwischen Sonnenuntergang und Sonnenaufgang. Hat das Tablet in Fully Kiosk einen eigenen Bildschirmschoner, nur einen der beiden nutzen.
 3. **Einstellungen → System → Home Assistant hier starten**, damit das Tablet nach einem Neustart HausPanel öffnet.
 
 *Dieser Bildschirm* wird auf dem Gerät gespeichert: Das Tablet in der Küche und das im Flur können verschiedene Layouts haben.

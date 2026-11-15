@@ -14,6 +14,12 @@ body:
       placeholder: "I tapped the Shades tile in the living room popup and …"
     validations:
       required: true
+  - type: textarea
+    id: diag
+    attributes:
+      label: Info from HausPanel
+      description: "Settings (gear) → System → Info for a bug report → Copy, then paste it here. It fills in most of the questions below."
+      render: text
   - type: input
     id: version
     attributes:

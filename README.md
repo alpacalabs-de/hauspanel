@@ -60,11 +60,13 @@ Installing the integration adds three entries to the Home Assistant sidebar. Eac
 - **Today** card with events from your calendars and to-do lists.
 - Two home styles: every room as a card, or *on now + favourites*.
 - **Notices**: pick a helper, switch or sensor of your own (*Mail is here*, *Washing done*) and it shows on Home only while it is on or at the states you enter. A helper is cleared with its tick.
+- **Window open, heating on**: a notice on Home for each room where a window is open while its heating runs. A tap opens the thermostat.
 - **Parcels** on their way from the [parcel integrations](https://ha-parcel-integrations.github.io/): a status chip on Home with sender, carrier, status and delivery time.
 
 **Rooms**
 - A tap on a room opens the **room popup**: a temperature ring, big tiles for light, shades, music and switches, the room's devices and scenes. Under *Customise* you choose which sections open by default.
 - Light tiles switch with their icon; a tap on the tile opens brightness and colour.
+- **Timer**: hold a light, switch or fan and pick *off in 15 min, 30 min, 1 h or 2 h*. Home Assistant runs it, so it also works with the tablet off; the tile shows the time left. Switching off by hand ends it.
 - Shades as a draggable window with up, 50 %, down and stop, for one shade or all of them in a room.
 - Thermostat tiles show a flame only while the room really heats.
 
@@ -84,6 +86,7 @@ Installing the integration adds three entries to the Home Assistant sidebar. Eac
 
 **For everyone in the house**
 - Settings are stored in Home Assistant and reach every open screen at once. Layout and tile size are remembered per device.
+- **Screensaver** for wall tablets: after a while without a touch, the time, the weather and what is left of today, dimmed at night. A tap or the doorbell brings HausPanel back.
 - *My own settings* gives one person their own arrangement of a panel.
 - Any panel can be made visible to administrators only.
 - In English, German, French, Dutch, Spanish, Italian, Polish, Swedish and Turkish, following the language of Home Assistant.
@@ -197,7 +200,7 @@ HAUSPANEL_DEV=1 .venv-ha/bin/hass -c ha-config
 
 **Tests:** `node --test "tests/*.test.mjs"` (Node 22 or newer, nothing to install). They check the time windows for doors and gates, which room a device lands in, hiding, the shade sliders, the weather heads-up, and that every language has every text with the same placeholders. GitHub runs them on every push. A new text key needs an entry in every language file, or the tests fail.
 
-Bugs and ideas are welcome as [issues](https://github.com/alpacalabs-de/hauspanel/issues/new/choose); the form asks for the version, panel and layout right away.
+Bugs and ideas are welcome as [issues](https://github.com/alpacalabs-de/hauspanel/issues/new/choose); the form asks for the version, panel and layout right away. *Settings → System → Info for a bug report* copies all of that in one go.
 
 ## Help with translations
 
@@ -241,10 +244,13 @@ Home Assistant kennt dein Haus schon: welche Räume auf welcher Etage liegen und
 
 - **Status-Chips** oben auf der Startseite für Licht, Klima, Rollos, Sicherheit, Energie, Heute, Müll, Pakete, Wartung und Haus verlassen. Ein Tipp öffnet ein Popup mit allen Details.
 - **Meldungen**: eigene Helfer, Schalter oder Sensoren (*Post ist da*, *Wäsche fertig*) erscheinen auf der Startseite nur, solange sie an sind oder einen eingetragenen Zustand haben. Ein Helfer wird mit dem Haken zurückgesetzt.
+- **Fenster offen, Heizung an**: eine Meldung auf der Startseite für jeden Raum, in dem ein Fenster offen ist und die Heizung läuft. Ein Tipp öffnet das Thermostat.
 - **Pakete** aus den [Paket-Integrationen](https://ha-parcel-integrations.github.io/): ein Status-Chip auf der Startseite mit Absender, Paketdienst, Status und Lieferzeit.
+- **Timer**: Licht, Schalter oder Ventilator gedrückt halten und *aus in 15 Min., 30 Min., 1 Std. oder 2 Std.* wählen. Home Assistant führt ihn aus, er klappt also auch bei ausgeschaltetem Tablet.
 - **Raum-Popup** mit Temperaturring, großen Kacheln für Licht, Rollos, Musik und Schalter, dazu Szenen. Pro Raum einstellbar, welche Bereiche offen sind.
 - **Sicherheit**: was offen ist, Alarm mit Modi, Rauchmelder, die letzten Bewegungen von Frigate mit kurzen Clips. Pro Tür, Tor oder Schloss ein **Zeitraum, in dem es offen sein darf**, z. B. das Einfahrtstor tagsüber.
 - **Gute-Nacht-Check**, **Haus verlassen** mit Rückgängig, **Türklingel** mit Kamera im Vollbild, **Babyfon**.
+- **Ruhebildschirm** fürs Wandtablet: nach einer Weile ohne Berührung Uhrzeit, Wetter und was heute noch ansteht, nachts gedimmt. Ein Tipp oder die Türklingel holt HausPanel zurück.
 - Eigene Popups für Wetter, Thermostat, Wärmepumpe, Waschmaschine und Trockner, Auto, Wallbox, Solar, Saugroboter, Tore, Haustür, Garten, Pool, 3D-Drucker, Lautsprecher und Netzwerk.
 - **Energie-Seite** aus den Energie-Einstellungen von Home Assistant, mit Kosten, Solar, Gas und Hausbatterie. Steckdosen mit Messung können auf *nur messen* gestellt werden.
 - **Einstellungen** in übersichtlichen Tabs: Startseite, Räume & Geräte, Sicherheit, Aussehen, Dieser Bildschirm, Navigation, Kalender und Wetter, Ausblenden, System. Jeder Tab erklärt oben in einem Satz, wofür er da ist.

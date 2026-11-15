@@ -31,6 +31,7 @@ import { ago, since } from "./popkit.js";
 import { wasteSources, loadPickups, openWaste, whenText } from "./waste.js";
 import { noticesBlock } from "./notices.js";
 import { hasParcels, incomingParcels, deliveredParcels, parcelChipText, openParcels } from "./parcels.js";
+import { switchLights } from "./switching.js";
 
 export const LAYOUTS = [
   { id: "grid", icon: "mdi:view-grid-outline" },
@@ -69,7 +70,7 @@ export function roomTemp(ctx, area) {
 /** Turn a room (or the whole home) on or off. */
 export function switchRoom(ctx, stats, on) {
   if (!stats.lights.length) return;
-  ctx.hass.callService("light", on ? "turn_on" : "turn_off", { entity_id: stats.lights });
+  switchLights(ctx, stats.lights, on);
 }
 
 /** How far a room's shades are open: { text, open, moving } or null without shades. */
@@ -96,7 +97,7 @@ export function statusBlock(ctx, { compact = false } = {}) {
   const big = h("div", { class: "hp-status-big" });
   const allOff = h("button", { class: "hp-btn solid" }, icon("mdi:power"), t("turn_all_off"));
   const lights = () => ctx.model.lights.filter((id) => ctx.model.areaOf[id] && ctx.model.areaOf[id] !== "_other");
-  allOff.addEventListener("click", () => ctx.hass.callService("light", "turn_off", { entity_id: lights() }));
+  allOff.addEventListener("click", () => switchLights(ctx, lights(), false));
   const el = h("div", { class: `hp-status ${compact ? "compact" : ""}` },
     h("div", { class: "hp-status-text" }, h("div", { class: "hp-label" }, t("home_status")), big),
     h("div", { class: "hp-status-btns" }, allOff));
@@ -1201,7 +1202,7 @@ export function floorControls(ctx, rooms, floorName) {
     lightB = btn("mdi:lightbulb-group-outline", t("floor_lights"), () => {
       const ids = lights();
       const anyOn = ids.some((id) => isOn(ctx.hass.states[id]));
-      ctx.hass.callService("light", anyOn ? "turn_off" : "turn_on", { entity_id: ids });
+      switchLights(ctx, ids, !anyOn);
     });
     box.append(lightB);
   }

@@ -26,6 +26,7 @@ from homeassistant.helpers.dispatcher import (
 from homeassistant.helpers.storage import Store
 from homeassistant.helpers.typing import ConfigType
 
+from . import timers
 from .config_flow import ADMIN_ONLY
 from .const import (
     DOMAIN,
@@ -121,6 +122,7 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     websocket_api.async_register_command(hass, ws_settings_personal)
     websocket_api.async_register_command(hass, ws_settings_subscribe)
     websocket_api.async_register_command(hass, ws_version)
+    timers.register(hass)
     return True
 
 
@@ -133,6 +135,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         stores[panel] = SettingsStore(hass, panel)
         await stores[panel].async_load(start_from=main.data)
     hass.data[DOMAIN] = PanelSettings(stores)
+    # "Off in 30 minutes": runs here in Home Assistant, so it also fires with the tablet off.
+    await timers.async_start(hass)
 
     if not hass.data.get(f"{DOMAIN}_static"):
         hass.http.register_view(FrontendView())
@@ -191,6 +195,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     frontend.async_remove_panel(hass, PHONE_PANEL_URL)
     frontend.async_remove_panel(hass, SECURITY_PANEL_URL)
     hass.data.pop(DOMAIN, None)
+    timers.stop(hass)
     return True
 
 

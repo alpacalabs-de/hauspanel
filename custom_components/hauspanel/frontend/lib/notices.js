@@ -1,5 +1,5 @@
 // Notices: entities you pick yourself ("Mail is here", "Washing done") that show on Home only while they say so.
-import { h, icon, domainOf, bindTapHold, entityName } from "./util.js";
+import { h, icon, domainOf, bindTapHold, entityName, toggleSwitch } from "./util.js";
 import { entityIcon, stateText } from "./domains.js";
 import { candidateEntities } from "./model.js";
 import { t } from "./i18n.js";
@@ -31,6 +31,59 @@ export function noticeActive(st, n) {
 
 /** The picked notices that show right now, in their order. */
 export const activeNotices = (hass, list) => (list || []).filter((n) => noticeActive(hass.states[n.id], n));
+
+/** The room of an entity from Home Assistant's registry: its own area, else its device's. */
+const areaIdOf = (hass, id) => {
+  const reg = hass.entities?.[id];
+  return reg?.area_id || hass.devices?.[reg?.device_id]?.area_id || null;
+};
+
+/** A thermostat that is heating right now: hvac_action says so, or without it, heat mode below its target. */
+export function isHeating(st) {
+  if (!st || st.state === "off" || st.state === "unavailable") return false;
+  const a = st.attributes || {};
+  if (a.hvac_action) return a.hvac_action === "heating" || a.hvac_action === "preheating";
+  return st.state === "heat" && a.current_temperature != null && a.temperature != null && a.current_temperature < a.temperature;
+}
+
+/**
+ * Rooms where a window is open while the heating runs: [{ area, windows, climates }].
+ * Windows are binary sensors of class window or opening; entities hidden in Home Assistant don't count.
+ */
+export function windowHeatRooms(hass) {
+  const rooms = new Map();
+  const of = (area) => rooms.get(area) || rooms.set(area, { area, windows: [], climates: [] }).get(area);
+  for (const [id, st] of Object.entries(hass.states)) {
+    if (hass.entities?.[id]?.hidden) continue;
+    const area = areaIdOf(hass, id);
+    if (!area) continue;
+    if (id.startsWith("binary_sensor.") && st.state === "on" && ["window", "opening"].includes(st.attributes?.device_class)) of(area).windows.push(id);
+    else if (id.startsWith("climate.") && isHeating(st)) of(area).climates.push(id);
+  }
+  return [...rooms.values()].filter((r) => r.windows.length && r.climates.length).sort((a, b) => a.area.localeCompare(b.area));
+}
+
+/** Window open, heating on: one pill per room. A tap opens the room's thermostat. */
+function windowHeatPill(ctx, room) {
+  const name = h("b", {});
+  const sub = h("small", {});
+  const el = h("div", { class: "hp-onpill notice warn on", role: "button", tabindex: "0", dataset: { key: `wh:${room.area}` } },
+    h("span", { class: "hp-onpill-ic" }, icon("mdi:window-open-variant")), h("div", { class: "hp-onpill-text" }, name, sub));
+  let climate = room.climates[0];
+  bindTapHold(el, { canStart: () => !ctx.editing, tap: () => ctx.openDetails(climate), hold: () => ctx.openDetails(climate) });
+  el.update = (hass, r = room) => {
+    climate = r.climates[0];
+    // The room up front (short enough for the pill), what is wrong below.
+    const areaName = hass.areas?.[r.area]?.name || "";
+    name.textContent = areaName || t("wh_title");
+    sub.textContent = [areaName ? t("wh_title") : null, r.windows.length > 1 ? t("wh_n_windows", { n: r.windows.length }) : null].filter(Boolean).join(" · ");
+  };
+  el.update(ctx.hass);
+  return el;
+}
+
+/** Whether Home warns about open windows while heating (on unless switched off in the settings). */
+export const windowHeatOn = (ctx) => ctx.settings.s.windowHeat !== false;
 
 /** One notice as a pill: tap opens the details; a helper switch is cleared with its icon. */
 function noticePill(ctx, id) {
@@ -66,16 +119,20 @@ export function noticesBlock(ctx) {
   const el = h("section", { class: "hp-onnow-sec hp-notices" }, h("div", { class: "hp-label hp-home-label" }, t("notices")), box);
   let sig = null;
   let pills = [];
+  let whPills = [];
   el.update = (hass) => {
     const now = activeNotices(hass, ctx.settings.s.notices).map((n) => n.id);
-    const next = now.join();
+    const wh = windowHeatOn(ctx) ? windowHeatRooms(hass) : [];
+    const next = `${wh.map((r) => r.area)}|${now}`;
     if (next !== sig) {
       sig = next;
+      whPills = wh.map((r) => windowHeatPill(ctx, r));
       pills = now.map((id) => noticePill(ctx, id));
-      box.replaceChildren(...pills);
+      box.replaceChildren(...whPills, ...pills);
     }
+    whPills.forEach((p, i) => p.update(hass, wh[i]));
     pills.forEach((p) => p.update(hass));
-    el.hidden = !now.length;
+    el.hidden = !now.length && !wh.length;
   };
   el.update(ctx.hass);
   ctx.live.push(el);
@@ -134,6 +191,10 @@ export function noticesSection(ctx, S, draw, state, { section, row }) {
   search.addEventListener("input", () => { state.noticeQuery = search.value; drawResults(); });
   drawResults();
 
-  return section(t("notices"), h("p", { class: "hp-muted small" }, t("notices_hint")),
+  // Built in: open windows while the heating runs (for the whole house, on by default).
+  const whOn = S.s.windowHeat !== false;
+  const wh = row(t("wh_setting"), toggleSwitch(whOn, () => { S.update((x) => { x.windowHeat = !whOn; }); draw(); }), t("wh_setting_hint"));
+
+  return section(t("notices"), h("p", { class: "hp-muted small" }, t("notices_hint")), wh,
     ...(rows.length ? rows : [h("div", { class: "hp-muted small" }, t("notices_none"))]), search, results);
 }

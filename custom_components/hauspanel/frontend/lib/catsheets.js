@@ -5,6 +5,7 @@ import { entityIcon } from "./domains.js";
 import { openSheet } from "./dialogs.js";
 import { meterSensors, watts, formatWatts, deviceName } from "./usage.js";
 import { t } from "./i18n.js";
+import { switchLights } from "./switching.js";
 
 const roomOf = (ctx, id) => ctx.model.areaById.get(ctx.model.areaOf[id])?.name || "";
 
@@ -33,7 +34,7 @@ export function openLightSheet(ctx, lights) {
   const shown = new Set(lights().filter((id) => isOn(ctx.hass.states[id])));
   const list = h("div", { class: "hp-qlist" });
   const offAll = h("button", { class: "hp-btn solid" }, icon("mdi:power"), t("all_lights_off_btn"));
-  offAll.addEventListener("click", () => ctx.hass.callService("light", "turn_off", { entity_id: lights() }));
+  offAll.addEventListener("click", () => switchLights(ctx, lights(), false));
   const draw = (hass) => {
     for (const id of lights()) if (isOn(hass.states[id])) shown.add(id);
     const ids = [...shown].sort((a, b) => roomOf(ctx, a).localeCompare(roomOf(ctx, b)) || a.localeCompare(b));

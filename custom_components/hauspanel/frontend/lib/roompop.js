@@ -10,6 +10,7 @@ import { num, fmt, svgEl, since } from "./popkit.js";
 import { openGate, isGate } from "./gate.js";
 import { deviceKeyTile, deviceKeyInfo, roomItems, machineParts } from "./layouts.js";
 import { createTile } from "./tile.js";
+import { switchLights } from "./switching.js";
 
 const NOT_SHADE = new Set(["garage", "gate", "door", "damper"]);
 /** Which sections were opened, per room, while the panel is open. */
@@ -190,7 +191,7 @@ export function openRoomPopup(ctx, areaId) {
 
   // ---- lights: all on/off + each lamp with switch and dimmer
   if (lights.length) {
-    const allSw = toggleSwitch(false, () => ctx.hass.callService("light", lights.some((id) => isOn(ctx.hass.states[id])) ? "turn_off" : "turn_on", { entity_id: lights }));
+    const allSw = toggleSwitch(false, () => switchLights(ctx, lights, !lights.some((id) => isOn(ctx.hass.states[id]))));
     const list = section("mdi:lightbulb-group-outline", t("cat_light"), allSw, (hs) => {
       const on = lights.filter((id) => isOn(hs.states[id]));
       return on.length ? `${t("ov_n_of_m", { n: on.length, m: lights.length })} · ${Math.round(on.reduce((a, id) => a + pctOf(hs.states[id]), 0) / on.length)} %` : (lights.length === 1 ? t("off") : t("rp_all_off_n", { n: lights.length }));
@@ -375,7 +376,7 @@ export function openRoomPopup(ctx, areaId) {
   const secKey = (title) => `${areaId}:${title}`;
   if (lights.length) {
     const c = ctlTile("light", "mdi:lightbulb-group", t("cat_light"), { quickIc: "mdi:power", detailsKey: secKey(t("cat_light")),
-      quick: () => ctx.hass.callService("light", lights.some((id) => isOn(ctx.hass.states[id])) ? "turn_off" : "turn_on", { entity_id: lights }) });
+      quick: () => switchLights(ctx, lights, !lights.some((id) => isOn(ctx.hass.states[id]))) });
     updaters.push((hs) => {
       const on = lights.filter((id) => isOn(hs.states[id]));
       const avg = on.length ? Math.round(on.reduce((a, id) => a + pctOf(hs.states[id]), 0) / on.length) : 0;

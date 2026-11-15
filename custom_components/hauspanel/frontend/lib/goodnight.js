@@ -9,6 +9,7 @@ import { t } from "./i18n.js";
 import { ring, btn, twoTap } from "./popkit.js";
 import { codePad } from "./overviews.js";
 import { weatherWarningRow } from "./weather.js";
+import { switchLights } from "./switching.js";
 
 const NOT_SHADE = new Set(["garage", "gate", "door", "damper"]);
 
@@ -24,7 +25,7 @@ export function openGoodNight(ctx, sceneId) {
 
   const groups = [
     { key: "lights", ic: "mdi:lightbulb-on-outline", okIc: "mdi:lightbulb-off-outline", label: "gn_lights", okLabel: "gn_lights_ok",
-      ids: () => m.lights.filter((id) => inHouse(id) && isOn(ctx.hass.states[id])), fix: (ids) => ctx.hass.callService("light", "turn_off", { entity_id: ids }), fixLabel: "gn_off" },
+      ids: () => m.lights.filter((id) => inHouse(id) && isOn(ctx.hass.states[id])), fix: (ids) => switchLights(ctx, ids, false), fixLabel: "gn_off" },
     { key: "doors", ic: "mdi:door-open", okIc: "mdi:door-closed", label: "gn_doors", okLabel: "gn_doors_ok",
       ids: () => s.doors.filter(shown).filter((id) => isAlert(ctx.hass, id)) },
     { key: "gates", ic: "mdi:garage-open-variant", okIc: "mdi:garage-variant", label: "gn_gates", okLabel: "gn_gates_ok", two: true,

@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.7.0
+
+- **Screensaver** for wall tablets (*Settings → This screen → Screensaver*): after 2 to 30 minutes without a touch the screen shows the time, the date, the weather and what is left of today. It moves a little every minute and is darker at night. A tap brings HausPanel back, and so does the doorbell. Not on the phone or the security screen.
+- **Timers** for lights, switches and fans: hold a tile and pick *Switch off in* 15 min, 30 min, 1 h or 2 h. The tile shows how long is left. Home Assistant runs the timer, so it also works with the tablet off and after a restart. Switching off by hand ends it.
+- **Window open, heating on** (*Settings → Home → Notices*): a notice on Home for each room where a window is open while its heating runs. A tap opens the thermostat.
+- **Floor, room and home buttons** switch the lights a few at a time instead of all in one go. Some integrations got too many commands at once and lamps were left behind. Lamps that didn't follow are now named, with *Try again*.
+- **Info for a bug report** (*Settings → System*): versions, panel, layout and device in a few lines to copy into an issue. Nothing personal goes in.
+
 ## 1.6.7
 
 - **Music card** on Home now looks like a room card: the room on top (or the source when the player has no room), title and artist in the middle, progress and round buttons for play/pause and next below. While something plays or is paused, its cover sits dimmed behind the card. When the card is low, like on the phone, the artist is left out.

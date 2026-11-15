@@ -17,6 +17,7 @@ function tapOrOpen(ctx, entityId) {
   if (OPEN_ON_TAP.has(entityId.split(".")[0]) || !tapAction(ctx, entityId)) ctx.openDetails(entityId);
 }
 import { t } from "./i18n.js";
+import { withTimer, minutesLeft } from "./timers.js";
 import { keepSnapshot } from "./camera.js";
 
 const TOGGLE_ROW = new Set(["light", "switch", "fan", "input_boolean", "humidifier", "siren", "climate", "water_heater", "cover", "valve", "media_player"]);
@@ -158,7 +159,9 @@ export function createTile(ctx, entityId, { size = 1, areaName, variant = "tile"
       appliance = applianceFor(hass, entityId, meter.power);
       applianceAt = Date.now();
     }
-    const key = meter ? [st, hass.states[meter.power], appliance && hass.states[appliance.state], appliance && hass.states[appliance.progress], appliance && hass.states[appliance.remaining]] : [st];
+    const timer = ctx.timers?.at(entityId);
+    const key = meter ? [st, hass.states[meter.power], appliance && hass.states[appliance.state], appliance && hass.states[appliance.progress], appliance && hass.states[appliance.remaining]]
+      : [st, timer && minutesLeft(timer)];
     if (last && key.every((x, i) => x === last[i])) return;
     last = key;
     if (!st) {
@@ -193,7 +196,7 @@ export function createTile(ctx, entityId, { size = 1, areaName, variant = "tile"
         : st.state === "opening" ? t("moving_up") : st.state === "closing" ? t("moving_down")
           : st.state === "closed" || pos <= 0 ? t("shades_closed") : pos >= 100 ? t("shades_open") : t("pct_open", { n: pos });
       if (el._coverBar) el._coverBar.style.width = `${Math.max(0, Math.min(100, pos))}%`;
-    } else stateEl.textContent = stateText(hass, st);
+    } else stateEl.textContent = timer ? withTimer(ctx, entityId, stateText(hass, st)) : stateText(hass, st);
     const glow = d === "light" && on ? lightColor(st) : null;
     el.style.setProperty("--hp-glow", glow || "");
     if (art && d !== "camera") {

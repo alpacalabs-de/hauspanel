@@ -3,6 +3,7 @@ import { h, icon, domainOf, entityName } from "./util.js";
 import { entityIcon, stateText, buildControls, hasControls, openMoreInfo } from "./domains.js";
 import { usageBlock, meterSensors, deviceName, watts, applianceFor, applianceText } from "./usage.js";
 import { t } from "./i18n.js";
+import { timerBlock, canHaveTimer } from "./timers.js";
 import { openAppliance } from "./appliance.js";
 
 /** Open a sheet inside the panel. Returns { el, body, close, update }. */
@@ -181,8 +182,11 @@ export function detailsDialog(ctx, entityId, { plain = false } = {}) {
     sheet.close();
     openMoreInfo(ctx.root, entityId);
   });
-  sheet.body.append(h("div", { class: "hp-details-head" }, h("div", { class: "hp-tile-icon big" }, ic), stateEl), controls, ...(usage ? [usage] : []), h("div", { class: "hp-sheet-actions" }, more));
+  // "Off in 30 min" for lights, switches and fans (not for sockets set to meter only).
+  const timer = !meter && canHaveTimer(entityId) ? timerBlock(ctx, entityId) : null;
+  sheet.body.append(h("div", { class: "hp-details-head" }, h("div", { class: "hp-tile-icon big" }, ic), stateEl), controls, ...(timer ? [timer] : []), ...(usage ? [usage] : []), h("div", { class: "hp-sheet-actions" }, more));
   if (usage) sheet.updaters.push((hs) => usage.update(hs));
+  if (timer) sheet.updaters.push((hs) => timer.update(hs));
   let last = st;
   sheet.updaters.push((hs) => {
     const s = hs.states[entityId];
@@ -313,12 +317,20 @@ export function hiddenDialog(ctx, container, hidden, label) {
   sheet.body.append(h("p", { class: "hp-muted" }, t("hidden_hint")), list);
 }
 
-export function toast(ctx, text) {
-  const el = h("div", { class: "hp-toast" }, text);
-  ctx.layer.append(el);
-  requestAnimationFrame(() => el.classList.add("show"));
-  setTimeout(() => {
+/** A short message at the bottom. With `action`, it carries a button (e.g. "Try again") and stays a little longer. */
+export function toast(ctx, text, { action, onAction, ms } = {}) {
+  if (!ctx.layer) return;
+  const el = h("div", { class: `hp-toast${action ? " act" : ""}` }, h("span", {}, text));
+  const close = () => {
     el.classList.remove("show");
     setTimeout(() => el.remove(), 300);
-  }, 2600);
+  };
+  if (action) {
+    const b = h("button", { class: "hp-toast-btn" }, action);
+    b.addEventListener("click", () => { close(); onAction?.(); });
+    el.append(b);
+  }
+  ctx.layer.append(el);
+  requestAnimationFrame(() => el.classList.add("show"));
+  setTimeout(close, ms ?? 2600);
 }

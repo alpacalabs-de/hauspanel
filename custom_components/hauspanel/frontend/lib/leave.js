@@ -8,6 +8,7 @@ import { t } from "./i18n.js";
 import { btn, clock } from "./popkit.js";
 import { carDevices } from "./car.js";
 import { weatherWarningRow } from "./weather.js";
+import { switchLights } from "./switching.js";
 
 const UNDO_SCENE = "hauspanel_leave_undo";
 const UNDO_HOURS = 12;
@@ -91,7 +92,7 @@ export function openLeave(ctx) {
     go.disabled = true;
     try {
       if (snap.length) await ctx.hass.callService("scene", "create", { scene_id: UNDO_SCENE, snapshot_entities: snap });
-      if (lights.length) ctx.hass.callService("light", "turn_off", { entity_id: lights });
+      if (lights.length) switchLights(ctx, lights, false);
       if (media.length) ctx.hass.callService("media_player", "media_pause", { entity_id: media });
       if (picks.locks && it.locks.length) ctx.hass.callService("lock", "lock", { entity_id: it.locks });
       if (picks.covers && it.covers.length) ctx.hass.callService("cover", "close_cover", { entity_id: it.covers });
