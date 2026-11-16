@@ -678,3 +678,23 @@ function linkedLock(hass, entityId, st) {
   if (best.length === 1) remember(entityId, best[0].k);
   return cands[0].k;
 }
+
+/** Binary sensors that warn of a hazard: smoke, gas, water, general safety. They share one group. */
+export const HAZARD = ["smoke", "gas", "moisture", "safety"];
+
+/**
+ * Title, icon and texts for a group of hazard sensors, by what is in it:
+ * only smoke detectors stay "Smoke alarms", only leak sensors "Leak sensors", a mix "Detectors".
+ */
+export function hazardInfo(hass, ids) {
+  const dc = (id) => hass?.states[id]?.attributes.device_class;
+  const kinds = new Set(ids.map(dc));
+  const only = kinds.size === 1 ? [...kinds][0] : null;
+  const on = (k) => ids.some((id) => dc(id) === k && hass.states[id]?.state === "on");
+  const base = only === "smoke" ? { label: t("smoke_alarms"), icon: "mdi:smoke-detector-variant", ok: t("ov_smoke_ok") }
+    : only === "moisture" ? { label: t("leak_sensors"), icon: "mdi:water-alert-outline", ok: t("hz_ok") }
+    : only === "gas" ? { label: t("gas_sensors"), icon: "mdi:meter-gas-outline", ok: t("hz_ok") }
+    : { label: t("hazard_sensors"), icon: "mdi:alarm-light-outline", ok: t("hz_ok") };
+  const alarm = on("smoke") ? t("ov_smoke_alarm") : on("moisture") ? t("hz_water_alarm") : on("gas") ? t("hz_gas_alarm") : t("hz_alarm");
+  return { ...base, alarm, alarmIcon: on("smoke") ? "mdi:fire-alert" : on("moisture") ? "mdi:water-alert" : "mdi:alert" };
+}

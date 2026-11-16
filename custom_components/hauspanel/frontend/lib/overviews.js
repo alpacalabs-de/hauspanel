@@ -4,6 +4,7 @@
 import { h, icon, domainOf, slider, toggleSwitch, entityName, formatTime } from "./util.js";
 import { isOn, hideMatcher } from "./model.js";
 import { openSheet } from "./dialogs.js";
+import { hazardInfo, entityIcon } from "./domains.js";
 import { snapshotUrl } from "./camera.js";
 import { statusItems, isAlert, isAllowedOpen, allowRule, pillName, cameraList, HOME_SEC_CONTAINER, secIcon } from "./securityview.js";
 import { openThermostat } from "./thermostat.js";
@@ -162,7 +163,7 @@ export function openSecurityOverview(ctx, openClassic) {
   const openBox = h("div", { class: "hp-ov-list-rows" });
   const closedHead = h("div", { class: "hp-label hp-ov-label" });
   const closedBox = h("div", { class: "hp-ov-closed" });
-  const smokeRow = s.smoke.length ? row({ ic: "mdi:smoke-detector-variant", onClick: () => openSmoke(ctx, s.smoke) }) : null;
+  const smokeRow = s.smoke.length ? row({ ic: hazardInfo(ctx.hass, s.smoke).icon, onClick: () => openSmoke(ctx, s.smoke) }) : null;
   smokeRow?.classList.add("smoke");
   // The big line on top, as in the classic popup: "All closed" in green, or what is open in red.
   const banIc = icon("mdi:shield-check-outline");
@@ -225,8 +226,8 @@ export function openSecurityOverview(ctx, openClassic) {
     const smokeOn = s.smoke.filter((id) => hs.states[id]?.state === "on");
     const bad = open.length + smokeOn.length;
     banner.classList.toggle("alert", bad > 0);
-    banIc.icon = smokeOn.length ? "mdi:fire-alert" : bad ? "mdi:shield-alert-outline" : "mdi:shield-check-outline";
-    banBig.textContent = smokeOn.length ? t("ov_smoke_alarm") : bad ? t("n_open", { n: bad }) : t("sec_all_closed");
+    banIc.icon = smokeOn.length ? hazardInfo(hs, s.smoke).alarmIcon : bad ? "mdi:shield-alert-outline" : "mdi:shield-check-outline";
+    banBig.textContent = smokeOn.length ? hazardInfo(hs, s.smoke).alarm : bad ? t("n_open", { n: bad }) : t("sec_all_closed");
     banSub.textContent = bad ? [...smokeOn, ...open].map((id) => nameOf(hs, id)).join(" · ") : t("sec_all_closed_sub");
     closedHead.replaceChildren(h("span", {}, open.length ? t("ov_rest_closed") : t("ov_watched_label")), h("span", { class: "avg" }, `${closed.length}/${watch.length}`));
     closedBox.replaceChildren(...closed.map((id) => {
@@ -243,7 +244,7 @@ export function openSecurityOverview(ctx, openClassic) {
     closedHead.hidden = !closed.length;
     if (smokeRow) {
       const alarm = s.smoke.filter((id) => hs.states[id]?.state === "on");
-      smokeRow.name.textContent = t("smoke_alarms");
+      smokeRow.name.textContent = hazardInfo(hs, s.smoke).label;
       smokeRow.sub.textContent = alarm.length ? alarm.map((id) => nameOf(hs, id)).join(", ") : t("ov_all_quiet_n", { n: s.smoke.length });
       smokeRow.classList.toggle("bad", alarm.length > 0);
       smokeRow.right.replaceChildren(h("span", { class: `hp-ov-tag ${alarm.length ? "bad" : "ok"}` }, alarm.length ? t("ov_alarm") : "OK"));
@@ -263,7 +264,7 @@ export function openSecurityOverview(ctx, openClassic) {
 }
 
 const SEC_PARTS = [["alarm", "mdi:shield-home-outline", "ov_sec_alarm"], ["doors", "mdi:door-closed", "ov_watched_label"],
-  ["smoke", "mdi:smoke-detector-variant", "smoke_alarms"], ["recent", "mdi:motion-play-outline", "sec_recent"], ["leave", "mdi:home-export-outline", "leave_title"]];
+  ["smoke", "mdi:alarm-light-outline", "hazard_sensors"], ["recent", "mdi:motion-play-outline", "sec_recent"], ["leave", "mdi:home-export-outline", "leave_title"]];
 
 /** The security popup's sections in their saved order, and which are on. */
 function secLayout(ctx) {
@@ -409,7 +410,7 @@ function openAllowSheet(ctx, id, onSave) {
 
 /** Smoke alarms: each with its room, state and battery. */
 function openSmoke(ctx, ids) {
-  const sheet = openSheet(ctx, { title: t("smoke_alarms"), subtitle: "", cls: "appliance ov-smoke" });
+  const sheet = openSheet(ctx, { title: hazardInfo(ctx.hass, ids).label, subtitle: "", cls: "appliance ov-smoke" });
   const list = h("div", { class: "hp-ov-list-rows" });
   const batteryOf = (hs, id) => {
     const dev = hs.entities?.[id]?.device_id;
@@ -417,7 +418,7 @@ function openSmoke(ctx, ids) {
     return b ? Number(hs.states[b.entity_id]?.state) : null;
   };
   const rows = ids.map((id) => {
-    const r = row({ ic: "mdi:smoke-detector-variant", onClick: () => ctx.openDetails(id) });
+    const r = row({ ic: ctx.hass.states[id]?.attributes.device_class === "smoke" ? "mdi:smoke-detector-variant" : entityIcon(ctx.hass, ctx.hass.states[id]), onClick: () => ctx.openDetails(id) });
     r.upd = (hs) => {
       const st = hs.states[id];
       const alarm = st?.state === "on";
@@ -441,8 +442,9 @@ function openSmoke(ctx, ids) {
     rows.forEach((r) => r.upd(hs));
     const n = ids.filter((id) => hs.states[id]?.state === "on").length;
     banner.classList.toggle("alert", n > 0);
-    banner.replaceChildren(h("div", { class: "hp-sec-hero-ic" }, icon(n ? "mdi:fire-alert" : "mdi:check")),
-      h("div", { class: "hp-sec-hero-text" }, h("b", {}, n ? t("ov_smoke_alarm") : t("ov_all_quiet_n", { n: ids.length })), h("small", {}, n ? "" : t("ov_smoke_ok"))));
+    const hz = hazardInfo(hs, ids);
+    banner.replaceChildren(h("div", { class: "hp-sec-hero-ic" }, icon(n ? hz.alarmIcon : "mdi:check")),
+      h("div", { class: "hp-sec-hero-text" }, h("b", {}, n ? hz.alarm : t("ov_all_quiet_n", { n: ids.length })), h("small", {}, n ? "" : hz.ok)));
   };
   upd(ctx.hass);
   sheet.updaters.push(upd);

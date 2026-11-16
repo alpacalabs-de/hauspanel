@@ -36,6 +36,9 @@ export function withEnergyPicks(raw, pick) {
   return out;
 }
 
+/** The grid's power sensor, in any of the formats Home Assistant has used (power_config, stat_rate, power: [{stat_rate}]). */
+export const gridRate = (grid) => (grid && (grid.power_config?.stat_rate || grid.stat_rate || grid.power?.find((p) => p.stat_rate)?.stat_rate)) || null;
+
 /** Every power sensor, for the pickers. */
 export const powerSensors = (hass) => Object.keys(hass.states)
   .filter((id) => id.startsWith("sensor.") && hass.states[id].attributes.device_class === "power")
@@ -57,7 +60,7 @@ function sources(ctx) {
         to: i === 0 ? (s.stat_energy_to || s.flow_to?.[0]?.stat_energy_to || null) : null,
         priceEntity: f.entity_energy_price,
         priceNumber: f.number_energy_price,
-        rate: s.power_config?.stat_rate || s.stat_rate || null,
+        rate: gridRate(s),
       });
     });
   }
@@ -137,6 +140,20 @@ async function fetchChanges(ctx, ids, start, end, period, convert = true) {
 const sum = (a) => a.reduce((x, y) => x + (y || 0), 0);
 
 /** Per-bucket values of one statistic. */
+/**
+ * What the house used in one stretch of time, and where it came from (kWh), as Home Assistant counts it:
+ * use = grid in + solar − fed in − battery charged + battery discharged.
+ * The battery is charged from the sun first; only what the sun could not give comes from the grid.
+ */
+export function houseUse({ imp = 0, sol = 0, exp = 0, charge = 0, discharge = 0 }) {
+  const sunLeft = Math.max(0, sol - exp);
+  const sunToBattery = Math.min(charge, sunLeft);
+  const gridToBattery = Math.min(imp, charge - sunToBattery);
+  const grid = imp - gridToBattery;
+  const solar = sunLeft - sunToBattery;
+  return { use: grid + solar + discharge, grid, solar, battery: discharge, gridToBattery };
+}
+
 function series(raw, id, buckets) {
   const out = new Array(buckets.length).fill(0);
   const idx = new Map(buckets.map((b, i) => [b.getTime(), i]));
@@ -156,7 +173,8 @@ async function loadData(ctx, range, offset) {
   // The current period is compared with the same stretch of time before it.
   const prev = span(range, offset - 1);
   const prevEnd = offset === 0 ? new Date(prev.start.getTime() + (now - sp.start)) : prev.end;
-  const mainIds = [...src.meters.map((m) => m.from), ...src.meters.map((m) => m.to).filter(Boolean), ...src.solar.map((s) => s.stat_energy_from)];
+  const mainIds = [...src.meters.map((m) => m.from), ...src.meters.map((m) => m.to).filter(Boolean), ...src.solar.map((s) => s.stat_energy_from),
+    ...src.battery.flatMap((b) => [b.from, b.to]).filter(Boolean)];
   const gasIds = src.gas.map((g) => g.from);
   const [raw, rawPrev, gasRaw] = await Promise.all([
     fetchChanges(ctx, ids, sp.start, sp.end, sp.period),
@@ -168,11 +186,17 @@ async function loadData(ctx, range, offset) {
     const imp = src.meters.map((m) => series(r, m.from, buckets));
     const exp = series(r, src.meters[0]?.to, buckets);
     const sol = src.solar.reduce((acc, s) => series(r, s.stat_energy_from, buckets).map((v, i) => v + (acc[i] || 0)), []);
-    const self = buckets.map((_, i) => Math.max(0, (sol[i] || 0) - exp[i]));
     const gasKwh = src.gas.map((g) => series(r, g.from, buckets));
     const battCharge = src.battery.map((b) => (b.to ? series(r, b.to, buckets) : buckets.map(() => 0)));
     const battDischarge = src.battery.map((b) => (b.from ? series(r, b.from, buckets) : buckets.map(() => 0)));
-    return { imp, exp, sol, self, gas: gasKwh, battCharge, battDischarge, use: sum(imp.map(sum)) + sum(self) };
+    const split = buckets.map((_, i) => houseUse({
+      imp: sum(imp.map((m) => m[i])), sol: sol[i] || 0, exp: exp[i],
+      charge: sum(battCharge.map((b) => b[i])), discharge: sum(battDischarge.map((b) => b[i])),
+    }));
+    const self = split.map((x) => x.solar);
+    const fromBatt = split.map((x) => x.battery);
+    const gridToBatt = split.map((x) => x.gridToBattery);
+    return { imp, exp, sol, self, gas: gasKwh, battCharge, battDischarge, fromBatt, gridToBatt, use: sum(split.map((x) => x.use)) };
   };
   const cur = totals({ ...raw, ...gasRaw }, sp.buckets);
   const before = totals(rawPrev, prev.buckets);
@@ -217,10 +241,14 @@ function card(cls, ic, label, big, sub) {
 
 const COLORS = ["var(--hp-accent)", "#7fb4e8", "#c79be8", "#e89b9b"];
 const SOLAR = "var(--hp-green)";
+const BATTERY = "#e8c26b";
 
 function chart(ctx, data, range) {
   const { sp, cur, src } = data;
-  const stacks = sp.buckets.map((_, i) => [...cur.imp.map((s) => s[i]), cur.self[i]]);
+  // What went into the battery from the grid is not house use: it comes off the first meter.
+  const gridUse = (k, i) => (k === 0 ? Math.max(0, cur.imp[k][i] - cur.gridToBatt[i]) : cur.imp[k][i]);
+  const battOn = src.battery.length > 0;
+  const stacks = sp.buckets.map((_, i) => [...cur.imp.map((_s, k) => gridUse(k, i)), ...(battOn ? [cur.fromBatt[i]] : []), cur.self[i]]);
   const max = Math.max(0.001, ...stacks.map(sum));
   const info = h("div", { class: "hp-en-info" });
   const label = (d) => (range === "day" ? `${String(d.getHours()).padStart(2, "0")}:00`
@@ -231,7 +259,7 @@ function chart(ctx, data, range) {
   const cols = [];
   const showInfo = (i) => {
     cols.forEach((c, k) => c.classList.toggle("active", k === i));
-    const parts = [...src.meters.map((m, k) => [m.name, cur.imp[k][i]]), [t("solar"), cur.self[i]]].filter(([, v]) => v > 0.005);
+    const parts = [...src.meters.map((m, k) => [m.name, gridUse(k, i)]), ...(battOn ? [[t("battery"), cur.fromBatt[i]]] : []), [t("solar"), cur.self[i]]].filter(([, v]) => v > 0.005);
     info.replaceChildren(h("b", {}, label(sp.buckets[i])), h("span", {}, kwh(ctx, sum(stacks[i]))),
       ...parts.map(([nm, v]) => h("small", {}, `${nm} ${formatNumber(ctx.hass, v, 2)}`)));
   };
@@ -239,7 +267,8 @@ function chart(ctx, data, range) {
     const stack = h("div", { class: "hp-en-stack", style: { height: `${(sum(st) / max) * 100}%` } });
     st.forEach((v, k) => {
       if (v <= 0) return;
-      stack.append(h("i", { style: { flexGrow: String(v), background: k === st.length - 1 ? SOLAR : COLORS[k % COLORS.length] } }));
+      const bg = k === st.length - 1 ? SOLAR : battOn && k === st.length - 2 ? BATTERY : COLORS[k % COLORS.length];
+      stack.append(h("i", { style: { flexGrow: String(v), background: bg } }));
     });
     const col = h("div", { class: "hp-en-col" }, stack);
     col.addEventListener("pointerenter", () => showInfo(i));
@@ -253,6 +282,7 @@ function chart(ctx, data, range) {
     range === "day" ? String(d.getHours()) : range === "year" ? formatDate(ctx.hass, d, { month: "narrow" }) : range === "week" ? formatDate(ctx.hass, d, { weekday: "short" }) : String(d.getDate()))));
   const legend = h("div", { class: "hp-en-legend" },
     ...src.meters.map((m, k) => h("span", {}, h("i", { style: { background: COLORS[k % COLORS.length] } }), m.name)),
+    battOn ? h("span", {}, h("i", { style: { background: BATTERY } }), t("battery")) : null,
     src.solar.length ? h("span", {}, h("i", { style: { background: SOLAR } }), t("solar_self")) : null);
   const last = [...stacks.keys()].reverse().find((i) => sum(stacks[i]) > 0);
   if (last != null) showInfo(last);
@@ -359,6 +389,8 @@ export function energyView(ctx) {
     const solar = sum(cur.sol);
     const exported = sum(cur.exp);
     const self = sum(cur.self);
+    // Own energy: straight from the roof plus what came back out of the battery.
+    const own = self + sum(cur.fromBatt);
     const diff = before.use > 0.05 ? (cur.use - before.use) / before.use : null;
     const cmp = diff == null ? null : t(st.range === "day" ? "vs_yesterday" : "vs_before", { p: `${diff > 0 ? "+" : "−"}${formatNumber(ctx.hass, Math.abs(diff * 100), 0)} %` });
     const cards = [
@@ -367,7 +399,7 @@ export function energyView(ctx) {
     ];
     if (s.solar.length) {
       cards.push(card("solar", "mdi:solar-power-variant-outline", t("solar"), kwh(ctx, solar), exported > 0.01 ? t("fed_in", { v: kwh(ctx, exported) }) : null));
-      cards.push(card("auto", "mdi:leaf", t("self_sufficiency"), `${formatNumber(ctx.hass, cur.use > 0 ? (self / cur.use) * 100 : 0, 0)} %`, t("own_solar", { v: kwh(ctx, self) })));
+      cards.push(card("auto", "mdi:leaf", t("self_sufficiency"), `${formatNumber(ctx.hass, cur.use > 0 ? Math.min(100, (own / cur.use) * 100) : 0, 0)} %`, t("own_solar", { v: kwh(ctx, self) })));
     }
     if (s.gas.length) {
       // Several gas meters add up when they count in the same unit.

@@ -32,6 +32,7 @@ import { wasteSources, loadPickups, openWaste, whenText } from "./waste.js";
 import { noticesBlock } from "./notices.js";
 import { hasParcels, incomingParcels, deliveredParcels, parcelChipText, openParcels } from "./parcels.js";
 import { switchLights } from "./switching.js";
+import { gridRate } from "./energy.js";
 
 export const LAYOUTS = [
   { id: "grid", icon: "mdi:view-grid-outline" },
@@ -150,7 +151,7 @@ export function homeCats(ctx) {
   const climate = climates.length ? chip("climate", "mdi:thermometer", t("climate"), () => (classicPopups(ctx) ? openClimateSheet(ctx, climates) : openClimateOverview(ctx, climates, () => openClimateSheet(ctx, climates)))) : null;
   const sec = m.security.length ? chip("security", "mdi:shield-outline", t("security"), () => (classicPopups(ctx) ? openSecuritySheet(ctx) : openSecurityOverview(ctx, () => openSecuritySheet(ctx)))) : null;
   const grid = ctx.energyPrefs?.energy_sources?.find((x) => x.type === "grid");
-  const rate = grid && (grid.power_config?.stat_rate || grid.stat_rate);
+  const rate = gridRate(grid);
   const energy = rate ? chip("energy", "mdi:lightning-bolt-outline", t("energy"), () => openEnergyFlow(ctx, rate)) : null;
   const hasAgenda = ctx.agenda.calendars().length;
   const today = hasAgenda ? chip("today", "mdi:calendar-blank-outline", t("today"), () => openCalendar(ctx)) : null;

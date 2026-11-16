@@ -1,6 +1,6 @@
 // Sheets and dialogs: details, confirm, text input, add device, hidden items.
 import { h, icon, domainOf, entityName } from "./util.js";
-import { entityIcon, stateText, buildControls, hasControls, openMoreInfo } from "./domains.js";
+import { entityIcon, stateText, buildControls, hasControls, openMoreInfo, HAZARD, hazardInfo } from "./domains.js";
 import { usageBlock, meterSensors, deviceName, watts, applianceFor, applianceText } from "./usage.js";
 import { t } from "./i18n.js";
 import { timerBlock, canHaveTimer } from "./timers.js";
@@ -294,15 +294,17 @@ export function hiddenDialog(ctx, container, hidden, label) {
   const list = h("div", { class: "hp-add-list" });
   const draw = (keys) => {
     list.replaceChildren();
+    // The hazard group is named after the sensors it holds (smoke, leak, gas or a mix).
+    const hz = hazardInfo(hass, Object.keys(hass.states).filter((e) => domainOf(e) === "binary_sensor" && HAZARD.includes(hass.states[e].attributes.device_class)));
     for (const id of keys) {
       const st = hass.states[id];
       const name = container === "rooms" ? ctx.model.areaById.get(id)?.name || id
         : container === "dock" ? ctx.tabLabel(id)
-        : id === "group:smoke" ? t("smoke_alarms")
+        : id === "group:smoke" ? hz.label
         : entityName(hass, id);
       const ic = container === "rooms" ? ctx.model.areaById.get(id)?.icon || "mdi:texture-box"
         : container === "dock" ? ctx.tabIcon(id)
-        : id === "group:smoke" ? "mdi:smoke-detector-variant" : entityIcon(hass, st);
+        : id === "group:smoke" ? hz.icon : entityIcon(hass, st);
       const row = h("button", { class: "hp-add-row" }, h("div", { class: "hp-tile-icon" }, icon(ic)), h("div", { class: "hp-add-text" }, name), icon("mdi:eye"));
       row.addEventListener("click", () => {
         ctx.settings.unhide(container, id);

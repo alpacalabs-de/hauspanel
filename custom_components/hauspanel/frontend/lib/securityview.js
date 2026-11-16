@@ -1,7 +1,7 @@
 // Security page: a status row (locks, doors, alarm, smoke) and a wall of live cameras.
 import { h, icon, entityName, bindTapHold, domainOf, isUnavailable } from "./util.js";
 import { isOn } from "./model.js";
-import { entityIcon, stateText, tapAction, linkedCover } from "./domains.js";
+import { entityIcon, stateText, tapAction, linkedCover, HAZARD, hazardInfo } from "./domains.js";
 import { openSheet } from "./dialogs.js";
 import { liveVideo, snapshotUrl, findMedia, openCameraFull } from "./camera.js";
 import { sortable } from "./drag.js";
@@ -26,7 +26,7 @@ export function statusItems(ctx) {
   // Lock sensors (binary_sensor, device class lock) stand with the locks.
   const locks = sec.filter((id) => (domainOf(id) === "lock" && !linked.has(id)) || (domainOf(id) === "binary_sensor" && dc(id) === "lock"));
   const doors = sec.filter((id) => domainOf(id) === "binary_sensor" && OPENING.has(dc(id)));
-  const smoke = sec.filter((id) => domainOf(id) === "binary_sensor" && ["smoke", "gas", "moisture", "safety"].includes(dc(id)));
+  const smoke = sec.filter((id) => domainOf(id) === "binary_sensor" && HAZARD.includes(dc(id)));
   const other = sec.filter((id) => domainOf(id) === "binary_sensor" && !doors.includes(id) && !smoke.includes(id) && !locks.includes(id));
   return { alarm, locks, gates, doors, smoke, other };
 }
@@ -220,13 +220,14 @@ function secRow(ctx, id) {
   return el;
 }
 
-/** The smoke detectors as one line. */
+/** The smoke, gas and leak sensors as one line. */
 function smokeRow(ctx, ids) {
+  const hz = hazardInfo(ctx.hass, ids);
   const state = h("small", {});
   const el = h("div", { class: "hp-sec-row", role: "button", tabindex: "0", dataset: { key: SMOKE_KEY } },
-    h("div", { class: "hp-sec-ic" }, icon("mdi:smoke-detector-variant")), h("div", { class: "hp-sec-text" }, h("b", {}, t("smoke_alarms")), state),
+    h("div", { class: "hp-sec-ic" }, icon(hz.icon)), h("div", { class: "hp-sec-text" }, h("b", {}, hz.label), state),
     icon("mdi:chevron-right"));
-  el.addEventListener("click", () => openGroupSheet(ctx, ids, t("smoke_alarms")));
+  el.addEventListener("click", () => openGroupSheet(ctx, ids, hz.label));
   el.update = (hass) => {
     const bad = ids.filter((id) => isAlert(hass, id));
     const off = ids.filter((id) => isUnavailable(hass.states[id]));
@@ -236,6 +237,12 @@ function smokeRow(ctx, ids) {
   el.update(ctx.hass);
   return el;
 }
+
+/** One pill for all smoke, gas and leak sensors, named after what they are. */
+const hazardPill = (ctx, ids) => {
+  const hz = hazardInfo(ctx.hass, ids);
+  return groupPill(ctx, ids, { iconName: hz.icon, label: hz.label });
+};
 
 /** One pill for all smoke detectors; tap lists them. */
 function groupPill(ctx, ids, { iconName, label }) {
@@ -301,7 +308,7 @@ export function openSecuritySheet(ctx) {
     return { s, auto, ...ctx.settings.arrange(C, auto, valid) };
   };
   const pillFor = (s, id) => (id === SMOKE_KEY
-    ? groupPill(ctx, s.smoke, { iconName: "mdi:smoke-detector-variant", label: t("smoke_alarms") })
+    ? hazardPill(ctx, s.smoke)
     : statusPill(ctx, id));
 
   function draw() {
@@ -393,7 +400,7 @@ export function statusRow(ctx, { compact = false } = {}) {
   // Compact: what is open or unlocked comes first.
   if (compact) ids = [...ids.filter((id) => isAlert(ctx.hass, id)), ...ids.filter((id) => !isAlert(ctx.hass, id))];
   for (const id of ids) row.append(statusPill(ctx, id));
-  if (s.smoke.length) row.append(groupPill(ctx, s.smoke, { iconName: "mdi:smoke-detector-variant", label: t("smoke_alarms") }));
+  if (s.smoke.length) row.append(hazardPill(ctx, s.smoke));
   // The compact row (iPhone Home) leaves out motion and other sensors.
   if (s.other.length && !compact) row.append(groupPill(ctx, s.other, { iconName: "mdi:motion-sensor", label: t("sensors") }));
   return row.childNodes.length ? row : null;
@@ -420,7 +427,7 @@ export function homeSecurity(ctx) {
   const row = h("div", { class: "hp-spill-row compact", dataset: { container: HOME_SEC_CONTAINER } });
   for (const id of ids) {
     const el = id === SMOKE_KEY
-      ? groupPill(ctx, s.smoke, { iconName: "mdi:smoke-detector-variant", label: t("smoke_alarms") })
+      ? hazardPill(ctx, s.smoke)
       : statusPill(ctx, id);
     el.dataset.key = id;
     const minus = h("button", { class: "hp-edit-minus", "aria-label": t("hide") }, icon("mdi:minus"));

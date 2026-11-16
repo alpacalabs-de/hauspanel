@@ -14,7 +14,7 @@ import { setupHints } from "./hints.js";
 import { noticesSection } from "./notices.js";
 import { setPref } from "./userprefs.js";
 import { takeSettings } from "./store.js";
-import { powerSensors } from "./energy.js";
+import { powerSensors, gridRate } from "./energy.js";
 import { meterSensors, deviceName } from "./usage.js";
 import { doorbells, bellCameras, openers, bellEnabled, bellCamera, bellOpener, ringNow } from "./doorbell.js";
 import { SAVER_MINUTES, saverLayout } from "./screensaver.js";
@@ -406,7 +406,7 @@ export function openSettings(ctx) {
         // Sensor names are long: the label above, the picker in full width below it.
         const stack = (el) => { el.classList.add("stack"); return el; };
         const rows = [];
-        if (grid) rows.push(stack(row(t("set_energy_grid"), picker(pick.grid, grid.power_config?.stat_rate || grid.stat_rate, (v) => setPick((p) => { p.grid = v; })))));
+        if (grid) rows.push(stack(row(t("set_energy_grid"), picker(pick.grid, gridRate(grid), (v) => setPick((p) => { p.grid = v; })))));
         if (solar) rows.push(stack(row(t("set_energy_solar"), picker(pick.solar, solar.stat_rate, (v) => setPick((p) => { p.solar = v; })))));
         const devs = (raw.device_consumption || []).filter((d) => d.stat_consumption);
         const devRows = devs.map((d) => stack(row(d.name || deviceName(ctx.hass, d.stat_consumption),

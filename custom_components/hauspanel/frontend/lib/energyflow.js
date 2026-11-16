@@ -29,8 +29,12 @@ export function openEnergyFlow(ctx, rate) {
   const grid = (prefs.energy_sources || []).find((x) => x.type === "grid");
   const solar = (prefs.energy_sources || []).find((x) => x.type === "solar");
   const solarRate = solar?.stat_rate || null;
-  const priceId = grid?.entity_energy_price;
-  const priceNum = grid?.number_energy_price;
+  // Battery power as Home Assistant keeps it: positive while it gives, negative while it charges.
+  const battRates = (prefs.energy_sources || []).filter((x) => x.type === "battery" && x.stat_rate).map((x) => x.stat_rate);
+  // Older settings keep the meter and its price in flow_from.
+  const gridFrom = grid?.stat_energy_from ? grid : grid?.flow_from?.[0];
+  const priceId = gridFrom?.entity_energy_price;
+  const priceNum = gridFrom?.number_energy_price;
 
   const svg = svgEl("svg", { viewBox: "0 0 320 200", class: "hp-ef-svg" });
   const lines = {};
@@ -64,7 +68,8 @@ export function openEnergyFlow(ctx, rate) {
   const sUse = stat("mdi:home-import-outline", t("ef_today_grid"));
   const sCost = stat("mdi:currency-eur", t("ef_today_cost"));
   const sSun = solarRate ? stat("mdi:white-balance-sunny", t("ef_today_solar")) : null;
-  const stats = h("div", { class: "hp-app-stats" }, sUse, sCost, ...(sSun ? [sSun] : []));
+  const sBatt = battRates.length ? stat("mdi:home-battery-outline", t("battery")) : null;
+  const stats = h("div", { class: "hp-app-stats" }, sUse, sCost, ...[sSun, sBatt].filter(Boolean));
 
   const devices = (prefs.device_consumption || []).map((d) => ({
     name: d.name || deviceName(hass, d.stat_consumption),
@@ -92,7 +97,12 @@ export function openEnergyFlow(ctx, rate) {
   const update = (hs) => {
     const g = watts(hs, rate) ?? 0;
     const s = solarRate ? Math.max(0, watts(hs, solarRate) ?? 0) : 0;
-    const home = Math.max(0, g + s);
+    const b = battRates.reduce((acc, id) => acc + (watts(hs, id) ?? 0), 0);
+    const home = Math.max(0, g + s + b);
+    if (sBatt) {
+      sBatt.set(formatWatts(hs, Math.abs(b)));
+      sBatt.querySelector("small").textContent = t(b < -5 ? "ef_batt_charging" : b > 5 ? "ef_batt_giving" : "ef_batt_idle");
+    }
     nGrid.txt.textContent = g < -5 ? `↑ ${formatWatts(hs, -g)}` : formatWatts(hs, Math.max(0, g));
     nHome.txt.textContent = formatWatts(hs, home);
     if (nSolar) nSolar.txt.textContent = formatWatts(hs, s);
@@ -118,7 +128,7 @@ export function openEnergyFlow(ctx, rate) {
   sheet.updaters.push(update);
 
   (async () => {
-    const [imp, sun] = await Promise.all([todayChange(hass, grid?.stat_energy_from), todayChange(hass, solar?.stat_energy_from)]);
+    const [imp, sun] = await Promise.all([todayChange(hass, gridFrom?.stat_energy_from), todayChange(hass, solar?.stat_energy_from)]);
     const price = priceId ? Number(hass.states[priceId]?.state) : priceNum;
     sUse.set(imp != null ? `${fmt(hass, imp, 1)} kWh` : "–");
     sCost.set(imp != null && Number.isFinite(price) ? `${fmt(hass, imp * price, 2)} €` : "–");

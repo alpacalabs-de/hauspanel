@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.7.2
+
+- **Leak and gas sensors** are no longer called smoke alarms. The group in the security popup is named after what it holds: smoke alarms, leak sensors, gas detectors, or detectors for a mix, with a matching icon and alarm text like *Water detected!*.
+- **Home battery** on the energy page: charging no longer counts as use and discharging does, as in Home Assistant's own energy dashboard. The battery gets its own part in the chart, and what came out of it counts for self-sufficiency.
+- **Energy popup**: the house total includes the battery, and a tile shows whether it charges or discharges right now.
+- Energy settings in the older format (grid power under *power*, meter under *flow_from*) are read too. Before, the energy chip and today's grid use and cost were missing there.
+
 ## 1.7.1
 
 - **Time to air** (*Settings → Home → Notices*): a notice on Home for each room with 1400 ppm CO₂ or more, or 70 % humidity or more. Not while a window in the room is open, and not for outdoor rooms or sensors.
