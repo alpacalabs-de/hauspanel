@@ -46,10 +46,10 @@ export const EN_POP = {
   door_title: "Front door", door_last_ring: "Last ring", door_last_motion: "Last motion", door_rang: "Rang lately", door_cameras: "Cameras", door_rang_ago: "Rang {when}",
   leave_chip: "Leaving", leave_title: "Leaving home", leave_go: "Do it all", leave_undo: "Undo", leave_n_todo: "{n} to check", leave_ready: "Ready to go",
   leave_open: "{n} open", leave_open_sub: "Windows and doors – please close them yourself", leave_locks: "{n} unlocked", leave_locks_sub: "Will be locked",
-  leave_covers: "{n} gate open", leave_covers_sub: "Will be closed (off by default)", leave_lights: "{n} lights on", leave_lights_sub: "Will be switched off",
+  leave_covers: "{n} gate open", leave_covers_sub: "Will be closed (off by default)", leave_lights: "{n} lights on", leave_lights_sub: "Will be switched off", leave_heat: "{n} heating", leave_heat_sub: "Set to away or eco, otherwise off (off by default)",
   leave_media: "{n} playing", leave_media_sub: "Will be paused", leave_apps: "{n} running", leave_apps_sub: "Machines keep running",
-  leave_all_good: "Everything is off and closed.", leave_done: "Done – have a good time!", leave_failed: "That did not work.", leave_undone: "Lights and music are back.",
-  leave_undo_failed: "Nothing to undo any more.", leave_undo_note: "Switched off at {time}. Undo puts lights and music back (locks stay locked).",
+  leave_all_good: "Everything is off and closed.", leave_done: "Done – have a good time!", leave_failed: "That did not work.", leave_undone: "Lights, music and heating are back.",
+  leave_undo_failed: "Nothing to undo any more.", leave_undo_note: "Switched off at {time}. Undo puts lights, music and heating back (locks stay locked).",
 };
 
 export const DE_POP = {
@@ -99,8 +99,8 @@ export const DE_POP = {
   door_title: "Haustür", door_last_ring: "Zuletzt geklingelt", door_last_motion: "Letzte Bewegung", door_rang: "Hat zuletzt geklingelt", door_cameras: "Kameras", door_rang_ago: "Geklingelt {when}",
   leave_chip: "Weggehen", leave_title: "Haus verlassen", leave_go: "Alles erledigen", leave_undo: "Rückgängig", leave_n_todo: "{n} zu prüfen", leave_ready: "Alles bereit",
   leave_open: "{n} offen", leave_open_sub: "Fenster und Türen – bitte selbst schließen", leave_locks: "{n} aufgeschlossen", leave_locks_sub: "Wird abgeschlossen",
-  leave_covers: "{n} Tor offen", leave_covers_sub: "Wird geschlossen (standardmäßig aus)", leave_lights: "{n} Lichter an", leave_lights_sub: "Werden ausgeschaltet",
+  leave_covers: "{n} Tor offen", leave_covers_sub: "Wird geschlossen (standardmäßig aus)", leave_lights: "{n} Lichter an", leave_lights_sub: "Werden ausgeschaltet", leave_heat: "{n} heizt", leave_heat_sub: "Auf Abwesend oder Eco, sonst aus (standardmäßig aus)",
   leave_media: "{n} spielt", leave_media_sub: "Wird pausiert", leave_apps: "{n} läuft", leave_apps_sub: "Geräte laufen weiter",
-  leave_all_good: "Alles ist aus und zu.", leave_done: "Erledigt – bis später!", leave_failed: "Das hat nicht geklappt.", leave_undone: "Licht und Musik sind wieder da.",
-  leave_undo_failed: "Es gibt nichts mehr rückgängig zu machen.", leave_undo_note: "Um {time} ausgeschaltet. Rückgängig bringt Licht und Musik zurück (Schlösser bleiben zu).",
+  leave_all_good: "Alles ist aus und zu.", leave_done: "Erledigt – bis später!", leave_failed: "Das hat nicht geklappt.", leave_undone: "Licht, Musik und Heizung sind wieder wie vorher.",
+  leave_undo_failed: "Es gibt nichts mehr rückgängig zu machen.", leave_undo_note: "Um {time} ausgeschaltet. Rückgängig bringt Licht, Musik und Heizung zurück (Schlösser bleiben zu).",
 };

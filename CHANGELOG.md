@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.8.0
+
+- **Detector alarms on Home** (*Settings → Home → Notices → Detectors*): a red notice on Home while a smoke, leak or gas detector raises the alarm, with its room and what it found.
+- **Weak detector batteries**: a notice on Home when a detector's battery is at 20 % or less. Devices you put aside under *Maintenance* don't count. Both can be switched off together.
+- **Battery in the energy popup**: the home battery is its own circle below the grid. The line runs into the battery while it charges and into the house while it gives.
+- **Energy chip** (*Settings → Home → Status chips*): shows the grid as before, or the whole house with solar and battery.
+- **Water** on the energy page: a card with litres, cost and the change to the day before, and a thin row of water bars below the chart. A tap opens today, this week and this month, and the flow right now when there is a flow sensor. Uses the water meter from Home Assistant's energy settings.
+- **Night view** for wall tablets (*Settings → This screen → Night view*): at night the tablet turns into a security screen with the chosen cameras live and large, the rest small, locks, gates and open doors, and the alarm modes. Night by the sun or set times. A tap shows Home for 2 minutes. Pick whether it takes the screensaver's place at night or both come.
+- **Leaving home** now lists thermostats that are heating. Tick them and they go to their away or eco mode, or off if they have neither. Off by default, and *Undo* puts them back too.
+- **Remote** in the player popup: a player whose device has a remote in Home Assistant gets a second tab with the arrows, OK, back, home and menu, next to volume, source and playback. Held arrows repeat. Works with Apple TV, Android TV, Roku, Samsung, Sony Bravia, Philips and LG. Players without a remote look as before.
+
 ## 1.7.2
 
 - **Leak and gas sensors** are no longer called smoke alarms. The group in the security popup is named after what it holds: smoke alarms, leak sensors, gas detectors, or detectors for a mix, with a matching icon and alarm text like *Water detected!*.

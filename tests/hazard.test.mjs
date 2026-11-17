@@ -27,3 +27,31 @@ test("a mix is called detectors, and smoke wins the alarm text", () => {
   assert.equal(hz.label, t("hazard_sensors"));
   assert.equal(hz.alarm, t("ov_smoke_alarm"));
 });
+
+const { hazardAlarms, hazardBatteries } = await import(LIB + "notices.js");
+const { fakeHass } = await import("./fake.mjs");
+
+test("an alarm shows on Home, a hidden detector does not", () => {
+  const hass = fakeHass({
+    states: { "binary_sensor.leak": sensor("moisture", true), "binary_sensor.old": sensor("smoke", true), "binary_sensor.door": sensor("door", true) },
+    entities: { "binary_sensor.old": { hidden: true } },
+  });
+  assert.deepEqual(hazardAlarms(hass), ["binary_sensor.leak"]);
+});
+
+test("a detector with a weak battery on its device shows once", () => {
+  const batt = (v) => ({ state: String(v), attributes: { device_class: "battery", unit_of_measurement: "%" } });
+  const hass = fakeHass({
+    states: { "binary_sensor.smoke": sensor("smoke"), "sensor.smoke_battery": batt(15), "binary_sensor.leak": sensor("moisture"), "sensor.leak_battery": batt(80),
+      "binary_sensor.gas": sensor("gas"), "sensor.gas_battery": batt(5) },
+    entities: { "binary_sensor.smoke": { device_id: "d1" }, "sensor.smoke_battery": { device_id: "d1" }, "binary_sensor.leak": { device_id: "d2" }, "sensor.leak_battery": { device_id: "d2" },
+      "binary_sensor.gas": { device_id: "d3" }, "sensor.gas_battery": { device_id: "d3" } },
+  });
+  assert.deepEqual(hazardBatteries(hass).map((b) => [b.id, b.level]), [["binary_sensor.smoke", 15], ["binary_sensor.gas", 5]]);
+  assert.deepEqual(hazardBatteries(hass, ["d3"]).map((b) => b.id), ["binary_sensor.smoke"]);
+});
+
+test("with the panel's security items only those detectors count", () => {
+  const hass = fakeHass({ states: { "binary_sensor.smoke": sensor("smoke", true), "binary_sensor.pool_gas": sensor("gas", true) } });
+  assert.deepEqual(hazardAlarms(hass, ["binary_sensor.smoke"]), ["binary_sensor.smoke"]);
+});

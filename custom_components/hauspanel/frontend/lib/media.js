@@ -2,6 +2,7 @@
 import { h, icon, supports, slider, entityName } from "./util.js";
 import { MEDIA, roundBtn } from "./domains.js";
 import { openSheet } from "./dialogs.js";
+import { remoteFor, remoteView } from "./remote.js";
 import { t } from "./i18n.js";
 
 const fmt = (s) => {
@@ -176,6 +177,35 @@ export function openPlayer(ctx, entityId) {
   }
   const lists = playlistPicker(ctx, entityId);
   if (lists) sheet.body.append(lists);
+
+  // Only players with a remote get the switch; everything else stays exactly as it was.
+  const rc = remoteFor(ctx.hass, entityId);
+  if (!rc) return;
+  const remote = remoteView(ctx, entityId, rc, { narrow: ctx.narrow });
+  sheet.body.append(remote);
+  sheet.updaters.push((hass) => remote.update(hass));
+  // Speaker grouping and playlists belong to the player, so they go away with it.
+  const playerParts = [view, rooms, lists].filter(Boolean);
+  const pick = h("div", { class: "hp-seg hp-player-tabs" });
+  let tab = ctx.settings.device.remoteTab?.[entityId] === "remote" ? "remote" : "player";
+  const paint = () => {
+    for (const p of playerParts) p.hidden = tab !== "player";
+    remote.hidden = tab !== "remote";
+    for (const b of pick.children) b.classList.toggle("active", b.dataset.tab === tab);
+  };
+  for (const [key, label] of [["player", t("player")], ["remote", t("remote")]]) {
+    const b = h("button", { dataset: { tab: key } }, label);
+    b.addEventListener("click", (e) => {
+      e.stopPropagation();
+      tab = key;
+      paint();
+      // Kept per player and per screen: the tablet in the living room can differ from the phone.
+      ctx.settings.setDevice("remoteTab", { ...(ctx.settings.device.remoteTab || {}), [entityId]: key });
+    });
+    pick.append(b);
+  }
+  sheet.body.prepend(pick);
+  paint();
 }
 
 const GROUPING = 524288;

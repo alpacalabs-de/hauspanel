@@ -105,12 +105,14 @@ export function screensaver(ctx, root) {
     tick() {
       if (el) {
         // A popup opening on its own (the doorbell) wakes the screen.
-        if (!forced && (ctx.sheets.size || !saverLayout(ctx.layout) || !minutes())) return hide();
+        if (!forced && (ctx.sheets.size || !saverLayout(ctx.layout) || !minutes() || ctx._night?.blocksSaver())) return hide();
         const m = new Date().getMinutes();
         if (m !== lastMin) { lastMin = m; fill(); }
         return;
       }
       idle++;
+      // At night the night view can take the screensaver's place (Settings → This screen).
+      if (ctx._night?.blocksSaver()) return;
       if (saverDue({ minutes: minutes(), idleSec: idle, layout: ctx.layout, sheets: ctx.sheets.size, editing: ctx.editing, hidden: document.hidden })) show();
     },
     /** A touch, a key or the mouse wheel anywhere in the panel. */

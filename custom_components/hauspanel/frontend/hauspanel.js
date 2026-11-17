@@ -33,6 +33,7 @@ import { fitToScreen } from "./lib/fit.js";
 import { loadEnergyPrefs, hasEnergy, energyView, withEnergyPicks } from "./lib/energy.js";
 import { startUpdateCheck } from "./lib/update.js";
 import { screensaver } from "./lib/screensaver.js";
+import { nightView } from "./lib/nightview.js";
 import { TimerClient } from "./lib/timers.js";
 import { renderPhone, isPhoneScreen, bindEdgeSwipe } from "./lib/phone.js";
 import { renderSecurityPanel, securityBar, securityStatePill, securityPages, bindPageSwipe } from "./lib/securitypanel.js";
@@ -175,6 +176,7 @@ class HausPanelElement extends HTMLElement {
     // Slow tablet? A second of frames after start tells; Settings → This screen can also force it.
     measureSpeed().then((slow) => { this._slow = slow; if (slow && this.lite) this.rerender(); });
     this._saver = screensaver(this, this._rootEl);
+    this._night = nightView(this, this._rootEl);
     this._clockTimer = setInterval(() => this._second(), 1000);
     this._updateTimer = startUpdateCheck(this, this._rootEl);
     const activity = () => this._activity();
@@ -853,11 +855,13 @@ class HausPanelElement extends HTMLElement {
   /** Every second: the clock, and the screensaver counting the time without a touch. */
   _second() {
     this._tick();
+    this._night?.tick();
     this._saver?.tick();
   }
 
   _activity() {
     this._secIdle = 0;
+    this._night?.activity();
     this._saver?.activity();
   }
 

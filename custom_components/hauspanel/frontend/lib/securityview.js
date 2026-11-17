@@ -3,7 +3,7 @@ import { h, icon, entityName, bindTapHold, domainOf, isUnavailable } from "./uti
 import { isOn } from "./model.js";
 import { entityIcon, stateText, tapAction, linkedCover, HAZARD, hazardInfo } from "./domains.js";
 import { openSheet } from "./dialogs.js";
-import { liveVideo, snapshotUrl, findMedia, openCameraFull } from "./camera.js";
+import { liveVideo, snapshotUrl, trackAspect, openCameraFull } from "./camera.js";
 import { sortable } from "./drag.js";
 import { t } from "./i18n.js";
 
@@ -469,19 +469,8 @@ export function cameraCard(ctx, id) {
     // while it connects, or when the stream stalls, the dot is grey.
     new MutationObserver(() => el.classList.toggle("playing", player.classList.contains("playing"))).observe(player, { attributes: true, attributeFilter: ["class"] });
     // Once the live picture runs, its own shape wins (a still can come from a substream with another shape).
-    let tries = 0;
-    const measure = setInterval(() => {
-      const m = findMedia(player) || findMedia(player.shadowRoot);
-      // Security page: the picture fills the even 16:9 frame (HA's player letterboxes it otherwise).
-      if (m && el.closest(".hp-camwall")) Object.assign(m.style, { objectFit: "cover", width: "100%", height: "100%" });
-      const w = m?.videoWidth || m?.naturalWidth;
-      const hgt = m?.videoHeight || m?.naturalHeight;
-      if (w && hgt) {
-        el.style.setProperty("--ar", (w / hgt).toFixed(4));
-        el.classList.add("live-sized");
-      }
-      if (((w && hgt) && !el.closest(".hp-camwall")) || ++tries > 30 || !el.isConnected && tries > 5) clearInterval(measure);
-    }, 1000);
+    // On the Security page the card keeps its even 16:9 frame, so there the picture fills it instead.
+    trackAspect(el, player, { fillSelector: ".hp-camwall" });
   } else {
     el.classList.add("unavail");
   }

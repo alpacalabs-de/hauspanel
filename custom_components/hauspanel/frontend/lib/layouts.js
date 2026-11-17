@@ -16,7 +16,7 @@ import { openPrinter, printerForEntity, runningPrinters, printerText, printerNam
 import { runningAppliances, appliancesIn, linkedPlugEntities } from "./usage.js";
 import { carDevices, carName, carText, openCar } from "./car.js";
 import { poolDevices, openPool } from "./pool.js";
-import { openEnergyFlow } from "./energyflow.js";
+import { openEnergyFlow, livePower } from "./energyflow.js";
 import { openLeave, leaveItems } from "./leave.js";
 import { classicPopups, openSecurityOverview, openLightOverview, openClimateOverview } from "./overviews.js";
 import { openDoor } from "./door.js";
@@ -199,9 +199,9 @@ export function homeCats(ctx) {
       sec.classList.toggle("ok", !open);
     }
     if (energy) {
-      const st = hass.states[rate];
-      const v = Number(st?.state);
-      const w = st?.attributes.unit_of_measurement === "kW" ? v * 1000 : v;
+      // The grid (negative while feeding in) or, if chosen, what the whole house uses with solar and battery.
+      const live = livePower(hass, ctx.energyPrefs, rate);
+      const w = (ctx.settings.s.energyChip === "house" ? live.house : live.grid) ?? NaN;
       energy.val.textContent = Number.isFinite(w) ? (Math.abs(w) >= 1000 ? `${formatNumber(hass, w / 1000, 1)} kW` : `${formatNumber(hass, w, 0)} W`) : "–";
     }
     if (maint && Date.now() - maintAt > 30000) {

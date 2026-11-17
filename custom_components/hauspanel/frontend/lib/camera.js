@@ -80,6 +80,44 @@ export function findMedia(root) {
 
 const hasPicture = (m) => !!m && (m.tagName === "VIDEO" ? m.readyState >= 2 && m.videoWidth > 0 : m.naturalWidth > 0);
 
+/** The shape of a picture element (width / height), or null while it has none. */
+export function mediaAspect(m) {
+  const w = m?.videoWidth || m?.naturalWidth;
+  const hgt = m?.videoHeight || m?.naturalHeight;
+  return w && hgt ? Number((w / hgt).toFixed(4)) : null;
+}
+
+/**
+ * Keeps `--ar` on `el` at the camera's own shape, measured from the live picture.
+ * A still can come from a substream with another shape, so the live one wins;
+ * until it arrives, `--ar` keeps its default from the stylesheet (16/9).
+ *
+ * `fillSelector`: while `el` sits inside such an element the frame has a fixed
+ * shape of its own, so the picture is made to fill it (HA's player letterboxes
+ * it otherwise) and measuring keeps running.
+ *
+ * `fit`: the object-fit for the picture itself. Worth setting to "contain" when
+ * the frame follows --ar: until the first measurement the frame is still 16/9,
+ * and HA's player sits in its own shadow DOM where the stylesheet cannot reach
+ * it. Returns a function that stops the measuring.
+ */
+export function trackAspect(el, player, { fillSelector = "", fit = "", every = 1000, maxTries = 30 } = {}) {
+  let tries = 0;
+  const timer = setInterval(() => {
+    const m = findMedia(player) || findMedia(player?.shadowRoot);
+    // Looked up every round, not once: the element is usually measured before it is on the page.
+    const fills = !!fillSelector && !!el.closest(fillSelector);
+    if (m && (fills || fit)) Object.assign(m.style, { objectFit: fills ? "cover" : fit, width: "100%", height: "100%" });
+    const ar = mediaAspect(m);
+    if (ar) {
+      el.style.setProperty("--ar", String(ar));
+      el.classList.add("live-sized");
+    }
+    if ((ar && !fills) || ++tries > maxTries || (!el.isConnected && tries > 5)) clearInterval(timer);
+  }, every);
+  return () => clearInterval(timer);
+}
+
 /** A moving picture that keeps working: HA's player first, MJPEG when that shows nothing. */
 export function liveVideo(ctx, entityId, { controls = false } = {}) {
   const wrap = h("div", { class: "hp-live-wrap" });

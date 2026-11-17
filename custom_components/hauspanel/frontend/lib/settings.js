@@ -18,6 +18,7 @@ import { powerSensors, gridRate } from "./energy.js";
 import { meterSensors, deviceName } from "./usage.js";
 import { doorbells, bellCameras, openers, bellEnabled, bellCamera, bellOpener, ringNow } from "./doorbell.js";
 import { SAVER_MINUTES, saverLayout } from "./screensaver.js";
+import { camModes } from "./nightview.js";
 import { openDiagnostics } from "./diagnostics.js";
 import { lockMode, choosePin } from "./editlock.js";
 
@@ -161,6 +162,51 @@ export function openSettings(ctx) {
       tryBtn.addEventListener("click", () => ctx._saver?.tryNow());
       return [pick, dim, row(t("saver_preview"), tryBtn)];
     };
+    // Night view (wall layouts only): at night this tablet turns into a security screen.
+    const nightRows = () => {
+      if (!saverLayout(ctx.layout)) return [];
+      const on = !!dev.night;
+      const rows = [row(t("nv_title"), toggleSwitch(on, () => { S.setDevice("night", !on); draw(); }), t("nv_hint"))];
+      if (!on) return rows;
+      const when = dev.nightWhen || "sun";
+      rows.push(row(t("nv_when"), h("div", { class: "hp-seg" }, [["sun", t("nv_sun")], ["time", t("nv_time")]].map(([v, label]) => {
+        const b = h("button", { class: when === v ? "active" : "" }, label);
+        b.addEventListener("click", () => { S.setDevice("nightWhen", v); draw(); });
+        return b;
+      })), when === "sun" ? t("nv_sun_hint") : null));
+      if (when === "time") {
+        const from = h("input", { type: "time", class: "hp-input hp-nv-timein", value: dev.nightFrom || "22:00" });
+        const to = h("input", { type: "time", class: "hp-input hp-nv-timein", value: dev.nightTo || "06:00" });
+        from.addEventListener("change", () => from.value && S.setDevice("nightFrom", from.value));
+        to.addEventListener("change", () => to.value && S.setDevice("nightTo", to.value));
+        rows.push(row(t("nv_from_to"), h("div", { class: "hp-notice-ctl" }, from, h("span", { class: "hp-muted" }, "–"), to)));
+      }
+      const saver = dev.nightSaver || "replace";
+      rows.push(row(t("nv_saver"), h("div", { class: "hp-seg" }, [["replace", t("nv_saver_replace")], ["both", t("nv_saver_both")]].map(([v, label]) => {
+        const b = h("button", { class: saver === v ? "active" : "" }, label);
+        b.addEventListener("click", () => { S.setDevice("nightSaver", v); draw(); });
+        return b;
+      })), t("nv_saver_hint")));
+      // Each camera: tap to go through big (live), small and off.
+      const cams = cameraList(ctx).items;
+      if (cams.length) {
+        const chosen = dev.nightCams || {};
+        const modes = camModes(cams, chosen);
+        const NEXT = { big: "small", small: "off", off: "big" };
+        const chips = h("div", { class: "hp-nv-chips" }, cams.map((id) => {
+          const m = modes[id];
+          const b = h("button", { class: `hp-chip nv-${m}` }, icon(m === "big" ? "mdi:play-circle-outline" : m === "small" ? "mdi:image-outline" : "mdi:eye-off-outline"),
+            `${ctx.hass.states[id]?.attributes.friendly_name || id} · ${t(`nv_cam_${m}`)}`);
+          b.addEventListener("click", () => { S.setDevice("nightCams", { ...modes, [id]: NEXT[m] }); draw(); });
+          return b;
+        }));
+        rows.push(h("div", { class: "hp-nv-camset" }, h("p", { class: "hp-muted small" }, t("nv_cams_hint")), chips));
+      }
+      const tryBtn = h("button", { class: "hp-chip" }, icon("mdi:shield-moon-outline"), t("saver_try"));
+      tryBtn.addEventListener("click", () => ctx._night?.tryNow());
+      rows.push(row(t("saver_preview"), tryBtn));
+      return rows;
+    };
     // Cameras: which ones the Security page shows (for everyone), and whose movements the security
     // popup lists (only for the signed-in user). Before, both were only in edit mode and the popup.
     const camerasSection = () => {
@@ -231,6 +277,7 @@ export function openSettings(ctx) {
             })))));
       }
       add("device", section(t("set_screen"), sidebarRow(), liteRow(), dev.layout === "security" ? camsRow() : null, ...saverRows()));
+      if (saverLayout(ctx.layout)) add("device", section(t("nv_title"), ...nightRows()));
     } else if (kind === "security") {
       add("device", section(t("set_screen"), camsRow(), sidebarRow(), liteRow()));
     }
@@ -310,7 +357,13 @@ export function openSettings(ctx) {
           row(h("span", {}, icon(ic), " ", label), toggleSwitch(cats[k], () => {
             S.update((x) => { x.cats = { ...cats, [k]: !cats[k] }; });
             draw();
-          }))));
+          }))),
+        // What the energy chip shows: the grid, or the whole house (grid, solar and battery together).
+        cats.energy ? row(t("energy_chip_shows"), h("div", { class: "hp-seg" }, [["grid", t("grid")], ["house", t("ef_house")]].map(([v, label]) => {
+          const b = h("button", { class: (s.energyChip === "house" ? "house" : "grid") === v ? "active" : "" }, label);
+          b.addEventListener("click", () => { S.update((x) => { x.energyChip = v; }); draw(); });
+          return b;
+        })), t("energy_chip_hint")) : null);
       const style = s.homeStyle === "favorites" ? "favorites" : "rooms";
       const pick = (v, ic, label, hint) => {
         const b = h("button", { class: `hp-home-style ${style === v ? "active" : ""}` }, icon(ic), h("b", {}, label), h("small", {}, hint));

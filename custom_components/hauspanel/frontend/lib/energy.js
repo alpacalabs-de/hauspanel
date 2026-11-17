@@ -2,6 +2,7 @@
 // Everything comes from Home Assistant's own energy settings and long-term statistics.
 import { h, icon, formatNumber, formatDate, startOfDay, addDays } from "./util.js";
 import { t } from "./i18n.js";
+import { waterSources, waterPrice, toLitres, litresText, openWater } from "./water.js";
 
 const RANGES = ["day", "week", "month", "year"];
 const REFRESH_MS = 5 * 60 * 1000;
@@ -176,11 +177,26 @@ async function loadData(ctx, range, offset) {
   const mainIds = [...src.meters.map((m) => m.from), ...src.meters.map((m) => m.to).filter(Boolean), ...src.solar.map((s) => s.stat_energy_from),
     ...src.battery.flatMap((b) => [b.from, b.to]).filter(Boolean)];
   const gasIds = src.gas.map((g) => g.from);
-  const [raw, rawPrev, gasRaw] = await Promise.all([
+  const water = waterSources(ctx.hass, ctx.energyPrefs);
+  const waterIds = water.map((w) => w.from);
+  const [raw, rawPrev, gasRaw, waterRaw, waterPrev] = await Promise.all([
     fetchChanges(ctx, ids, sp.start, sp.end, sp.period),
     fetchChanges(ctx, mainIds, prev.start, prevEnd, sp.period),
     gasIds.length ? fetchChanges(ctx, gasIds, sp.start, sp.end, sp.period, false) : Promise.resolve({}),
+    // Water stays in the meter's own unit (the price is per that unit); litres are worked out for showing.
+    waterIds.length ? fetchChanges(ctx, waterIds, sp.start, sp.end, sp.period, false) : Promise.resolve({}),
+    waterIds.length ? fetchChanges(ctx, waterIds, prev.start, prevEnd, sp.period, false) : Promise.resolve({}),
   ]);
+  const waterOf = (r, buckets) => {
+    const native = water.map((w) => series(r, w.from, buckets));
+    return {
+      litres: buckets.map((_, i) => sum(water.map((w, k) => toLitres(native[k][i], w.unit)))),
+      cost: sum(water.map((w, k) => (waterPrice(ctx.hass, w) ?? 0) * sum(native[k]))),
+      priced: water.some((w) => waterPrice(ctx.hass, w) != null),
+    };
+  };
+  const waterCur = water.length ? waterOf(waterRaw, sp.buckets) : null;
+  const waterBefore = water.length ? waterOf(waterPrev, prev.buckets) : null;
   // Gas comes in the unit of its sensor (m³ for most meters), the rest in kWh.
   const totals = (r, buckets) => {
     const imp = src.meters.map((m) => series(r, m.from, buckets));
@@ -206,7 +222,7 @@ async function loadData(ctx, range, offset) {
     rate: d.stat_rate,
     kwh: sum(series(raw, d.stat_consumption, sp.buckets)),
   })).filter((d) => d.kwh > 0.005).sort((a, b) => b.kwh - a.kwh);
-  return { src, sp, cur, before, devices };
+  return { src, sp, cur, before, devices, water, waterCur, waterBefore };
 }
 
 // ---------------------------------------------------------------- drawing
@@ -241,7 +257,7 @@ function card(cls, ic, label, big, sub) {
 
 const COLORS = ["var(--hp-accent)", "#7fb4e8", "#c79be8", "#e89b9b"];
 const SOLAR = "var(--hp-green)";
-const BATTERY = "#e8c26b";
+const BATTERY = "#b49cff";
 
 function chart(ctx, data, range) {
   const { sp, cur, src } = data;
@@ -286,7 +302,16 @@ function chart(ctx, data, range) {
     src.solar.length ? h("span", {}, h("i", { style: { background: SOLAR } }), t("solar_self")) : null);
   const last = [...stacks.keys()].reverse().find((i) => sum(stacks[i]) > 0);
   if (last != null) showInfo(last);
-  return h("div", { class: "hp-card hp-en-chart" }, h("div", { class: "hp-en-chart-head" }, legend, info), bars, axis);
+  // Water as its own thin row of bars below, on its own scale (litres don't stack with kWh).
+  let waterRow = null;
+  if (data.waterCur) {
+    const wl = data.waterCur.litres;
+    const wmax = Math.max(0.001, ...wl);
+    waterRow = h("div", { class: "hp-en-water" },
+      h("small", {}, t("water")),
+      h("div", { class: "hp-en-water-bars" }, wl.map((v) => h("i", { style: { height: `${(v / wmax) * 100}%` }, title: litresText(ctx.hass, v) }))));
+  }
+  return h("div", { class: "hp-card hp-en-chart" }, h("div", { class: "hp-en-chart-head" }, legend, info), bars, waterRow, axis);
 }
 
 function consumers(ctx, data, mainPrice) {
@@ -408,6 +433,19 @@ export function energyView(ctx) {
       const gasText = /kwh/i.test(g.unit) ? kwh(ctx, gasTotal) : `${formatNumber(ctx.hass, gasTotal, gasTotal < 10 ? 2 : 1)} ${g.unit}`;
       const gasCost = (price(ctx, g) ?? 0) * gasTotal;
       cards.push(card("gas", "mdi:fire", t("gas"), gasText, gasCost > 0 ? money(ctx, gasCost) : null));
+    }
+    if (data.waterCur) {
+      const wc = data.waterCur;
+      const l = sum(wc.litres);
+      const lb = sum(data.waterBefore.litres);
+      const wd = lb > 1 ? (l - lb) / lb : null;
+      const sign = Math.abs(wd) < 0.005 ? "±" : wd > 0 ? "+" : "−";
+      const wcmp = wd == null ? null : t(st.range === "day" ? "vs_yesterday" : "vs_before", { p: `${sign}${formatNumber(ctx.hass, Math.abs(wd * 100), 0)} %` });
+      const wcard = card("water", "mdi:water-outline", t("water"), litresText(ctx.hass, l), [wc.priced ? money(ctx, wc.cost) : null, wcmp].filter(Boolean).join(" · ") || null);
+      wcard.classList.add("tap");
+      wcard.setAttribute("role", "button");
+      wcard.addEventListener("click", () => openWater(ctx, data.water[0]));
+      cards.push(wcard);
     }
     if (s.battery.length) {
       const ch = sum(cur.battCharge.map(sum));

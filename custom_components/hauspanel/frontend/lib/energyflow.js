@@ -8,12 +8,6 @@ import { svgEl, stat, fmt } from "./popkit.js";
 import { openSolar } from "./solar.js";
 import { wallboxes, openWallbox } from "./wallbox.js";
 
-const NODES = { solar: [56, 44], grid: [56, 156], home: [262, 100] };
-const path = (a, b) => {
-  const [x1, y1] = NODES[a];
-  const [x2, y2] = NODES[b];
-  return `M${x1 + 26} ${y1} C${(x1 + x2) / 2} ${y1}, ${(x1 + x2) / 2} ${y2}, ${x2 - 30} ${y2}`;
-};
 
 async function todayChange(hass, id) {
   if (!id) return null;
@@ -23,20 +17,48 @@ async function todayChange(hass, id) {
   } catch { return null; }
 }
 
+/** Battery power sensors from the energy settings: positive while giving, negative while charging. */
+const batteryRates = (prefs) => (prefs?.energy_sources || []).filter((x) => x.type === "battery" && x.stat_rate).map((x) => x.stat_rate);
+
+/**
+ * Power right now in W: grid (negative while feeding in), solar, battery (negative while charging)
+ * and the house, which is what the three add up to.
+ */
+export function livePower(hass, prefs, rate) {
+  const solar = (prefs?.energy_sources || []).find((x) => x.type === "solar");
+  const g = watts(hass, rate);
+  const s = solar?.stat_rate ? Math.max(0, watts(hass, solar.stat_rate) ?? 0) : 0;
+  const b = batteryRates(prefs).reduce((acc, id) => acc + (watts(hass, id) ?? 0), 0);
+  return { grid: g, solar: s, battery: b, house: g == null ? null : Math.max(0, g + s + b) };
+}
+
 export function openEnergyFlow(ctx, rate) {
   const hass = ctx.hass;
   const prefs = ctx.energyPrefs || {};
   const grid = (prefs.energy_sources || []).find((x) => x.type === "grid");
   const solar = (prefs.energy_sources || []).find((x) => x.type === "solar");
   const solarRate = solar?.stat_rate || null;
-  // Battery power as Home Assistant keeps it: positive while it gives, negative while it charges.
-  const battRates = (prefs.energy_sources || []).filter((x) => x.type === "battery" && x.stat_rate).map((x) => x.stat_rate);
+  const battRates = batteryRates(prefs);
+  // Sources on the left, one above the other, the house on the right in the middle.
+  const left = [solarRate && "solar", "grid", battRates.length && "battery"].filter(Boolean);
+  const NODES = { solar: [56, 44], grid: [56, 156], home: [262, 100] };
+  let H = 200;
+  if (left.length === 3 || (left.length === 2 && battRates.length)) {
+    left.forEach((k, i) => { NODES[k] = [56, 44 + i * 112]; });
+    H = 88 + (left.length - 1) * 112;
+    NODES.home = [262, H / 2];
+  }
+  const path = (a, b) => {
+    const [x1, y1] = NODES[a];
+    const [x2, y2] = NODES[b];
+    return `M${x1 + 26} ${y1} C${(x1 + x2) / 2} ${y1}, ${(x1 + x2) / 2} ${y2}, ${x2 - 30} ${y2}`;
+  };
   // Older settings keep the meter and its price in flow_from.
   const gridFrom = grid?.stat_energy_from ? grid : grid?.flow_from?.[0];
   const priceId = gridFrom?.entity_energy_price;
   const priceNum = gridFrom?.number_energy_price;
 
-  const svg = svgEl("svg", { viewBox: "0 0 320 200", class: "hp-ef-svg" });
+  const svg = svgEl("svg", { viewBox: `0 0 320 ${H}`, class: "hp-ef-svg" });
   const lines = {};
   const mkLine = (k, from, to) => {
     const base = svgEl("path", { d: path(from, to), class: "base" });
@@ -46,6 +68,7 @@ export function openEnergyFlow(ctx, rate) {
   };
   if (solarRate) mkLine("solar", "solar", "home");
   mkLine("grid", "grid", "home");
+  if (battRates.length) mkLine("battery", "battery", "home");
   const node = (k, ic, label) => {
     const [x, y] = NODES[k];
     const g = svgEl("g", { class: `node ${k}`, transform: `translate(${x} ${y})` });
@@ -57,19 +80,19 @@ export function openEnergyFlow(ctx, rate) {
     svg.append(g);
     const ic2 = h("div", { class: `hp-ef-ic ${k}` }, icon(ic));
     ic2.style.left = `${(x / 320) * 100}%`;
-    ic2.style.top = `${(y / 200) * 100}%`;
+    ic2.style.top = `${(y / H) * 100}%`;
     return { g, txt, ic: ic2 };
   };
   const nSolar = solarRate ? node("solar", "mdi:solar-power-variant", t("solar")) : null;
   const nGrid = node("grid", "mdi:transmission-tower", t("grid"));
   const nHome = node("home", "mdi:home-lightning-bolt", t("ef_house"));
-  const stage = h("div", { class: "hp-ef-stage" }, svg, ...[nSolar, nGrid, nHome].filter(Boolean).map((n) => n.ic));
+  const nBatt = battRates.length ? node("battery", "mdi:home-battery-outline", t("battery")) : null;
+  const stage = h("div", { class: "hp-ef-stage", style: { aspectRatio: `320 / ${H}` } }, svg, ...[nSolar, nGrid, nBatt, nHome].filter(Boolean).map((n) => n.ic));
 
   const sUse = stat("mdi:home-import-outline", t("ef_today_grid"));
   const sCost = stat("mdi:currency-eur", t("ef_today_cost"));
   const sSun = solarRate ? stat("mdi:white-balance-sunny", t("ef_today_solar")) : null;
-  const sBatt = battRates.length ? stat("mdi:home-battery-outline", t("battery")) : null;
-  const stats = h("div", { class: "hp-app-stats" }, sUse, sCost, ...[sSun, sBatt].filter(Boolean));
+  const stats = h("div", { class: "hp-app-stats" }, sUse, sCost, ...(sSun ? [sSun] : []));
 
   const devices = (prefs.device_consumption || []).map((d) => ({
     name: d.name || deviceName(hass, d.stat_consumption),
@@ -95,13 +118,16 @@ export function openEnergyFlow(ctx, rate) {
 
   const speed = (w) => `${Math.max(0.6, Math.min(6, 6 - Math.log10(Math.max(1, Math.abs(w))) * 1.4)).toFixed(2)}s`;
   const update = (hs) => {
-    const g = watts(hs, rate) ?? 0;
-    const s = solarRate ? Math.max(0, watts(hs, solarRate) ?? 0) : 0;
-    const b = battRates.reduce((acc, id) => acc + (watts(hs, id) ?? 0), 0);
+    const live = livePower(hs, prefs, rate);
+    const g = live.grid ?? 0, s = live.solar, b = live.battery;
     const home = Math.max(0, g + s + b);
-    if (sBatt) {
-      sBatt.set(formatWatts(hs, Math.abs(b)));
-      sBatt.querySelector("small").textContent = t(b < -5 ? "ef_batt_charging" : b > 5 ? "ef_batt_giving" : "ef_batt_idle");
+    if (nBatt) {
+      // Value with a small arrow: ↓ into the battery while it charges, ↑ out of it while it gives.
+      nBatt.txt.textContent = b < -5 ? `↓ ${formatWatts(hs, -b)}` : b > 5 ? `↑ ${formatWatts(hs, b)}` : formatWatts(hs, 0);
+      nBatt.ic.title = t(b < -5 ? "ef_batt_charging" : b > 5 ? "ef_batt_giving" : "ef_batt_idle");
+      lines.battery.classList.toggle("off", Math.abs(b) < 5);
+      lines.battery.classList.toggle("charge", b < -5);
+      lines.battery.style.animationDuration = speed(b);
     }
     nGrid.txt.textContent = g < -5 ? `↑ ${formatWatts(hs, -g)}` : formatWatts(hs, Math.max(0, g));
     nHome.txt.textContent = formatWatts(hs, home);

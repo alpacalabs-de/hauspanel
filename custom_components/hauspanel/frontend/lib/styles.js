@@ -633,6 +633,36 @@ ha-icon.hp-player-noart { --mdc-icon-size: 44px; opacity: .4; }
 .hp-player-btns { display: flex; align-items: center; justify-content: center; gap: 10px; }
 .hp-player-source { display: flex; align-items: center; gap: 8px; color: var(--hp-sub); }
 .hp-player.compact .hp-player-source, .hp-player.compact .hp-vol .hp-round:last-child { display: none; }
+
+/* Remote in the player popup: two columns on a tablet, everything under each other on a phone. */
+.hp-player-tabs { align-self: start; margin-bottom: 4px; }
+.hp-rc { display: grid; grid-template-columns: auto 1fr; gap: 22px; align-items: start; }
+.hp-rc-side { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.hp-rc-side.left { align-items: center; }
+/* The cross: OK in the middle, the four arrows around it. */
+.hp-rc-pad { display: grid; grid-template-columns: repeat(3, 48px); grid-template-rows: repeat(3, 48px); place-items: center; border-radius: 50%; background: var(--hp-glass); border: 1px solid var(--hp-border); padding: 6px; }
+.hp-rc-pad .hp-rc-up { grid-area: 1 / 2; }
+.hp-rc-pad .hp-rc-left { grid-area: 2 / 1; }
+.hp-rc-pad .hp-rc-ok { grid-area: 2 / 2; }
+.hp-rc-pad .hp-rc-right { grid-area: 2 / 3; }
+.hp-rc-pad .hp-rc-down { grid-area: 3 / 2; }
+.hp-rc-pad .hp-round { touch-action: none; }
+.hp-rc-pad .hp-rc-ok ha-icon { --mdc-icon-size: 28px; }
+.hp-rc-nav, .hp-rc-play { display: flex; align-items: center; justify-content: center; gap: 10px; flex-wrap: wrap; }
+.hp-rc-vol { display: flex; align-items: center; gap: 10px; }
+.hp-rc-vol .hp-slider { flex: 1; }
+.hp-rc-sources { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.hp-rc-chips { display: flex; gap: 8px; flex-wrap: wrap; }
+.hp-rc-chips .hp-chip.active { background: #f7f1ea; color: #2b2125; border-color: transparent; }
+/* Phone: one column, and the sources scroll sideways instead of wrapping. */
+.hp-rc.narrow { grid-template-columns: 1fr; gap: 16px; }
+.hp-rc.narrow .hp-rc-chips { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }
+.hp-rc.narrow .hp-rc-chips::-webkit-scrollbar { display: none; }
+/* Back, Home, Menu and playback share one row on the phone; the big play button would make it wrap. */
+.hp-rc.narrow .hp-rc-nav { flex-wrap: nowrap; gap: 8px; }
+.hp-rc.narrow .hp-rc-play { gap: 8px; }
+.hp-rc.narrow .hp-rc-nav .hp-round.big { width: 42px; height: 42px; }
+.hp-rc.narrow .hp-rc-nav .hp-round.big ha-icon { --mdc-icon-size: 22px; }
 .hp-browse { grid-column: 1 / -1; }
 .hp-browse-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 12px; }
 .hp-browse-item { display: flex; flex-direction: column; gap: 6px; text-align: left; font-size: 13px; font-weight: 500; }
@@ -1173,6 +1203,12 @@ ha-icon.hp-player-noart { --mdc-icon-size: 44px; opacity: .4; }
 .hp-onpill.notice.warn .hp-onpill-ic { background: #7cc4f5; color: #062238; }
 .hp-onpill.notice.warn, .hp-onpill.notice.air { grid-column: span 2; }
 .hp-onpill.notice.air .hp-onpill-ic { background: #9fe0b8; color: #08301a; }
+.hp-onpill.notice.alarm, .hp-onpill.notice.batt { grid-column: span 2; }
+.hp-onpill.notice.alarm { background: rgba(239, 83, 80, .22); border-color: rgba(239, 83, 80, .55); }
+.hp-onpill.notice.alarm .hp-onpill-ic { background: #ef5350; color: #fff; animation: hp-hz-pulse 1.6s ease-in-out infinite; }
+.hp-onpill.notice.batt .hp-onpill-ic { background: #ffd166; color: #3a2a05; }
+@keyframes hp-hz-pulse { 50% { box-shadow: 0 0 0 6px rgba(239, 83, 80, .25); } }
+@media (prefers-reduced-motion: reduce) { .hp-onpill.notice.alarm .hp-onpill-ic { animation: none; } }
 .hp-notice-ctl { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .hp-notice-ctl > .hp-input, .hp-notice-ctl > .hp-select { flex: 1; min-width: 0; }
 .hp-notice-ctl > .hp-muted { flex: 1; }
@@ -1257,6 +1293,17 @@ ha-icon.hp-player-noart { --mdc-icon-size: 44px; opacity: .4; }
 .hp-en-card.cost .hp-tile-icon { background: var(--hp-accent); color: #2b2125; }
 .hp-en-card.solar .hp-tile-icon, .hp-en-card.auto .hp-tile-icon { background: rgba(92,200,121,.22); color: #7fd99a; }
 .hp-en-chart { padding: 14px 16px 10px; }
+.hp-en-card.water .hp-tile-icon { background: rgba(127,200,248,.22); color: #7fc8f8; }
+.hp-en-card.tap { cursor: pointer; }
+.hp-en-water { display: flex; flex-direction: column; gap: 3px; margin-top: 8px; }
+.hp-en-water small { font-size: 11px; color: var(--hp-sub); }
+.hp-en-water-bars { display: flex; align-items: flex-end; gap: 3px; height: 36px; }
+.hp-water-rows { display: grid; gap: 6px; margin-top: 12px; }
+.hp-water-row { display: grid; grid-template-columns: 1fr auto 80px; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 14px; background: var(--hp-glass); }
+.hp-water-row span:first-child { color: var(--hp-sub); }
+.hp-water-row b { font-weight: 600; }
+.hp-water-row span:last-child { text-align: right; color: var(--hp-sub); }
+.hp-en-water-bars i { flex: 1; background: #7fc8f8; border-radius: 3px 3px 1px 1px; min-height: 1px; opacity: .85; }
 .hp-en-chart-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; flex-wrap: wrap; margin-bottom: 8px; }
 .hp-en-legend { display: flex; gap: 12px; flex-wrap: wrap; font-size: 12px; color: var(--hp-sub); }
 .hp-en-legend span { display: inline-flex; align-items: center; gap: 6px; }
@@ -1707,12 +1754,15 @@ ha-icon.hp-player-noart { --mdc-icon-size: 44px; opacity: .4; }
 .hp-ef-svg .flow.grid { stroke: #7fc8f8; }
 .hp-ef-svg .flow.solar { stroke: #ffd166; }
 .hp-ef-svg .flow.export { stroke: var(--hp-green); animation-direction: reverse; }
+.hp-ef-svg .flow.battery { stroke: #b49cff; }
+.hp-ef-svg .flow.battery.charge { animation-direction: reverse; }
 .hp-ef-svg .flow.off { opacity: 0; }
 @keyframes hp-ef-run { to { stroke-dashoffset: -32.2; } }
 .hp-ef-svg .node circle { fill: var(--hp-sheet); stroke: var(--hp-border); stroke-width: 1.5; }
 .hp-ef-svg .node.home circle { stroke: #ffc069; stroke-width: 2.5; }
 .hp-ef-svg .node.solar circle { stroke: #ffd166; }
 .hp-ef-svg .node.grid circle { stroke: #7fc8f8; }
+.hp-ef-svg .node.battery circle { stroke: #b49cff; }
 .hp-ef-svg text { fill: var(--hp-text); text-anchor: middle; font-family: inherit; }
 .hp-ef-svg text.val { font-size: 13px; font-weight: 600; }
 .hp-ef-svg text.lab { font-size: 10px; fill: var(--hp-sub); letter-spacing: .08em; text-transform: uppercase; }
@@ -1720,6 +1770,7 @@ ha-icon.hp-player-noart { --mdc-icon-size: 44px; opacity: .4; }
 .hp-ef-ic.home { --mdc-icon-size: 28px; color: #ffc069; }
 .hp-ef-ic.solar { color: #ffd166; }
 .hp-ef-ic.grid { color: #7fc8f8; }
+.hp-ef-ic.battery { color: #b49cff; }
 .hp-ef-label { margin-top: 16px; }
 .hp-ef-list { display: grid; gap: 4px; margin-top: 8px; }
 .hp-ef-row { display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; padding: 8px 4px; cursor: pointer; font-size: 14px; }
@@ -2692,6 +2743,46 @@ a.hp-parcel-row { color: inherit; text-decoration: none; }
 .hp-diag-btns { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 6px; }
 .hp-diag-btns a { text-decoration: none; color: inherit; }
 /* Screensaver: time, weather and today on black; dimmed at night; moves a little every minute. */
+.hp-nv { position: absolute; inset: 0; z-index: 39; background: #08070b; color: #e9e2ea; display: flex; flex-direction: column; gap: 10px; padding: 18px 22px 12px; opacity: 0; transition: opacity .6s; overflow: hidden; }
+.hp-nv.on { opacity: 1; }
+.hp-nv-head { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.hp-nv-time { font-size: clamp(30px, 4.4vw, 52px); font-weight: 300; font-variant-numeric: tabular-nums; line-height: 1; }
+.hp-nv-sub { font-size: 13px; color: #8f8794; flex: 1; min-width: 0; }
+.hp-nv-status { display: flex; align-items: center; gap: 8px; padding: 7px 14px; border-radius: 999px; background: rgba(93,202,165,.14); color: #9fe1cb; font-size: 14px; }
+.hp-nv-status.bad { background: rgba(226,75,74,.18); color: #f09595; }
+.hp-nv-big { flex: 1; min-height: 0; display: grid; gap: 10px; grid-template-columns: 1fr; }
+.hp-nv-big.n2, .hp-nv-big.n3, .hp-nv-big.n4 { grid-template-columns: 1fr 1fr; }
+/* A big camera keeps its own shape instead of filling the cell: the cell is the container, the
+   camera is as wide as fits at its measured --ar. Two side by side give a roughly 4:3 cell, which
+   used to cut a 16:9 picture off left and right. Same idea as .hp-camcell on the Security tablet. */
+.hp-nv-cell { container-type: size; min-width: 0; min-height: 0; display: grid; place-items: center; }
+.hp-nv-cell .hp-nv-cam { width: min(100cqw, calc(100cqh * var(--ar))); height: auto; aspect-ratio: var(--ar); }
+.hp-nv-cell .hp-nv-cam .hp-live-wrap, .hp-nv-cell .hp-nv-cam .hp-cam-live, .hp-nv-cell .hp-nv-cam img { object-fit: contain; }
+.hp-nv-cam { --ar: 1.7778; position: relative; border-radius: 16px; overflow: hidden; background: #16141a; min-height: 0; }
+.hp-nv-cam .hp-live-wrap, .hp-nv-cam .hp-cam-live, .hp-nv-cam img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.hp-nv-live { position: absolute; left: 10px; top: 10px; font-size: 11px; padding: 2px 8px; border-radius: 999px; background: rgba(226,75,74,.85); color: #fff; letter-spacing: .06em; }
+.hp-nv-name { position: absolute; left: 10px; bottom: 8px; font-size: 13px; color: #fff; text-shadow: 0 1px 4px rgba(0,0,0,.7); }
+.hp-nv-small { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; }
+.hp-nv-cam.small { aspect-ratio: 16 / 9; border-radius: 12px; }
+.hp-nv-cam.small .hp-nv-name { font-size: 11px; }
+.hp-nv-bottom { display: flex; gap: 10px; align-items: stretch; flex-wrap: wrap; }
+.hp-nv-things { flex: 1; display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; min-width: 0; }
+.hp-nv-thing { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 0; border-radius: 12px; background: #17151b; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.hp-nv-thing ha-icon { color: #9fe1cb; }
+.hp-nv-thing span { display: flex; flex-direction: column; min-width: 0; }
+.hp-nv-thing b { font-weight: 500; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hp-nv-thing small { font-size: 12px; color: #8f8794; }
+.hp-nv-thing.bad { background: rgba(226,75,74,.16); }
+.hp-nv-thing.bad ha-icon, .hp-nv-thing.bad small { color: #f09595; }
+.hp-nv-alarm { display: flex; gap: 6px; }
+.hp-nv-mode { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-width: 76px; padding: 8px 6px; border: 0; border-radius: 12px; background: #17151b; color: #8f8794; font: inherit; font-size: 12px; cursor: pointer; }
+.hp-nv-mode.on { background: #e9e2ea; color: #1c1a22; }
+.hp-nv-camset { padding: 10px 14px; }
+.hp-notice-ctl > .hp-input.hp-nv-timein { flex: 0 0 auto; width: 120px; }
+.hp-nv-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.hp-nv-chips .hp-chip.nv-big { background: var(--hp-accent); color: #2b2125; }
+.hp-nv-chips .hp-chip.nv-off { opacity: .5; text-decoration: line-through; }
+.hp-nv-foot { text-align: center; font-size: 11px; color: #5d5662; }
 .hp-saver { position: absolute; inset: 0; z-index: 40; background: #050608; display: grid; place-items: center; opacity: 0; transition: opacity .8s; cursor: none; touch-action: none; }
 .hp-saver.on { opacity: 1; }
 .hp-saver-box { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 6px; color: #f3f1ee; transition: transform 2s ease, opacity 1s; max-width: 80vw; }

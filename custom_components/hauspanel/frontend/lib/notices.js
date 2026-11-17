@@ -1,6 +1,6 @@
 // Notices: entities you pick yourself ("Mail is here", "Washing done") that show on Home only while they say so.
 import { h, icon, domainOf, bindTapHold, entityName, toggleSwitch, formatNumber } from "./util.js";
-import { entityIcon, stateText } from "./domains.js";
+import { entityIcon, stateText, HAZARD, hazardInfo } from "./domains.js";
 import { candidateEntities, isOutdoorRoom, OUTSIDE } from "./model.js";
 import { t } from "./i18n.js";
 
@@ -152,6 +152,85 @@ function airPill(ctx, room) {
 /** Whether Home asks to air rooms (on unless switched off in the settings). */
 export const airOn = (ctx) => ctx.settings.s.airHint !== false;
 
+/**
+ * Smoke, gas and leak sensors (binary sensors), without the ones hidden in Home Assistant.
+ * With `ids` (the panel's security items) only those count, the same detectors the security popup shows,
+ * so a pool's or a machine's own "gas" sensor outside the house stays out.
+ */
+const hazardSensors = (hass, ids = null) => (ids || Object.keys(hass.states)).filter((id) => id.startsWith("binary_sensor.") && hass.states[id]
+  && HAZARD.includes(hass.states[id].attributes?.device_class) && !hass.entities?.[id]?.hidden);
+
+/** Detectors that raise the alarm right now. */
+export const hazardAlarms = (hass, ids = null) => hazardSensors(hass, ids).filter((id) => hass.states[id].state === "on");
+
+/** A detector's battery is low from here on (in %). */
+export const HAZARD_BATT_LOW = 20;
+
+/**
+ * Detectors with a weak battery: [{ id, battId, level }], level in % or null for a plain "low" sensor.
+ * The battery is any battery sensor of the same device. Devices put aside under Maintenance don't count.
+ */
+export function hazardBatteries(hass, ignore = [], ids = null) {
+  const out = [];
+  const seen = new Set();
+  for (const id of hazardSensors(hass, ids)) {
+    const dev = hass.entities?.[id]?.device_id;
+    if (!dev || seen.has(dev) || ignore.includes(dev)) continue;
+    seen.add(dev);
+    for (const e of Object.values(hass.entities || {})) {
+      if (e.device_id !== dev) continue;
+      const st = hass.states[e.entity_id];
+      if (st?.attributes?.device_class !== "battery") continue;
+      if (e.entity_id.startsWith("binary_sensor.") && st.state === "on") { out.push({ id, battId: e.entity_id, level: null }); break; }
+      const v = Number(st.state);
+      if (e.entity_id.startsWith("sensor.") && st.state !== "" && Number.isFinite(v) && v <= HAZARD_BATT_LOW) { out.push({ id, battId: e.entity_id, level: v }); break; }
+    }
+  }
+  return out;
+}
+
+/** Whether Home shows detector alarms and weak detector batteries (on unless switched off). */
+export const hazardOn = (ctx) => ctx.settings.s.hazardHint !== false;
+
+/** A detector raising the alarm, in red: the room up front, what it found below. A tap opens it. */
+function hazardPill(ctx, id) {
+  const name = h("b", {});
+  const sub = h("small", {});
+  const ic = icon("mdi:alert");
+  const el = h("div", { class: "hp-onpill notice alarm on", role: "button", tabindex: "0", dataset: { key: `hz:${id}` } },
+    h("span", { class: "hp-onpill-ic" }, ic), h("div", { class: "hp-onpill-text" }, name, sub));
+  bindTapHold(el, { canStart: () => !ctx.editing, tap: () => ctx.openDetails(id), hold: () => ctx.openDetails(id) });
+  el.update = (hass) => {
+    const hz = hazardInfo(hass, [id]);
+    const room = hass.areas?.[areaIdOf(hass, id)]?.name;
+    ic.icon = hz.alarmIcon;
+    name.textContent = room || entityName(hass, id);
+    sub.textContent = hz.alarm;
+  };
+  el.update(ctx.hass);
+  return el;
+}
+
+/** A detector whose battery runs low: room, kind and level. A tap opens the battery. */
+function hazardBattPill(ctx, item) {
+  const name = h("b", {});
+  const sub = h("small", {});
+  const el = h("div", { class: "hp-onpill notice batt on", role: "button", tabindex: "0", dataset: { key: `hzb:${item.id}` } },
+    h("span", { class: "hp-onpill-ic" }, icon("mdi:battery-alert-variant-outline")), h("div", { class: "hp-onpill-text" }, name, sub));
+  let it = item;
+  bindTapHold(el, { canStart: () => !ctx.editing, tap: () => ctx.openDetails(it.battId), hold: () => ctx.openDetails(it.battId) });
+  el.update = (hass, next = it) => {
+    it = next;
+    // The detector by its name, the level and its room below.
+    const room = hass.areas?.[areaIdOf(hass, it.id)]?.name;
+    name.textContent = entityName(hass, it.id);
+    const level = it.level == null ? t("low") : `${formatNumber(hass, it.level, 0)} %`;
+    sub.textContent = [t("hz_batt", { v: level }), room].filter(Boolean).join(" · ");
+  };
+  el.update(ctx.hass);
+  return el;
+}
+
 /** One notice as a pill: tap opens the details; a helper switch is cleared with its icon. */
 function noticePill(ctx, id) {
   const ic = icon("mdi:bell-outline");
@@ -188,22 +267,32 @@ export function noticesBlock(ctx) {
   let pills = [];
   let whPills = [];
   let airPills = [];
+  let hzPills = [];
+  let hzbPills = [];
   el.update = (hass) => {
     const now = activeNotices(hass, ctx.settings.s.notices).map((n) => n.id);
     const wh = windowHeatOn(ctx) ? windowHeatRooms(hass) : [];
     const air = airOn(ctx) ? airRooms(hass) : [];
-    const next = `${wh.map((r) => r.area)}|${air.map((r) => r.area)}|${now}`;
+    const secIds = ctx.securityItems?.() || null;
+    const hz = hazardOn(ctx) ? hazardAlarms(hass, secIds) : [];
+    const hzb = hazardOn(ctx) ? hazardBatteries(hass, ctx.settings.s.maintIgnore || [], secIds) : [];
+    const next = `${hz}|${hzb.map((b) => b.id)}|${wh.map((r) => r.area)}|${air.map((r) => r.area)}|${now}`;
     if (next !== sig) {
       sig = next;
+      // An alarm comes first, then a weak battery, then the rest.
+      hzPills = hz.map((id) => hazardPill(ctx, id));
+      hzbPills = hzb.map((b) => hazardBattPill(ctx, b));
       whPills = wh.map((r) => windowHeatPill(ctx, r));
       airPills = air.map((r) => airPill(ctx, r));
       pills = now.map((id) => noticePill(ctx, id));
-      box.replaceChildren(...whPills, ...airPills, ...pills);
+      box.replaceChildren(...hzPills, ...hzbPills, ...whPills, ...airPills, ...pills);
     }
+    hzPills.forEach((p) => p.update(hass));
+    hzbPills.forEach((p, i) => p.update(hass, hzb[i]));
     whPills.forEach((p, i) => p.update(hass, wh[i]));
     airPills.forEach((p, i) => p.update(hass, air[i]));
     pills.forEach((p) => p.update(hass));
-    el.hidden = !now.length && !wh.length && !air.length;
+    el.hidden = !now.length && !wh.length && !air.length && !hz.length && !hzb.length;
   };
   el.update(ctx.hass);
   ctx.live.push(el);
@@ -269,6 +358,9 @@ export function noticesSection(ctx, S, draw, state, { section, row }) {
   const airIsOn = S.s.airHint !== false;
   const air = row(t("air_setting"), toggleSwitch(airIsOn, () => { S.update((x) => { x.airHint = !airIsOn; }); draw(); }), t("air_setting_hint"));
 
-  return section(t("notices"), h("p", { class: "hp-muted small" }, t("notices_hint")), wh, air,
+  const hzIsOn = S.s.hazardHint !== false;
+  const hz = row(t("hz_setting"), toggleSwitch(hzIsOn, () => { S.update((x) => { x.hazardHint = !hzIsOn; }); draw(); }), t("hz_setting_hint"));
+
+  return section(t("notices"), h("p", { class: "hp-muted small" }, t("notices_hint")), hz, wh, air,
     ...(rows.length ? rows : [h("div", { class: "hp-muted small" }, t("notices_none"))]), search, results);
 }

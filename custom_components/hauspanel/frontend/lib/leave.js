@@ -9,6 +9,7 @@ import { btn, clock } from "./popkit.js";
 import { carDevices } from "./car.js";
 import { weatherWarningRow } from "./weather.js";
 import { switchLights } from "./switching.js";
+import { isHeating } from "./notices.js";
 
 const UNDO_SCENE = "hauspanel_leave_undo";
 const UNDO_HOURS = 12;
@@ -36,14 +37,22 @@ export function leaveItems(ctx, hass) {
   const locks = all.filter((id) => domainOf(id) === "lock" && hass.states[id].state === "unlocked" && notCar(id) && !/bediensperre|child|kindersicherung/i.test(id));
   const covers = all.filter((id) => domainOf(id) === "cover" && ["garage", "gate"].includes(hass.states[id].attributes.device_class) && hass.states[id].state === "open");
   const apps = runningAppliances(hass);
-  return { lights, media, open, locks, covers, apps, count: lights.length + media.length + open.length + locks.length + covers.length };
+  const heat = all.filter((id) => domainOf(id) === "climate" && inHouse(id) && !hass.entities?.[id]?.hidden && isHeating(hass.states[id]));
+  return { lights, media, open, locks, covers, heat, apps, count: lights.length + media.length + open.length + locks.length + covers.length + heat.length };
+}
+
+/** How a thermostat is set back when nobody is home: its away or eco preset if it has one, otherwise off. */
+export function heatSetback(st) {
+  const presets = (st?.attributes?.preset_modes || []).map((p) => String(p));
+  const preset = presets.find((p) => p.toLowerCase() === "away") || presets.find((p) => p.toLowerCase() === "eco");
+  return preset ? { service: "set_preset_mode", data: { preset_mode: preset } } : { service: "turn_off", data: {} };
 }
 
 export function openLeave(ctx) {
   const hass = ctx.hass;
   const name = (id) => ctx.hass.states[id]?.attributes.friendly_name || id;
   const room = (id) => ctx.model.areaById.get(ctx.model.areaOf[id])?.name || "";
-  const picks = { lights: true, media: true, locks: true, covers: false };
+  const picks = { lights: true, media: true, locks: true, covers: false, heat: false };
   const body = h("div", { class: "hp-leave" });
   const sheet = openSheet(ctx, { title: t("leave_title"), cls: "appliance leave" });
   const go = btn("mdi:home-export-outline", t("leave_go"), "primary");
@@ -71,12 +80,13 @@ export function openLeave(ctx) {
       group("open", "mdi:window-open-variant", t("leave_open", { n: it.open.length }), it.open, { action: false, sub: t("leave_open_sub") }),
       group("locks", "mdi:lock-open-variant-outline", t("leave_locks", { n: it.locks.length }), it.locks, { sub: t("leave_locks_sub") }),
       group("covers", "mdi:garage-open-variant", t("leave_covers", { n: it.covers.length }), it.covers, { sub: t("leave_covers_sub") }),
+      group("heat", "mdi:radiator", t("leave_heat", { n: it.heat.length }), it.heat, { sub: t("leave_heat_sub") }),
       group("lights", "mdi:lightbulb-on-outline", t("leave_lights", { n: it.lights.length }), it.lights, { sub: t("leave_lights_sub") }),
       group("media", "mdi:music", t("leave_media", { n: it.media.length }), it.media, { sub: t("leave_media_sub") }),
       group("apps", "mdi:washing-machine", t("leave_apps", { n: it.apps.length }), it.apps.map((a) => `${a.name} · ${a.text}`), { action: false, sub: t("leave_apps_sub") }),
     ].filter(Boolean);
     body.replaceChildren(...(groups.length ? groups : [h("div", { class: "hp-leave-ok" }, icon("mdi:check-decagram"), h("b", {}, t("leave_all_good")))]));
-    const todo = (picks.lights && it.lights.length) || (picks.media && it.media.length) || (picks.locks && it.locks.length) || (picks.covers && it.covers.length);
+    const todo = (picks.lights && it.lights.length) || (picks.media && it.media.length) || (picks.locks && it.locks.length) || (picks.covers && it.covers.length) || (picks.heat && it.heat.length);
     go.disabled = !todo;
     const u = undoInfo(hs);
     undo.hidden = !u;
@@ -88,7 +98,8 @@ export function openLeave(ctx) {
     const it = leaveItems(ctx, ctx.hass);
     const lights = picks.lights ? it.lights : [];
     const media = picks.media ? it.media : [];
-    const snap = [...lights, ...media];
+    const heat = picks.heat ? it.heat : [];
+    const snap = [...lights, ...media, ...heat];
     go.disabled = true;
     try {
       if (snap.length) await ctx.hass.callService("scene", "create", { scene_id: UNDO_SCENE, snapshot_entities: snap });
@@ -96,6 +107,10 @@ export function openLeave(ctx) {
       if (media.length) ctx.hass.callService("media_player", "media_pause", { entity_id: media });
       if (picks.locks && it.locks.length) ctx.hass.callService("lock", "lock", { entity_id: it.locks });
       if (picks.covers && it.covers.length) ctx.hass.callService("cover", "close_cover", { entity_id: it.covers });
+      for (const id of heat) {
+        const sb = heatSetback(ctx.hass.states[id]);
+        ctx.hass.callService("climate", sb.service, { entity_id: id, ...sb.data });
+      }
       ctx.toast?.(t("leave_done"));
     } catch (e) {
       ctx.toast?.(t("leave_failed"));
