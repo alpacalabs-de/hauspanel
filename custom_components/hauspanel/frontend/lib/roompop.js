@@ -1,7 +1,7 @@
 // Room popup: a glowing card with the temperature ring on top, big control tiles (light, shades, music, switches),
 // the room's own devices, scenes, and closed sections with every lamp, shade, switch and player.
 import { h, icon, domainOf, slider, toggleSwitch, lightColor, entityName } from "./util.js";
-import { isOn, roomPresence } from "./model.js";
+import { isOn, roomPresence, dedupeGroups } from "./model.js";
 import { entityIcon, tapAction } from "./domains.js";
 import { openSheet } from "./dialogs.js";
 import { openThermostat } from "./thermostat.js";
@@ -43,8 +43,12 @@ export function openRoomPopup(ctx, areaId) {
   const parts = machineParts(ctx);
   const arranged = ctx.settings.arrange(`room:${areaId}`, roomItems(ctx, area), (k) => !!hass.states[k] || /^(app|prn|car|pol|bel|hpu|net|bby|wbx):/.test(k)).items.filter((k) => !parts.has(k));
   const tiles = arranged.filter((id) => hass.states[id]);
-  const lights = tiles.filter((id) => domainOf(id) === "light");
-  const shades = tiles.filter((id) => domainOf(id) === "cover" && !NOT_SHADE.has(hass.states[id]?.attributes.device_class));
+  // The light, shade and switch groups of the popup take every device once: a group helper added by hand
+  // stands for one device, but not while its own members are in the room. A group next to its members is
+  // no light of its own then; it stays a plain tile under "Other" below.
+  const once = dedupeGroups(hass, tiles);
+  const lights = once.filter((id) => domainOf(id) === "light");
+  const shades = once.filter((id) => domainOf(id) === "cover" && !NOT_SHADE.has(hass.states[id]?.attributes.device_class));
   const covers = tiles.filter((id) => domainOf(id) === "cover" && NOT_SHADE.has(hass.states[id]?.attributes.device_class));
   // Heating goes into the ring; an air conditioner next to it gets its own tile.
   const climates = tiles.filter((id) => domainOf(id) === "climate");
@@ -52,7 +56,7 @@ export function openRoomPopup(ctx, areaId) {
   const climate = climates.find(heatOnly) || climates[0];
   const acs = climates.filter((id) => id !== climate);
   const players = tiles.filter((id) => domainOf(id) === "media_player");
-  const switches = tiles.filter((id) => ["switch", "fan", "input_boolean"].includes(domainOf(id)) && !ctx.settings.s.meters?.[id]);
+  const switches = once.filter((id) => ["switch", "fan", "input_boolean"].includes(domainOf(id)) && !ctx.settings.s.meters?.[id]);
   const locks = tiles.filter((id) => domainOf(id) === "lock");
   const windows = area.all.filter((id) => domainOf(id) === "binary_sensor" && ["window", "opening"].includes(hass.states[id]?.attributes.device_class));
   // Presence (or motion) in the room: shown only for people who switched it on (a personal choice).

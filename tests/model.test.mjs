@@ -245,3 +245,43 @@ test("the room's own name doesn't rule out its thermometer; a winter garden is i
   assert.equal(m.areaById.get("aussen").temperature, "sensor.aussen_temperatur", "outside keeps its own sensor");
   assert.equal(m.areaById.get("bad").temperature, null, "a floor heating sensor is still no air");
 });
+
+test("a light group stays out of the room, but is there to be added by hand (#13)", () => {
+  const hass = house();
+  hass.entities["light.kitchen_all"] = { entity_id: "light.kitchen_all", area_id: "kitchen", platform: "group" };
+  hass.states["light.kitchen_all"] = { entity_id: "light.kitchen_all", state: "on", attributes: { friendly_name: "Kitchen lights", entity_id: ["light.ceiling"] } };
+  const m = buildModel(hass, {});
+  const kitchen = m.areaById.get("kitchen");
+  assert.deepEqual(kitchen.groups, ["light.kitchen_all"]);
+  assert.equal(kitchen.tiles.includes("light.kitchen_all"), false, "no tile of its own");
+  assert.equal(kitchen.all.includes("light.kitchen_all"), false);
+  assert.equal(m.all.includes("light.kitchen_all"), false);
+  assert.equal(m.lights.includes("light.kitchen_all"), false, "the Light chip keeps the single lamps");
+  assert.equal(m.areaOf["light.kitchen_all"], "kitchen", "it knows its room");
+  assert.equal(kitchen.tiles.includes("light.ceiling"), true, "the lamp itself is still there");
+});
+
+test("a group without a registry entry waits under Other; an all-off script stays out for good", () => {
+  const hass = house();
+  // No unique_id, so no registry entry (a YAML group): its list of members makes it one.
+  hass.states["cover.all_shades"] = { entity_id: "cover.all_shades", state: "open", attributes: { friendly_name: "All shades", entity_id: ["cover.bedroom_shade"] } };
+  hass.entities["script.all_lights_off"] = { entity_id: "script.all_lights_off", area_id: "kitchen", platform: "script" };
+  hass.states["script.all_lights_off"] = { entity_id: "script.all_lights_off", state: "off", attributes: { friendly_name: "Turn off all lights" } };
+  const m = buildModel(hass, {});
+  assert.deepEqual(m.unassigned.groups, ["cover.all_shades"]);
+  assert.equal(m.unassigned.tiles.includes("cover.all_shades"), false);
+  const kitchen = m.areaById.get("kitchen");
+  assert.equal(kitchen.groups.includes("script.all_lights_off"), false, "an all-off script is no group to add");
+  assert.equal(kitchen.tiles.includes("script.all_lights_off"), false);
+});
+
+test("a group counts as one device, but not next to its own members", async () => {
+  const { dedupeGroups } = await import(LIB + "model.js");
+  const hass = house();
+  hass.entities["light.kitchen_all"] = { entity_id: "light.kitchen_all", area_id: "kitchen", platform: "group" };
+  hass.states["light.kitchen_all"] = { entity_id: "light.kitchen_all", state: "on", attributes: { friendly_name: "Kitchen lights", entity_id: ["light.ceiling", "light.bed_lamp"] } };
+  assert.deepEqual(dedupeGroups(hass, ["light.kitchen_all", "light.ceiling"]), ["light.ceiling"], "the lamp counts, the group does not");
+  assert.deepEqual(dedupeGroups(hass, ["light.kitchen_all"]), ["light.kitchen_all"], "every member hidden: the group is the one device");
+  assert.deepEqual(dedupeGroups(hass, ["light.ceiling", "light.loose"]), ["light.ceiling", "light.loose"], "plain lamps are never dropped");
+  assert.deepEqual(dedupeGroups(hass, []), []);
+});

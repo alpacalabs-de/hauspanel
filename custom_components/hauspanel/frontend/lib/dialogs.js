@@ -212,7 +212,8 @@ export function addDialog(ctx, { container, autoItems, onPick, domains }) {
     g,
     items: [
       ...specials.filter((x) => x.area === g.id).map((x) => ({ id: x.key, special: x, key: `${x.name} ${x.sub || ""}`.toLowerCase() })),
-      ...g.all.filter((id) => !domains || domains.includes(domainOf(id)))
+      // Group helpers (a light group of a room) show up nowhere on their own, but can be added by hand.
+      ...[...g.all, ...(g.groups || [])].filter((id) => !domains || domains.includes(domainOf(id)))
         .map((id) => ({ id, key: `${(hass.states[id]?.attributes.friendly_name || "").toLowerCase()} ${id}` })),
     ],
   })).filter((x) => x.items.length);

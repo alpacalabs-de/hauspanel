@@ -253,11 +253,3 @@ export function toggleSwitch(on, onToggle) {
   };
   return sw;
 }
-
-/** A lock that is not locked, or a lock sensor (binary_sensor, device class lock) that reports "unlocked". */
-export function isUnlocked(hass, id) {
-  const st = hass.states[id];
-  if (!st) return false;
-  if (id.startsWith("lock.")) return st.state !== "locked";
-  return id.startsWith("binary_sensor.") && st.attributes.device_class === "lock" && st.state === "on";
-}

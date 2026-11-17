@@ -15,8 +15,7 @@ const GATES = new Set(["garage", "gate", "door"]);
 const areaName = (ctx, id) => ctx.model.areaById.get(ctx.model.areaOf[id])?.name;
 
 /** What goes in the status row, in a sensible order: alarm, locks, gates, doors, the rest. */
-export function statusItems(ctx) {
-  const hass = ctx.hass;
+export function statusItems(ctx, hass = ctx.hass) {
   const sec = ctx.securityItems();
   // A gate or lock whose sensor is listed shows once: the sensor stays (its tap opens the popup).
   const linked = new Set(sec.map((id) => linkedCover(hass, id)).filter(Boolean));
@@ -80,6 +79,19 @@ export function isAlert(hass, id) {
   if (d === "alarm_control_panel") return st.state === "triggered";
   if (d === "binary_sensor") return st.state === "on";
   return false;
+}
+
+/**
+ * How much of the house is open, counted exactly like the security popup: the same things
+ * (alarm, locks, gates, doors; a lock that shows together with its lock sensor counts once, as the
+ * sensor) and the same test (isAlert, so an allowed time window stays quiet). Everywhere else that
+ * says "2 unlocked · 1 open" counts through this, so chip, card, page and SecurityPanel agree with
+ * the popup. Locks and lock sensors are "unlocked", the rest is "open".
+ */
+export function openSecurity(ctx, hass = ctx.hass) {
+  const s = statusItems(ctx, hass);
+  const bad = (ids) => ids.filter((id) => isAlert(hass, id));
+  return { unlocked: bad(s.locks), open: [...bad(s.alarm), ...bad(s.gates), ...bad(s.doors)] };
 }
 
 /**

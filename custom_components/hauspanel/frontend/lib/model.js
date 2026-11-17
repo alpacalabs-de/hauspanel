@@ -46,6 +46,28 @@ export function hideMatcher(hass, hide) {
 const ALL_SCRIPT = /\b(all|alle|sämtliche)\b.*\b(lights?|lamps?|shades?|blinds?|covers?|curtains?|licht|lichter|lampen|rollos?|rolll?(ä|ae)den|jalousien?|vorh(ä|ae)nge?)\b/i;
 const GROUPABLE = new Set(["light", "cover", "switch", "fan", "lock", "valve"]);
 
+/** A group helper of a switchable domain (All Lights Bedroom, All Shades): one entity for several devices. */
+export function isEntityGroup(hass, entityId, reg) {
+  const st = hass.states[entityId];
+  return GROUPABLE.has(domainOf(entityId)) && (reg?.platform === "group" || Array.isArray(st?.attributes.entity_id));
+}
+
+/** The members a group helper stands for. */
+const membersOf = (hass, id) => {
+  const m = hass.states[id]?.attributes.entity_id;
+  return Array.isArray(m) ? m : [];
+};
+
+/**
+ * Every device once: a group helper that was added by hand counts and switches as one device, but not
+ * while one of its own members is in the same list - then the single devices count and the group would
+ * show (and count) them twice.
+ */
+export function dedupeGroups(hass, ids) {
+  const shown = new Set(ids);
+  return ids.filter((id) => !isEntityGroup(hass, id, hass.entities?.[id]) || !membersOf(hass, id).some((m) => shown.has(m)));
+}
+
 /**
  * Group helpers (All Lights Bedroom, All Shades) and "all on / all off" scripts: the room
  * already switches all its lights and the shade tile moves all shades, so they would only
@@ -54,7 +76,7 @@ const GROUPABLE = new Set(["light", "cover", "switch", "fan", "lock", "valve"]);
 export function isHelperGroup(hass, entityId, reg) {
   const d = domainOf(entityId);
   const st = hass.states[entityId];
-  if (GROUPABLE.has(d) && (reg?.platform === "group" || Array.isArray(st?.attributes.entity_id))) return true;
+  if (isEntityGroup(hass, entityId, reg)) return true;
   if (d === "script") {
     const name = `${st?.attributes.friendly_name || ""} ${entityId.slice(7).replace(/_/g, " ")}`;
     if (ALL_SCRIPT.test(name)) return true;
@@ -117,13 +139,14 @@ export function buildModel(hass, hide) {
       temperature: a.temperature_entity_id || null,
       humidity: a.humidity_entity_id || null,
       all: [],
+      groups: [],
     });
   }
   const model = {
     areas: [],
     areaById: areas,
     areaOf: {},
-    unassigned: { id: "_other", name: null, icon: "mdi:home-outline", tiles: [], scenes: [], sensors: [], all: [] },
+    unassigned: { id: "_other", name: null, icon: "mdi:home-outline", tiles: [], scenes: [], sensors: [], all: [], groups: [] },
     weather: [],
     calendars: [],
     todos: [],
@@ -150,14 +173,24 @@ export function buildModel(hass, hide) {
     if (reg?.platform === "browser_mod") return;
     if (!ADDABLE.has(domain)) return;
     if (hidden(entityId)) return;
-    if (isHelperGroup(hass, entityId, reg)) return;
-    // A media player that can't be reached doesn't work from here: no tile until it is back (then the
-    // model is built again, see registrySignature).
-    if (domain === "media_player" && st.state === "unavailable") return;
 
     const dev = reg?.device_id ? hass.devices[reg.device_id] : undefined;
     const areaId = reg?.area_id || dev?.area_id || null;
     const area = (areaId && areas.get(areaId)) || model.unassigned;
+
+    if (isHelperGroup(hass, entityId, reg)) {
+      // A group helper stays out of the room on its own, but can be added by hand (see the add dialog).
+      // "All off" scripts stay out for good: they only do what the room's own buttons already do.
+      if (isEntityGroup(hass, entityId, reg)) {
+        model.areaOf[entityId] = area.id;
+        area.groups.push(entityId);
+      }
+      return;
+    }
+    // A media player that can't be reached doesn't work from here: no tile until it is back (then the
+    // model is built again, see registrySignature).
+    if (domain === "media_player" && st.state === "unavailable") return;
+
     model.areaOf[entityId] = area.id;
     area.all.push(entityId);
     model.all.push(entityId);
@@ -210,6 +243,7 @@ export function buildModel(hass, hide) {
   for (const area of [...areas.values(), model.unassigned]) {
     area.tiles.sort(byName);
     area.scenes.sort(byName);
+    area.groups.sort(byName);
     // HA's own choice (area settings) wins; otherwise the best room sensor, never a pool, oven or flow pipe.
     if (!area.temperature) area.temperature = roomTemperature(hass, area, area._temps || [])
       || (area !== model.unassigned && isOutdoorRoom(area) ? outdoorFallback : null);

@@ -1,6 +1,6 @@
 // Layouts and the building blocks they share: home status, scenes, room cards, room view, room menu.
-import { h, icon, formatNumber, formatTime, formatDate, bindTapHold, domainOf, isUnlocked, entityName } from "./util.js";
-import { isOn, roomPresence, roomHasContent } from "./model.js";
+import { h, icon, formatNumber, formatTime, formatDate, bindTapHold, domainOf, entityName } from "./util.js";
+import { isOn, roomPresence, roomHasContent, dedupeGroups } from "./model.js";
 import { createTile, createSeparator, createScenePill } from "./tile.js";
 import { MEDIA, entityIcon, stateText } from "./domains.js";
 import { sortable } from "./drag.js";
@@ -8,7 +8,7 @@ import { t, currentLang } from "./i18n.js";
 import { sideWidgets, SIDE_DEFAULTS } from "./sidepanel.js";
 import { openCalendar } from "./agenda.js";
 import { openLightSheet, openClimateSheet, openEnergySheet, openMaintenanceSheet, maintenanceItems } from "./catsheets.js";
-import { openSecuritySheet, allowedNow } from "./securityview.js";
+import { openSecuritySheet, openSecurity } from "./securityview.js";
 import { createShadeGroupTile, shadeGroupKey } from "./shades.js";
 import { openSheet } from "./dialogs.js";
 import { openAppliance, applianceKind } from "./appliance.js";
@@ -50,15 +50,18 @@ const NOT_SHADE = new Set(["garage", "gate", "door", "damper"]);
 export function roomStats(ctx, area) {
   const hass = ctx.hass;
   const items = ctx.settings.arrange(`room:${area.id}`, area.tiles, exists(ctx)).items.filter((k) => !k.startsWith("sep:"));
-  const lights = items.filter((id) => domainOf(id) === "light");
+  // Counts, dots and the power buttons take every device once: a light group added by hand stands for one
+  // device, but not while its own lamps are in the room (they count, the group would double them).
+  const once = dedupeGroups(hass, items);
+  const lights = once.filter((id) => domainOf(id) === "light");
   // The power buttons and "1 of 3 on" are about lights only, never sockets, heating or anything else.
   const counted = lights;
   const on = counted.filter((id) => isOn(hass.states[id]));
-  const shades = items.filter((id) => domainOf(id) === "cover" && !NOT_SHADE.has(hass.states[id]?.attributes.device_class));
+  const shades = once.filter((id) => domainOf(id) === "cover" && !NOT_SHADE.has(hass.states[id]?.attributes.device_class));
   // Only lights make a room card glow; sockets show as a dot of their own.
   const lightsOn = lights.filter((id) => isOn(hass.states[id])).length;
   // Meter-only sockets (fridge, network cabinet) are always on; they get no dot.
-  const dotIds = [...lights, ...items.filter((id) => domainOf(id) === "switch" && !ctx.settings.s.meters?.[id])];
+  const dotIds = [...lights, ...once.filter((id) => domainOf(id) === "switch" && !ctx.settings.s.meters?.[id])];
   return { items, lights, counted, on: on.length, total: counted.length, onIds: on, shades, lightsOn, dotIds };
 }
 
@@ -111,8 +114,6 @@ export function statusBlock(ctx, { compact = false } = {}) {
   ctx.live.push(el);
   return el;
 }
-
-const OPENINGS = ["door", "window", "garage_door", "opening"];
 
 /**
  * The home at a glance: round category chips (light, climate, security, energy, today) and "All lights off".
@@ -192,8 +193,8 @@ export function homeCats(ctx) {
       climate.classList.toggle("active", heating > 0);
     }
     if (sec) {
-      const items = ctx.securityItems();
-      const open = items.filter((id) => !allowedNow(id)).filter((id) => isUnlocked(hass, id) || (id.startsWith("binary_sensor.") && OPENINGS.includes(hass.states[id]?.attributes.device_class) && hass.states[id]?.state === "on")).length;
+      const s = openSecurity(ctx, hass);
+      const open = s.unlocked.length + s.open.length;
       sec.val.textContent = open ? t("n_open", { n: open }) : t("all_closed_short");
       sec.classList.toggle("alert", open > 0);
       sec.classList.toggle("ok", !open);
@@ -423,8 +424,7 @@ function securityCard(ctx, container) {
   bindTapHold(el, { canStart: () => !ctx.editing, tap: () => ctx.goTab("security") });
   el.update = (hass) => {
     const sec = ctx.securityItems();
-    const unlocked = sec.filter((id) => isUnlocked(hass, id) && !allowedNow(id));
-    const open = sec.filter((id) => !allowedNow(id) && id.startsWith("binary_sensor.") && ["door", "window", "garage_door", "opening"].includes(hass.states[id]?.attributes.device_class) && hass.states[id]?.state === "on");
+    const { unlocked, open } = openSecurity(ctx, hass);
     const issues = unlocked.length + open.length;
     big.textContent = issues ? t("needs_attention") : t("everything_secure");
     sub.textContent = issues

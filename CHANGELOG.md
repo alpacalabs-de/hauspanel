@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.9.0
+
+- **Security badge** on Home, the security card, the security page and the SecurityPanel count the same things as the security popup. A lock that shows once together with its lock sensor, like a car's, no longer counts as open while it reports unknown or unavailable.
+- **Light groups** (*room → Customise → Add devices*): group helpers can be added to a room by hand now. They still don't show up on their own, and the floor buttons, the Light chip and the room counts keep using the single lamps.
+
 ## 1.8.0
 
 - **Detector alarms on Home** (*Settings → Home → Notices → Detectors*): a red notice on Home while a smoke, leak or gas detector raises the alarm, with its room and what it found.

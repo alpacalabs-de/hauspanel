@@ -1,5 +1,5 @@
 // HausPanel: a dashboard for Home Assistant that builds itself.
-import { h, icon, formatTime, formatDate, fireHass, debounce, formatNumber, isUnlocked } from "./lib/util.js";
+import { h, icon, formatTime, formatDate, fireHass, debounce, formatNumber } from "./lib/util.js";
 import { buildModel, registrySignature, isOn, roomHasContent } from "./lib/model.js";
 import { Settings } from "./lib/store.js";
 import { renderHome, renderRooms, renderPage, specialTiles } from "./lib/layouts.js";
@@ -28,7 +28,7 @@ import { openGoodNight } from "./lib/goodnight.js";
 import { openRoomPopup } from "./lib/roompop.js";
 import { openBaby, isBabyCam } from "./lib/baby.js";
 import { loadPlugLinks } from "./lib/usage.js";
-import { securityView, cameraEditor, openSecuritySheet, setSecAllowSource, allowedNow } from "./lib/securityview.js";
+import { securityView, cameraEditor, openSecuritySheet, setSecAllowSource, openSecurity } from "./lib/securityview.js";
 import { fitToScreen } from "./lib/fit.js";
 import { loadEnergyPrefs, hasEnergy, energyView, withEnergyPicks } from "./lib/energy.js";
 import { startUpdateCheck } from "./lib/update.js";
@@ -596,9 +596,7 @@ class HausPanelElement extends HTMLElement {
   _securitySummary() {
     const box = h("div", { class: "hp-card hp-sec-summary" });
     box.update = (hass) => {
-      const sec = this.securityItems().filter((id) => !allowedNow(id));
-      const unlocked = sec.filter((id) => isUnlocked(hass, id));
-      const open = sec.filter((id) => id.startsWith("binary_sensor.") && ["door", "window", "garage_door", "opening"].includes(hass.states[id]?.attributes.device_class) && hass.states[id]?.state === "on");
+      const { unlocked, open } = openSecurity(this, hass);
       const ok = !unlocked.length && !open.length;
       const sig = `${unlocked}|${open}`;
       if (box.dataset.sig === sig) return;

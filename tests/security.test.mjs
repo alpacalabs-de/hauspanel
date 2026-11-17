@@ -78,6 +78,66 @@ test("an allowed window silences the warning, but never a triggered alarm", () =
   assert.equal(sv.isAlert(hass, "alarm_control_panel.home"), true, "a triggered alarm always warns");
 });
 
+// A context just big enough for statusItems/openSecurity: the security entities and model.all for gates.
+const secCtx = (hass, security, all = []) => ({ hass, model: { all }, securityItems: () => security });
+
+test("the open count skips a lock that shows together with its lock sensor", () => {
+  setRule("x", null);
+  // A car: the lock often reports unknown or unavailable, the sensor at the same device knows better.
+  const hass = fakeHass({
+    states: {
+      "lock.car_doors": { state: "unknown", attributes: {} },
+      "binary_sensor.car_locked": { state: "off", attributes: { device_class: "lock" } },
+    },
+    devices: { car: { name: "Car" } },
+    entities: { "lock.car_doors": { device_id: "car" }, "binary_sensor.car_locked": { device_id: "car" } },
+  });
+  const ids = ["lock.car_doors", "binary_sensor.car_locked"];
+  const ctx = secCtx(hass, ids);
+  assert.deepEqual(sv.openSecurity(ctx), { unlocked: [], open: [] }, "the sensor says locked, so nothing is open");
+  hass.states["lock.car_doors"].state = "unavailable";
+  assert.equal(sv.openSecurity(ctx).unlocked.length, 0, "unavailable counts no differently");
+  hass.states["binary_sensor.car_locked"].state = "on";
+  assert.deepEqual(sv.openSecurity(ctx).unlocked, ["binary_sensor.car_locked"], "the sensor says unlocked: one, not two");
+  hass.states["lock.car_doors"].state = "locked";
+  hass.states["binary_sensor.car_locked"].state = "off";
+  assert.equal(sv.openSecurity(ctx).unlocked.length, 0);
+});
+
+test("a lock without a sensor, an open window and a gate all count", () => {
+  setRule("x", null);
+  const hass = fakeHass({ states: {
+    "lock.front": "unlocked",
+    "lock.back": "locked",
+    "binary_sensor.bath_window": { state: "on", attributes: { device_class: "window" } },
+    "binary_sensor.hall_door": { state: "off", attributes: { device_class: "door" } },
+    "cover.yard_gate": { state: "open", attributes: { device_class: "gate" } },
+    "alarm_control_panel.home": "armed_away",
+  } });
+  const ids = ["lock.front", "lock.back", "binary_sensor.bath_window", "binary_sensor.hall_door", "alarm_control_panel.home"];
+  const { unlocked, open } = sv.openSecurity(secCtx(hass, ids, ["cover.yard_gate"]));
+  assert.deepEqual(unlocked, ["lock.front"], "only the unlocked lock");
+  assert.deepEqual(open, ["cover.yard_gate", "binary_sensor.bath_window"], "the gate like the popup, and the window");
+});
+
+test("an allowed time window keeps a door out of the count", () => {
+  const hass = fakeHass({ states: { "binary_sensor.terrace": { state: "on", attributes: { device_class: "door" } } } });
+  const ctx = secCtx(hass, ["binary_sensor.terrace"]);
+  setRule("x", null);
+  assert.equal(sv.openSecurity(ctx).open.length, 1, "open and no window set");
+  setRule("binary_sensor.terrace", { from: "00:00", to: "24:00" });
+  assert.equal(sv.openSecurity(ctx).open.length, 0, "open, but allowed right now");
+});
+
+test("a triggered alarm counts as open, an armed one does not", () => {
+  setRule("x", null);
+  const hass = fakeHass({ states: { "alarm_control_panel.home": "armed_away" } });
+  const ctx = secCtx(hass, ["alarm_control_panel.home"]);
+  assert.equal(sv.openSecurity(ctx).open.length, 0);
+  hass.states["alarm_control_panel.home"].state = "triggered";
+  assert.deepEqual(sv.openSecurity(ctx).open, ["alarm_control_panel.home"]);
+});
+
 test("icons: a gate contact set up as a door still gets a gate, open or closed", () => {
   const hass = fakeHass({ states: {
     "binary_sensor.entry_gate": { state: "on", attributes: { device_class: "door", friendly_name: "Entry Gate" } },

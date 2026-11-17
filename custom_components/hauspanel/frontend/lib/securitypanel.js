@@ -1,15 +1,13 @@
 // Security tablet layout (for example a Raspberry Pi touchscreen at 1024×600): pages of live cameras,
 // the last page with locks, doors and the other security devices. Only the page on screen streams.
-import { h, icon, domainOf, isUnlocked } from "./util.js";
-import { cameraList, cameraCard, statusRow, allowedNow } from "./securityview.js";
+import { h, icon } from "./util.js";
+import { cameraList, cameraCard, statusRow, openSecurity } from "./securityview.js";
 import { groupsBox, renderPage } from "./layouts.js";
 import { t } from "./i18n.js";
 
 /** Columns × rows for a number of cameras per page. */
 const GRID = { 4: [2, 2], 6: [3, 2], 8: [4, 2], 9: [3, 3] };
 export const CAMS_PER_PAGE = Object.keys(GRID).map(Number);
-
-const OPENING = new Set(["door", "window", "garage_door", "opening"]);
 
 /** The pages: camera pages first, then the status page. */
 export function securityPages(ctx) {
@@ -77,9 +75,7 @@ export function securityStatePill(ctx) {
   const el = h("button", { class: "hp-sec-state" }, ic, txt);
   el.addEventListener("click", () => ctx.goSecurityPage?.(-1));
   el.update = (hass) => {
-    const sec = ctx.securityItems().filter((id) => !allowedNow(id));
-    const unlocked = sec.filter((id) => isUnlocked(hass, id));
-    const open = sec.filter((id) => domainOf(id) === "binary_sensor" && OPENING.has(hass.states[id]?.attributes.device_class) && hass.states[id]?.state === "on");
+    const { unlocked, open } = openSecurity(ctx, hass);
     const bad = unlocked.length + open.length;
     const label = bad
       ? [unlocked.length ? t("unlocked_n", { n: unlocked.length }) : null, open.length ? t("open_n", { n: open.length }) : null].filter(Boolean).join(" · ")
