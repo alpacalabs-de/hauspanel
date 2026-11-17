@@ -3,7 +3,7 @@
 import { h, icon, domainOf } from "./util.js";
 import { isOn, hideMatcher } from "./model.js";
 import { openSheet } from "./dialogs.js";
-import { statusItems, isAlert, pillName } from "./securityview.js";
+import { statusItems, isAlert, pillName, secLine } from "./securityview.js";
 import { runningAppliances } from "./usage.js";
 import { t } from "./i18n.js";
 import { ring, btn, twoTap } from "./popkit.js";
@@ -68,7 +68,7 @@ export function openGoodNight(ctx, sceneId) {
       el.classList.toggle("ok", !bad);
       icEl.icon = bad ? g.ic : g.okIc;
       name.textContent = bad ? t(g.label, { n: ids.length }) : t(g.okLabel);
-      small.textContent = bad ? ids.slice(0, 3).map((id) => g.key === "lights" ? (m.areaById.get(m.areaOf[id])?.name || pillName(hs, id)) : pillName(hs, id))
+      small.textContent = bad ? ids.slice(0, 3).map((id) => g.key === "lights" ? (m.areaById.get(m.areaOf[id])?.name || pillName(hs, id)) : secLine(hs, m, id))
         .filter((v, i, a) => a.indexOf(v) === i).join(" · ") + (ids.length > 3 ? " …" : "") : "";
       right.replaceChildren(bad ? (fixB || h("span", { class: "hp-ov-tag bad" }, t("ov_open_short"))) : h("span", { class: "hp-gn-check" }, icon("mdi:check")));
       return bad;

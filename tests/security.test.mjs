@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import { LIB, fakeHass, at } from "./fake.mjs";
 
 const sv = await import(LIB + "securityview.js");
+const { buildModel } = await import(LIB + "model.js");
 const rules = {};
 sv.setSecAllowSource(() => rules);
 const setRule = (id, r) => { for (const k of Object.keys(rules)) delete rules[k]; if (r) rules[id] = r; };
@@ -155,4 +156,52 @@ test("icons: a gate contact set up as a door still gets a gate, open or closed",
   assert.equal(sv.secIcon(hass, "cover.garage", true), "mdi:garage-open-variant");
   assert.equal(sv.secIcon(hass, "cover.yard_gate", false), "mdi:gate");
   assert.equal(sv.secIcon(hass, "lock.front", true), "mdi:lock-open-variant-outline");
+});
+
+// --- the room in front of a door or window name -----------------------------------------------
+
+const rooms = () => fakeHass({
+  areas: {
+    kitchen: { area_id: "kitchen", name: "Kitchen" },
+    bath: { area_id: "bath", name: "Bath" },
+  },
+  entities: {
+    "binary_sensor.kitchen_window": { entity_id: "binary_sensor.kitchen_window", area_id: "kitchen", platform: "zha", name: "Window" },
+    "binary_sensor.bath_window": { entity_id: "binary_sensor.bath_window", area_id: "bath", platform: "zha", name: "Window" },
+    "binary_sensor.named_window": { entity_id: "binary_sensor.named_window", area_id: "kitchen", platform: "zha", name: "Kitchen window" },
+    "binary_sensor.named_back": { entity_id: "binary_sensor.named_back", area_id: "kitchen", platform: "zha", name: "Window kitchen" },
+    "binary_sensor.loose": { entity_id: "binary_sensor.loose", platform: "zha", name: "Window" },
+  },
+  states: {
+    "binary_sensor.kitchen_window": { state: "on", attributes: { device_class: "window" } },
+    "binary_sensor.bath_window": { state: "on", attributes: { device_class: "window" } },
+    "binary_sensor.named_window": { state: "on", attributes: { device_class: "window" } },
+    "binary_sensor.named_back": { state: "on", attributes: { device_class: "window" } },
+    "binary_sensor.loose": { state: "on", attributes: { device_class: "window" } },
+  },
+});
+
+test("two windows with the same name are told apart by their room", () => {
+  const hass = rooms();
+  const m = buildModel(hass, {});
+  assert.deepEqual(sv.secLabel(hass, m, "binary_sensor.kitchen_window"), { room: "Kitchen", name: "Window" });
+  assert.deepEqual(sv.secLabel(hass, m, "binary_sensor.bath_window"), { room: "Bath", name: "Window" });
+  assert.equal(sv.secLine(hass, m, "binary_sensor.kitchen_window"), "Kitchen Window", "one line: room, then name");
+});
+
+test("a name that already says the room keeps it, front or back", () => {
+  const hass = rooms();
+  const m = buildModel(hass, {});
+  assert.deepEqual(sv.secLabel(hass, m, "binary_sensor.named_window"), { room: null, name: "Kitchen window" });
+  assert.deepEqual(sv.secLabel(hass, m, "binary_sensor.named_back"), { room: null, name: "Window kitchen" });
+  assert.equal(sv.secLine(hass, m, "binary_sensor.named_window"), "Kitchen window", "nothing twice");
+});
+
+test("without a room, and under Other, the name stands alone", () => {
+  const hass = rooms();
+  const m = buildModel(hass, {});
+  assert.deepEqual(sv.secLabel(hass, m, "binary_sensor.loose"), { room: null, name: "Window" }, "no area at all");
+  assert.deepEqual(sv.secLabel(hass, { areaById: new Map(), areaOf: {} }, "binary_sensor.loose"), { room: null, name: "Window" });
+  const other = { areaById: new Map([["_other", { id: "_other", name: "Other" }]]), areaOf: { "binary_sensor.loose": "_other" } };
+  assert.deepEqual(sv.secLabel(hass, other, "binary_sensor.loose"), { room: null, name: "Window" }, "\"Other\" is not a room");
 });

@@ -3,6 +3,7 @@
 import { h, icon, formatNumber, formatDate, startOfDay, addDays } from "./util.js";
 import { t } from "./i18n.js";
 import { waterSources, waterPrice, toLitres, litresText, openWater } from "./water.js";
+import { meterReadings, readingText, readingLabel, openMeters } from "./meters.js";
 
 const RANGES = ["day", "week", "month", "year"];
 const REFRESH_MS = 5 * 60 * 1000;
@@ -455,6 +456,15 @@ export function energyView(ctx) {
     if (s.meters.length > 1) {
       s.meters.forEach((m, i) => cards.push(card(`meter m${i}`, i === 0 ? "mdi:home-lightning-bolt-outline" : "mdi:heat-pump-outline", m.name, kwh(ctx, meterKwh[i]),
         price(ctx, m) != null ? money(ctx, meterKwh[i] * price(ctx, m)) : null)));
+    }
+    // What the meters count themselves, whatever period is picked above.
+    const readings = meterReadings(ctx.hass, ctx.energyPrefs);
+    if (readings.length) {
+      const rcard = card("meters", "mdi:counter", t("meter_readings"), readingText(ctx.hass, readings[0]), readingLabel(readings, readings[0]));
+      rcard.classList.add("tap");
+      rcard.setAttribute("role", "button");
+      rcard.addEventListener("click", () => openMeters(ctx, readings));
+      cards.push(rcard);
     }
     body.replaceChildren(h("div", { class: "hp-en-cards" }, cards), chart(ctx, data, st.range), consumers(ctx, data, mainPrice));
   }

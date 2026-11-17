@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.10.0
+
+- **French README** (README.fr.md). Thanks to @Marlboro62.
+- **Security popup**: doors, windows, gates and locks show their room first and their name below, so two windows that are both called "Window" can be told apart. A name that already contains the room stays as it is.
+- **Meter readings** on the energy page: a card that opens the current readings of the grid, gas and water meters from Home Assistant's energy settings.
+
 ## 1.9.0
 
 - **Security badge** on Home, the security card, the security page and the SecurityPanel count the same things as the security popup. A lock that shows once together with its lock sensor, like a car's, no longer counts as open while it reports unknown or unavailable.

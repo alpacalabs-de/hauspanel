@@ -6,7 +6,7 @@ import { isOn, hideMatcher } from "./model.js";
 import { openSheet } from "./dialogs.js";
 import { hazardInfo, entityIcon } from "./domains.js";
 import { snapshotUrl } from "./camera.js";
-import { statusItems, isAlert, isAllowedOpen, allowRule, pillName, cameraList, HOME_SEC_CONTAINER, secIcon } from "./securityview.js";
+import { statusItems, isAlert, isAllowedOpen, allowRule, pillName, secLabel, secLine, cameraList, HOME_SEC_CONTAINER, secIcon } from "./securityview.js";
 import { openThermostat } from "./thermostat.js";
 import { heatPumps, openHeatPump } from "./heatpump.js";
 import { loadVisits } from "./visitors.js";
@@ -26,12 +26,6 @@ function listButton(onClick) {
 
 const OUTDOOR = /garten|garden|einfahrt|drive|terrasse|terrace|hof|yard|outdoor|außen|aussen|pool/i;
 const isOutside = (a) => !a || /outdoor|outside|garten|garden/i.test(a.floor?.floor_id || "") || OUTDOOR.test(`${a.id} ${a.name}`);
-const shortName = (hass, id, ctx) => {
-  const area = ctx.model.areaById.get(ctx.model.areaOf[id])?.name || "";
-  let n = pillName(hass, id).replace(/\s*(open|offen|status|kontakt|contact|sensor)$/i, "");
-  if (area && n.toLowerCase().startsWith(area.toLowerCase() + " ") && n.length > area.length + 3) n = n.slice(area.length + 1);
-  return n.length > 16 ? n.slice(0, 15) + "…" : n;
-};
 
 // ---------------------------------------------------------------- shared
 
@@ -190,7 +184,8 @@ export function openSecurityOverview(ctx, openClassic) {
   // "All closed" always on top; the rest in the saved order, without what was switched off.
   sheet.body.append(banner, ...lay.order.filter((k) => lay.on.has(k)).flatMap((k) => parts[k] || []));
   if (!lay.on.has("leave") && lockB) sheet.body.append(h("div", { class: "hp-sheet-actions hp-app-foot" }, lockB));
-  const nameOf = (hs, id) => pillName(hs, id);
+  // One line, room first: "Kitchen Window", so two windows both called "Window" can be told apart.
+  const nameOf = (hs, id) => secLine(hs, ctx.model, id);
 
   const update = (hs) => {
     // Alarm
@@ -218,8 +213,11 @@ export function openSecurityOverview(ctx, openClassic) {
       const d = domainOf(id);
       const r = row({ ic: secIcon(hs, id, true), onClick: () => ctx.openDetails(id) });
       r.classList.add("bad");
-      r.name.textContent = nameOf(hs, id);
-      r.sub.textContent = [t("ov_open_for", { when: since(hs.states[id].last_changed) }), blocking.has(id) ? t("ov_blocks_short") : null].filter(Boolean).join(" · ");
+      // Room on top, name and how long it has been open under it (like the detectors).
+      const lbl = secLabel(hs, ctx.model, id);
+      r.name.textContent = lbl.room || lbl.name;
+      r.sub.textContent = [lbl.room ? lbl.name : null, t("ov_open_for", { when: since(hs.states[id].last_changed) }),
+        blocking.has(id) ? t("ov_blocks_short") : null].filter(Boolean).join(" · ");
       r.right.replaceChildren(h("span", { class: "hp-ov-tag bad" }, d === "lock" ? t("ov_unlocked") : t("ov_open_short")));
       return r;
     }));

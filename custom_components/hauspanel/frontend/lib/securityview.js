@@ -105,6 +105,25 @@ export function pillName(hass, id) {
   return name.replace(/\s*\b(open|opened|offen|geöffnet|status|state|contact|kontakt)\b\s*/gi, " ").trim() || name;
 }
 
+/**
+ * Room and name of a door, window, gate, garage or lock. Home Assistant's naming rule leaves the room
+ * to the area, so two windows can both be called "Window": the room goes in front to tell them apart.
+ * No room (null) when there is none, when it is "Other", or when the name already says it, so
+ * "Kitchen Window" and "Window Kitchen" stay as they are.
+ */
+export function secLabel(hass, model, id) {
+  const name = pillName(hass, id);
+  const room = model?.areaById?.get(model?.areaOf?.[id])?.name;
+  if (!room || room === t("other") || name.toLowerCase().includes(room.toLowerCase())) return { room: null, name };
+  return { room, name };
+}
+
+/** The same on one line, for lists whose entries are joined with " · ": "Kitchen Window". */
+export function secLine(hass, model, id) {
+  const { room, name } = secLabel(hass, model, id);
+  return room ? `${room} ${name}` : name;
+}
+
 /** Where a detector hangs: its room, or its device name without "Smoke Alarm" when it has no room. */
 function roomLabel(ctx, id) {
   const hass = ctx.hass;
@@ -151,9 +170,12 @@ function statusPill(ctx, id, { byRoom = false } = {}) {
     // Doors, gates, windows and locks look the same as in the security popup; everything else as in HA.
     const opening = domainOf(id) === "lock" || domainOf(id) === "cover" || (id.startsWith("binary_sensor.") && ["door", "window", "opening", "garage_door", "gate"].includes(st.attributes.device_class));
     ic.icon = opening ? secIcon(hass, id, rawOpen(hass, id)) : entityIcon(hass, st);
-    name.textContent = byRoom ? roomLabel(ctx, id) : pillName(hass, id);
     // Open inside its time window: "OK until 19:00" (short, the pill is narrow; closed again, it says Closed).
-    state.textContent = isAllowedOpen(hass, id) ? t("sec_allowed_short", { t: allowRule(id).to }) : stateText(hass, st);
+    const txt = isAllowedOpen(hass, id) ? t("sec_allowed_short", { t: allowRule(id).to }) : stateText(hass, st);
+    // Room on top, name and state under it, so two windows both called "Window" can be told apart.
+    const lbl = secLabel(hass, ctx.model, id);
+    name.textContent = byRoom ? roomLabel(ctx, id) : lbl.room || lbl.name;
+    state.textContent = !byRoom && lbl.room ? `${lbl.name} · ${txt}` : txt;
     el.classList.toggle("alert", isAlert(hass, id));
     el.classList.toggle("ok", !isAlert(hass, id) && !isUnavailable(st));
     el.classList.toggle("unavail", isUnavailable(st));
@@ -220,8 +242,9 @@ function secRow(ctx, id) {
     const alert = isAlert(hass, id);
     const opening = domainOf(id) === "lock" || domainOf(id) === "cover" || (id.startsWith("binary_sensor.") && ["door", "window", "opening", "garage_door", "gate"].includes(st.attributes.device_class));
     ic.icon = opening ? secIcon(hass, id, rawOpen(hass, id)) : entityIcon(hass, st);
-    name.textContent = pillName(hass, id);
-    state.textContent = stateText(hass, st);
+    const lbl = secLabel(hass, ctx.model, id);
+    name.textContent = lbl.room || lbl.name;
+    state.textContent = lbl.room ? `${lbl.name} · ${stateText(hass, st)}` : stateText(hass, st);
     el.classList.toggle("alert", alert);
     el.classList.toggle("unavail", isUnavailable(st));
     const a = alert ? closeAction(hass, id) : null;
@@ -310,7 +333,7 @@ export function openSecuritySheet(ctx) {
     hero.classList.toggle("alert", openIds.length > 0);
     heroIc.icon = openIds.length ? "mdi:shield-alert-outline" : "mdi:shield-check-outline";
     heroBig.textContent = openIds.length ? t("n_open", { n: openIds.length }) : t("sec_all_closed");
-    heroSub.textContent = openIds.length ? openIds.map((k) => pillName(hs, k)).join(" · ") : t("sec_all_closed_sub");
+    heroSub.textContent = openIds.length ? openIds.map((k) => secLine(hs, ctx.model, k)).join(" · ") : t("sec_all_closed_sub");
   };
   const state = () => {
     const s = statusItems(ctx);

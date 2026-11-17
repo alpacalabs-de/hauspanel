@@ -3,7 +3,7 @@
 import { h, icon, formatTime, formatDate, domainOf, entityName } from "./util.js";
 import { t } from "./i18n.js";
 import { liveVideo, snapshotUrl, trackAspect } from "./camera.js";
-import { statusItems, cameraList, isAlert, pillName, secIcon } from "./securityview.js";
+import { statusItems, cameraList, isAlert, secLabel, secIcon } from "./securityview.js";
 import { saverLayout } from "./screensaver.js";
 import { stateText } from "./domains.js";
 
@@ -137,8 +137,11 @@ export function nightView(ctx, root) {
         h("span", {}, [open.length ? t("n_open", { n: open.length }) : t("sec_all_closed"), alarmTxt].filter(Boolean).join(" · ")));
       thingBox.replaceChildren(...shown.map((id) => {
         const bad = isAlert(hs, id);
+        // Room on top, name and state under it, like the security popup.
+        const lbl = secLabel(hs, ctx.model, id);
+        const st = stateText(hs, hs.states[id]);
         const tile = h("button", { class: `hp-nv-thing ${bad ? "bad" : ""}` }, icon(secIcon(hs, id, bad)),
-          h("span", {}, h("b", {}, pillName(hs, id)), h("small", {}, stateText(hs, hs.states[id]))));
+          h("span", {}, h("b", {}, lbl.room || lbl.name), h("small", {}, lbl.room ? `${lbl.name} · ${st}` : st)));
         tile.addEventListener("click", (e) => { e.stopPropagation(); hide(); ctx.openDetails(id); });
         return tile;
       }));

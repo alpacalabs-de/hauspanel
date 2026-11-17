@@ -17,7 +17,7 @@ For the tablet on the wall, the phone in your pocket and a screen for the camera
 
 Home Assistant already knows your house: which rooms are on which floor, and which lamp, thermostat or lock hangs where. HausPanel takes that map and turns it into screens you can use at a glance, from the hallway as well as from the sofa. When you add a device to a room, it simply turns up in that room. The integration runs on your own Home Assistant and talks to nothing else.
 
-Free and open source (MIT), made by [Alpaca Labs](https://alpacalabs.de). *Deutsch: [weiter unten](#deutsch).*
+Free and open source (MIT), made by [Alpaca Labs](https://alpacalabs.de). *Deutsch: [weiter unten](#deutsch). Français : [README.fr.md](README.fr.md).*
 
 **Contents:** [Three panels](#three-panels) · [Features](#features) · [Popups](#popups-for-your-devices) · [Settings](#settings) · [Install](#install) · [First steps](#first-steps) · [FAQ](#good-to-know) · [Development](#development) · [Support](#support)
 
