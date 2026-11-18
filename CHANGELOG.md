@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.13.0
+
+- **Grouped notices** (*Settings → Home → Notices*): give notices the same group, like all pollen sensors, and they show as one notice that lists which of them are on.
+- **NINA warnings** no longer show up as a detector alarm on Home and in the security popup. Add them under *Settings → Home → Notices* to see them as a notice.
+
 ## 1.12.0
 
 - **Christmas** (*Settings → Home → Christmas*): a Christmas chip on Home from the first Sunday of Advent to 7 January. Its popup switches your Christmas lights (all on, outdoor only, all off), counts down to Christmas Eve and shows sunset and power. Lights are found by a "christmas" label, by their name or added by hand. It stays off until you turn it on; a welcome window offers it once.

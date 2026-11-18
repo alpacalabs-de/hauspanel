@@ -15,6 +15,13 @@ export const ADDABLE = new Set([...TILE_DOMAINS, "sensor", "binary_sensor", "sce
 
 const SECURITY_BINARY = new Set(["door", "window", "garage_door", "opening", "lock", "motion", "occupancy", "smoke", "moisture", "gas", "safety", "tamper"]);
 
+/**
+ * Warning services send civil-protection warnings as binary sensors with device class "safety" (see
+ * lib/warnings.js). They are no detector in the house, so they stay out of the security list: as a
+ * notice (Settings → Home → Notices) and as a tile added by hand they work as before.
+ */
+const WARNING_PLATFORMS = new Set(["nina"]);
+
 /** "*" works as a wildcard; without one the text may appear anywhere. Case does not matter. */
 function patternTest(p) {
   const esc = p.trim().toLowerCase().replace(/[.+?^${}()|[\]\\]/g, "\\$&").replace(/\*/g, ".*");
@@ -213,7 +220,7 @@ export function buildModel(hass, hide) {
       if (reg?.platform === "spotify") model.spotify.push(entityId);
     }
     if (domain === "lock" || domain === "alarm_control_panel") model.security.push(entityId);
-    if (domain === "binary_sensor" && SECURITY_BINARY.has(st.attributes.device_class)) model.security.push(entityId);
+    if (domain === "binary_sensor" && SECURITY_BINARY.has(st.attributes.device_class) && !WARNING_PLATFORMS.has(reg?.platform)) model.security.push(entityId);
     if (domain === "camera") model.security.push(entityId);
 
     if (domain === "scene") area.scenes.push(entityId);

@@ -1224,6 +1224,9 @@ ha-icon.hp-rc-touch-ic { --mdc-icon-size: 40px; opacity: .3; pointer-events: non
 .hp-notice-ctl { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .hp-notice-ctl > .hp-input, .hp-notice-ctl > .hp-select { flex: 1; min-width: 0; }
 .hp-notice-ctl > .hp-muted { flex: 1; }
+/* When it shows, and the group it belongs to: side by side, below each other when it gets narrow. */
+.hp-notice-ctl > .hp-notice-when { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.hp-notice-when > .hp-input, .hp-notice-when > .hp-select, .hp-notice-when > .hp-muted { flex: 1 1 130px; min-width: 0; }
 .hp-pr-media { position: relative; border-radius: 20px; overflow: hidden; aspect-ratio: 16 / 9; background: #0e0c10; margin-bottom: 12px; cursor: pointer; }
 .hp-pr-media .hp-live-wrap, .hp-pr-media .hp-cam-live { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 .hp-pr-cover { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; padding: 10%; }

@@ -117,6 +117,26 @@ test("Browser Mod (the browsers themselves) stays out of rooms and security", ()
   assert.ok(!m.security.includes("camera.browser_mod_abc"));
 });
 
+test("a warning service (NINA) is no detector of the house, a real safety sensor is", () => {
+  const hass = fakeHass({
+    areas: { office: { area_id: "office", name: "Office" } },
+    entities: {
+      "binary_sensor.nina_warning_1": { entity_id: "binary_sensor.nina_warning_1", area_id: "office", platform: "nina" },
+      "binary_sensor.cellar_safety": { entity_id: "binary_sensor.cellar_safety", area_id: "office", platform: "zha" },
+    },
+    states: {
+      "binary_sensor.nina_warning_1": { state: "on", attributes: { device_class: "safety" } },
+      "binary_sensor.cellar_safety": { state: "on", attributes: { device_class: "safety" } },
+    },
+  });
+  const m = buildModel(hass, {});
+  assert.ok(!m.security.includes("binary_sensor.nina_warning_1"), "a NINA warning raises no detector alarm");
+  assert.ok(m.security.includes("binary_sensor.cellar_safety"), "a real safety sensor still counts");
+  // It stays a sensor of its room, so it can be added by hand and works as a notice.
+  assert.ok(m.areaById.get("office").sensors.includes("binary_sensor.nina_warning_1"));
+  assert.equal(m.areaOf["binary_sensor.nina_warning_1"], "office");
+});
+
 test("presence: occupancy sensors count, a motion sensor in the same room is left out", async () => {
   const { roomPresence } = await import(LIB + "model.js");
   const area = (ids) => ({ all: ids });

@@ -3,6 +3,7 @@ import { h, icon, domainOf, bindTapHold, entityName, toggleSwitch, formatNumber 
 import { entityIcon, stateText, HAZARD, hazardInfo } from "./domains.js";
 import { candidateEntities, isOutdoorRoom, OUTSIDE } from "./model.js";
 import { warningInfo, warningLine, openWarnings } from "./warnings.js";
+import { openSheet } from "./dialogs.js";
 import { t } from "./i18n.js";
 
 /** Kinds that are simply on or off: shown while on. */
@@ -32,6 +33,49 @@ export function noticeActive(st, n) {
 
 /** The picked notices that show right now, in their order. */
 export const activeNotices = (hass, list) => (list || []).filter((n) => noticeActive(hass.states[n.id], n));
+
+/** How two notices end up in the same group: the text that was typed for them, case and spaces aside. */
+export const groupKey = (n) => String(n?.group || "").trim().replace(/\s+/g, " ").toLowerCase();
+
+/**
+ * The active notices as they show on Home: `{ id }` for one on its own, `{ group, key, ids }` where two or
+ * more of the same group show at the same time, in the place of the first of them.
+ * Nothing is guessed here: a notice only joins a group when that group was typed for it in the settings.
+ */
+export function groupNotices(list, activeIds) {
+  const by = new Map((list || []).filter((n) => n?.id).map((n) => [n.id, n]));
+  const out = [];
+  const groups = new Map();
+  for (const id of activeIds || []) {
+    const key = groupKey(by.get(id));
+    const seen = key ? groups.get(key) : null;
+    if (seen) { seen.ids.push(id); continue; }
+    const e = key ? { group: String(by.get(id).group).trim(), key, ids: [id] } : { ids: [id] };
+    if (key) groups.set(key, e);
+    out.push(e);
+  }
+  // Alone in its group a notice stays a normal pill, exactly as before.
+  return out.map((e) => (e.ids.length > 1 ? e : { id: e.ids[0] }));
+}
+
+/**
+ * The names for a group's line: the beginning all of them share falls away, so
+ * "Pollen Birch" and "Pollen Grass" become "Birch" and "Grass". Whole words only, and when one of
+ * them would be left with nothing, every name stays as it is.
+ */
+export function shortNames(names) {
+  const list = (names || []).map((s) => String(s ?? ""));
+  if (list.length < 2) return list;
+  let p = list[0];
+  for (const n of list.slice(1)) {
+    let i = 0;
+    while (i < p.length && i < n.length && p[i].toLowerCase() === n[i].toLowerCase()) i++;
+    p = p.slice(0, i);
+  }
+  const cut = p.replace(/\S+$/, "").length;
+  const short = list.map((s) => s.slice(cut).replace(/^[\s·,;:–-]+/, "").trim());
+  return short.every(Boolean) ? short : list;
+}
 
 /** The room of an entity from Home Assistant's registry: its own area, else its device's. */
 const areaIdOf = (hass, id) => {
@@ -267,6 +311,85 @@ function noticePill(ctx, id) {
   return el;
 }
 
+/** What one notice says right now: a warning its headline, anything else its state. */
+const noticeState = (hass, id) => {
+  const warns = warningInfo(hass, id) || [];
+  return warns.length ? warningLine(warns) : stateText(hass, hass.states[id]);
+};
+
+/** A tap on a notice: a weather warning shows its own text, anything else its details. */
+const openNotice = (ctx, id) => ((warningInfo(ctx.hass, id) || []).length ? openWarnings(ctx, id) : ctx.openDetails(id));
+
+/** The group popup: one line per notice of the group that shows right now, with its state. */
+export function openNoticeGroup(ctx, entry) {
+  const sheet = openSheet(ctx, { title: entry.group, subtitle: t("notices"), cls: "qsheet" });
+  const list = h("div", { class: "hp-qlist" });
+  sheet.body.append(list);
+  const mine = (hass) => activeNotices(hass, ctx.settings.s.notices).filter((n) => groupKey(n) === entry.key).map((n) => n.id);
+
+  let rows = [];
+  const build = (hass, ids) => {
+    rows = ids.map((id) => {
+      const ic = icon("mdi:bell-outline");
+      const name = h("b", {});
+      const state = h("small", {});
+      // A helper is cleared right here, like the tick on its own pill.
+      let done = null;
+      if (domainOf(id) === "input_boolean") {
+        done = h("button", { class: "hp-round ghost small", "aria-label": t("notice_done"), title: t("notice_done") }, icon("mdi:check"));
+        done.addEventListener("click", (e) => { e.stopPropagation(); ctx.hass.callService("input_boolean", "turn_off", { entity_id: id }); });
+      }
+      const el = h("div", { class: "hp-qrow", role: "button", tabindex: "0" },
+        h("span", { class: "hp-qrow-ic" }, ic), h("div", { class: "hp-qrow-text" }, name, state), done);
+      el.addEventListener("click", (e) => { if (!e.target.closest("button")) openNotice(ctx, id); });
+      el.upd = (hs) => {
+        const st = hs.states[id];
+        if (!st) return;
+        ic.icon = entityIcon(hs, st);
+        name.textContent = entityName(hs, id);
+        state.textContent = noticeState(hs, id);
+      };
+      return el;
+    });
+    list.replaceChildren(...(rows.length ? rows : [h("div", { class: "hp-qempty" }, t("notice_group_none"))]));
+  };
+
+  let sig = null;
+  const draw = (hass) => {
+    const ids = mine(hass);
+    const next = ids.join();
+    if (next !== sig) {
+      sig = next;
+      build(hass, ids);
+    }
+    rows.forEach((r) => r.upd(hass));
+  };
+  draw(ctx.hass);
+  sheet.updaters.push(draw);
+  return sheet;
+}
+
+/** A group of notices as one pill: the group's name, below it the ones that show right now. */
+function groupPill(ctx, entry) {
+  const ic = icon("mdi:bell-outline");
+  const name = h("b", {});
+  const sub = h("small", {});
+  const el = h("div", { class: "hp-onpill notice on", role: "button", tabindex: "0", dataset: { key: `ng:${entry.key}` } },
+    h("span", { class: "hp-onpill-ic" }, ic), h("div", { class: "hp-onpill-text" }, name, sub));
+  let e = entry;
+  const open = () => openNoticeGroup(ctx, e);
+  bindTapHold(el, { canStart: () => !ctx.editing, tap: open, hold: open });
+  el.update = (hass, next = e) => {
+    e = next;
+    const first = hass.states[e.ids[0]];
+    ic.icon = first ? entityIcon(hass, first) : "mdi:bell-outline";
+    name.textContent = e.group;
+    sub.textContent = shortNames(e.ids.map((id) => entityName(hass, id))).join(", ");
+  };
+  el.update(ctx.hass);
+  return el;
+}
+
 /** The notices on Home: hidden while none of them shows. */
 export function noticesBlock(ctx) {
   const box = h("div", { class: "hp-onnow" });
@@ -279,12 +402,14 @@ export function noticesBlock(ctx) {
   let hzbPills = [];
   el.update = (hass) => {
     const now = activeNotices(hass, ctx.settings.s.notices).map((n) => n.id);
+    // Notices of the same group that show at the same time become one pill.
+    const groups = groupNotices(ctx.settings.s.notices, now);
     const wh = windowHeatOn(ctx) ? windowHeatRooms(hass) : [];
     const air = airOn(ctx) ? airRooms(hass) : [];
     const secIds = ctx.securityItems?.() || null;
     const hz = hazardOn(ctx) ? hazardAlarms(hass, secIds) : [];
     const hzb = hazardOn(ctx) ? hazardBatteries(hass, ctx.settings.s.maintIgnore || [], secIds) : [];
-    const next = `${hz}|${hzb.map((b) => b.id)}|${wh.map((r) => r.area)}|${air.map((r) => r.area)}|${now}`;
+    const next = `${hz}|${hzb.map((b) => b.id)}|${wh.map((r) => r.area)}|${air.map((r) => r.area)}|${groups.map((g) => (g.ids ? `${g.key}=${g.ids}` : g.id))}`;
     if (next !== sig) {
       sig = next;
       // An alarm comes first, then a weak battery, then the rest.
@@ -292,14 +417,14 @@ export function noticesBlock(ctx) {
       hzbPills = hzb.map((b) => hazardBattPill(ctx, b));
       whPills = wh.map((r) => windowHeatPill(ctx, r));
       airPills = air.map((r) => airPill(ctx, r));
-      pills = now.map((id) => noticePill(ctx, id));
+      pills = groups.map((g) => (g.ids ? groupPill(ctx, g) : noticePill(ctx, g.id)));
       box.replaceChildren(...hzPills, ...hzbPills, ...whPills, ...airPills, ...pills);
     }
     hzPills.forEach((p) => p.update(hass));
     hzbPills.forEach((p, i) => p.update(hass, hzb[i]));
     whPills.forEach((p, i) => p.update(hass, wh[i]));
     airPills.forEach((p, i) => p.update(hass, air[i]));
-    pills.forEach((p) => p.update(hass));
+    pills.forEach((p, i) => p.update(hass, groups[i]));
     el.hidden = !now.length && !wh.length && !air.length && !hz.length && !hzb.length;
   };
   el.update(ctx.hass);
@@ -332,9 +457,18 @@ export function noticesSection(ctx, S, draw, state, { section, row }) {
       control.addEventListener("change", () => set(parseWhen(control.value)));
       control.addEventListener("keydown", (e) => { if (e.key === "Enter") control.blur(); });
     }
+    // A group of its own makes several notices that show at once one pill, like all the pollen sensors.
+    const group = h("input", { class: "hp-input hp-notice-group", placeholder: t("notice_group_ph"), "aria-label": t("notice_group"), title: t("notice_group"), value: n.group || "" });
+    const setGroup = (v) => change((all) => all.map((x) => {
+      if (x.id !== n.id) return x;
+      const { group: old, ...rest } = x;
+      return v ? { ...rest, group: v } : rest;
+    }));
+    group.addEventListener("change", () => { if (group.value.trim() !== (n.group || "")) setGroup(group.value.trim()); });
+    group.addEventListener("keydown", (e) => { if (e.key === "Enter") group.blur(); });
     const now = `${n.id} · ${t("notice_now", { state: isOnOff(n.id) ? stateText(hass, st) : st.state })}`;
     const sub = isOnOff(n.id) || (n.when || []).length ? now : `${t("notice_need_when")} ${now}`;
-    const r = row(name(n.id), h("div", { class: "hp-notice-ctl" }, control, remove), sub);
+    const r = row(name(n.id), h("div", { class: "hp-notice-ctl" }, h("div", { class: "hp-notice-when" }, control, group), remove), sub);
     r.classList.add("stack");
     return r;
   });
