@@ -4,6 +4,7 @@ import { h, icon, formatNumber, formatDate, startOfDay, addDays } from "./util.j
 import { t } from "./i18n.js";
 import { waterSources, waterPrice, toLitres, litresText, openWater } from "./water.js";
 import { meterReadings, readingText, readingLabel, openMeters } from "./meters.js";
+import { batteryKey, batterySoc, socText } from "./battery.js";
 
 const RANGES = ["day", "week", "month", "year"];
 const REFRESH_MS = 5 * 60 * 1000;
@@ -18,7 +19,9 @@ export async function loadEnergyPrefs(ctx) {
 
 /**
  * Home Assistant's energy settings with the sensors picked in Settings → Rooms & devices → Energy:
- * pick = { grid, solar, devices: { [stat_consumption]: powerSensor | "none" } }. Neither is changed.
+ * pick = { grid, solarBy: { [stat_energy_from]: powerSensor }, batteryBy: { [key]: { power, soc } },
+ * devices: { [stat_consumption]: powerSensor | "none" } }.
+ * The older single `solar` still stands for the first solar source. Neither is changed.
  */
 export function withEnergyPicks(raw, pick) {
   if (!raw || !pick) return raw;
@@ -29,14 +32,44 @@ export function withEnergyPicks(raw, pick) {
     grid.stat_rate = pick.grid;
     if (grid.power_config) grid.power_config.stat_rate = pick.grid;
   }
-  const solar = src.find((x) => x.type === "solar");
-  if (solar && pick.solar) solar.stat_rate = pick.solar;
+  // Every inverter has its own power sensor; the old single pick keeps working for the first one.
+  const by = pick.solarBy || {};
+  src.filter((x) => x.type === "solar").forEach((s, i) => {
+    const p = (s.stat_energy_from && by[s.stat_energy_from]) || (i === 0 ? pick.solar : null);
+    if (p) s.stat_rate = p;
+  });
+  // A battery without a power sensor in Home Assistant gets one here, and that brings its circle back.
+  const batt = pick.batteryBy || {};
+  src.filter((x) => x.type === "battery").forEach((s, i) => {
+    const own = batt[batteryKey(s, i)] || {};
+    if (own.power) s.stat_rate = own.power;
+    if (own.soc) s.stat_soc = own.soc;
+  });
   const dev = pick.devices || {};
   out.device_consumption = (out.device_consumption || [])
     .filter((d) => dev[d.stat_consumption] !== "none")
     .map((d) => (dev[d.stat_consumption] ? { ...d, stat_rate: dev[d.stat_consumption] } : d));
   return out;
 }
+
+/**
+ * Every solar source of the energy settings, in their order: [{ energy, rate, name }].
+ * A house can have several inverters, so nothing here stops at the first one.
+ */
+export const solarSources = (prefs) => (prefs?.energy_sources || [])
+  .filter((x) => x.type === "solar")
+  .map((s) => ({ energy: s.stat_energy_from || null, rate: s.stat_rate || null, name: s.name || null }));
+
+/** The power sensors of all solar sources, in order. */
+export const solarRates = (prefs) => solarSources(prefs).map((s) => s.rate).filter(Boolean);
+
+/**
+ * What one solar source is called: its own name from the energy settings, and with several of them
+ * the name of its energy sensor, so two inverters are not both called "Solar".
+ */
+export const solarName = (hass, s, several) => s.name
+  || (several && (hass?.states?.[s.energy]?.attributes?.friendly_name || hass?.states?.[s.rate]?.attributes?.friendly_name))
+  || t("solar");
 
 /** The grid's power sensor, in any of the formats Home Assistant has used (power_config, stat_rate, power: [{stat_rate}]). */
 export const gridRate = (grid) => (grid && (grid.power_config?.stat_rate || grid.stat_rate || grid.power?.find((p) => p.stat_rate)?.stat_rate)) || null;
@@ -343,7 +376,11 @@ function liveRow(ctx, src) {
   const items = [];
   const main = src.meters[0];
   if (main?.rate) items.push({ ic: "mdi:home-lightning-bolt-outline", label: t("house_now"), id: main.rate });
-  for (const s of src.solar) if (s.stat_rate) items.push({ ic: "mdi:solar-power-variant-outline", label: s.name || t("solar"), id: s.stat_rate, solar: true });
+  for (const s of src.solar) {
+    if (!s.stat_rate) continue;
+    const label = solarName(ctx.hass, { energy: s.stat_energy_from, rate: s.stat_rate, name: s.name }, src.solar.length > 1);
+    items.push({ ic: "mdi:solar-power-variant-outline", label, id: s.stat_rate, solar: true });
+  }
   for (const m of src.meters.slice(1)) if (m.rate) items.push({ ic: "mdi:heat-pump-outline", label: m.name, id: m.rate });
   if (!items.length) return null;
   const row = h("div", { class: "hp-en-now" });
@@ -451,7 +488,10 @@ export function energyView(ctx) {
     if (s.battery.length) {
       const ch = sum(cur.battCharge.map(sum));
       const dis = sum(cur.battDischarge.map(sum));
-      cards.push(card("battery", "mdi:battery-charging-outline", t("battery"), kwh(ctx, dis), t("charged", { v: kwh(ctx, ch) })));
+      // How full it is right now stands next to what it gave and took over the period.
+      const soc = batterySoc(ctx.hass, ctx.energyPrefs);
+      const sub = [soc ? `${t("battery_soc")} ${socText(ctx.hass, soc.pct)}` : null, t("charged", { v: kwh(ctx, ch) })].filter(Boolean).join(" · ");
+      cards.push(card("battery", "mdi:battery-charging-outline", t("battery"), kwh(ctx, dis), sub));
     }
     if (s.meters.length > 1) {
       s.meters.forEach((m, i) => cards.push(card(`meter m${i}`, i === 0 ? "mdi:home-lightning-bolt-outline" : "mdi:heat-pump-outline", m.name, kwh(ctx, meterKwh[i]),

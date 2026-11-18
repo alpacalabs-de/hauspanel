@@ -7,6 +7,8 @@ import { t } from "./i18n.js";
 import { svgEl, stat, fmt } from "./popkit.js";
 import { openSolar } from "./solar.js";
 import { wallboxes, openWallbox } from "./wallbox.js";
+import { solarSources } from "./energy.js";
+import { batterySoc, socText } from "./battery.js";
 
 
 async function todayChange(hass, id) {
@@ -25,9 +27,9 @@ const batteryRates = (prefs) => (prefs?.energy_sources || []).filter((x) => x.ty
  * and the house, which is what the three add up to.
  */
 export function livePower(hass, prefs, rate) {
-  const solar = (prefs?.energy_sources || []).find((x) => x.type === "solar");
   const g = watts(hass, rate);
-  const s = solar?.stat_rate ? Math.max(0, watts(hass, solar.stat_rate) ?? 0) : 0;
+  // Several inverters add up.
+  const s = solarSources(prefs).reduce((acc, x) => acc + (x.rate ? Math.max(0, watts(hass, x.rate) ?? 0) : 0), 0);
   const b = batteryRates(prefs).reduce((acc, id) => acc + (watts(hass, id) ?? 0), 0);
   return { grid: g, solar: s, battery: b, house: g == null ? null : Math.max(0, g + s + b) };
 }
@@ -36,11 +38,11 @@ export function openEnergyFlow(ctx, rate) {
   const hass = ctx.hass;
   const prefs = ctx.energyPrefs || {};
   const grid = (prefs.energy_sources || []).find((x) => x.type === "grid");
-  const solar = (prefs.energy_sources || []).find((x) => x.type === "solar");
-  const solarRate = solar?.stat_rate || null;
+  const suns = solarSources(prefs);
+  const hasSun = suns.some((x) => x.rate);
   const battRates = batteryRates(prefs);
   // Sources on the left, one above the other, the house on the right in the middle.
-  const left = [solarRate && "solar", "grid", battRates.length && "battery"].filter(Boolean);
+  const left = [hasSun && "solar", "grid", battRates.length && "battery"].filter(Boolean);
   const NODES = { solar: [56, 44], grid: [56, 156], home: [262, 100] };
   let H = 200;
   if (left.length === 3 || (left.length === 2 && battRates.length)) {
@@ -66,7 +68,7 @@ export function openEnergyFlow(ctx, rate) {
     svg.append(base, flow);
     lines[k] = flow;
   };
-  if (solarRate) mkLine("solar", "solar", "home");
+  if (hasSun) mkLine("solar", "solar", "home");
   mkLine("grid", "grid", "home");
   if (battRates.length) mkLine("battery", "battery", "home");
   const node = (k, ic, label) => {
@@ -81,9 +83,9 @@ export function openEnergyFlow(ctx, rate) {
     const ic2 = h("div", { class: `hp-ef-ic ${k}` }, icon(ic));
     ic2.style.left = `${(x / 320) * 100}%`;
     ic2.style.top = `${(y / H) * 100}%`;
-    return { g, txt, ic: ic2 };
+    return { g, txt, lab, ic: ic2 };
   };
-  const nSolar = solarRate ? node("solar", "mdi:solar-power-variant", t("solar")) : null;
+  const nSolar = hasSun ? node("solar", "mdi:solar-power-variant", t("solar")) : null;
   const nGrid = node("grid", "mdi:transmission-tower", t("grid"));
   const nHome = node("home", "mdi:home-lightning-bolt", t("ef_house"));
   const nBatt = battRates.length ? node("battery", "mdi:home-battery-outline", t("battery")) : null;
@@ -91,7 +93,7 @@ export function openEnergyFlow(ctx, rate) {
 
   const sUse = stat("mdi:home-import-outline", t("ef_today_grid"));
   const sCost = stat("mdi:currency-eur", t("ef_today_cost"));
-  const sSun = solarRate ? stat("mdi:white-balance-sunny", t("ef_today_solar")) : null;
+  const sSun = hasSun ? stat("mdi:white-balance-sunny", t("ef_today_solar")) : null;
   const stats = h("div", { class: "hp-app-stats" }, sUse, sCost, ...(sSun ? [sSun] : []));
 
   const devices = (prefs.device_consumption || []).map((d) => ({
@@ -109,7 +111,7 @@ export function openEnergyFlow(ctx, rate) {
     nSolar.ic.style.cursor = "pointer";
     nSolar.ic.addEventListener("click", () => openSolar(ctx));
   }
-  const solB = solarRate ? h("button", { class: "hp-btn ghost" }, icon("mdi:solar-power-variant"), h("span", {}, t("solar"))) : null;
+  const solB = hasSun ? h("button", { class: "hp-btn ghost" }, icon("mdi:solar-power-variant"), h("span", {}, t("solar"))) : null;
   solB?.addEventListener("click", () => openSolar(ctx));
   const wbs = wallboxes(hass);
   const wbB = wbs.length ? h("button", { class: "hp-btn ghost" }, icon("mdi:ev-station"), h("span", {}, t("wb_title"))) : null;
@@ -124,7 +126,11 @@ export function openEnergyFlow(ctx, rate) {
     if (nBatt) {
       // Value with a small arrow: ↓ into the battery while it charges, ↑ out of it while it gives.
       nBatt.txt.textContent = b < -5 ? `↓ ${formatWatts(hs, -b)}` : b > 5 ? `↑ ${formatWatts(hs, b)}` : formatWatts(hs, 0);
-      nBatt.ic.title = t(b < -5 ? "ef_batt_charging" : b > 5 ? "ef_batt_giving" : "ef_batt_idle");
+      // How full it is goes next to the label above the circle, where there is room for it.
+      const soc = batterySoc(hs, prefs);
+      const lab = soc ? `${t("battery")} · ${socText(hs, soc.pct)}` : t("battery");
+      if (nBatt.lab.textContent !== lab) nBatt.lab.textContent = lab;
+      nBatt.ic.title = [soc ? `${t("battery_soc")} ${socText(hs, soc.pct)}` : null, t(b < -5 ? "ef_batt_charging" : b > 5 ? "ef_batt_giving" : "ef_batt_idle")].filter(Boolean).join(" · ");
       lines.battery.classList.toggle("off", Math.abs(b) < 5);
       lines.battery.classList.toggle("charge", b < -5);
       lines.battery.style.animationDuration = speed(b);
@@ -154,7 +160,12 @@ export function openEnergyFlow(ctx, rate) {
   sheet.updaters.push(update);
 
   (async () => {
-    const [imp, sun] = await Promise.all([todayChange(hass, gridFrom?.stat_energy_from), todayChange(hass, solar?.stat_energy_from)]);
+    // Today's sun is what all inverters made together.
+    const sunToday = Promise.all(suns.map((s) => todayChange(hass, s.energy))).then((v) => {
+      const ok = v.filter((x) => x != null);
+      return ok.length ? ok.reduce((a, b) => a + b, 0) : null;
+    });
+    const [imp, sun] = await Promise.all([todayChange(hass, gridFrom?.stat_energy_from), sunToday]);
     const price = priceId ? Number(hass.states[priceId]?.state) : priceNum;
     sUse.set(imp != null ? `${fmt(hass, imp, 1)} kWh` : "–");
     sCost.set(imp != null && Number.isFinite(price) ? `${fmt(hass, imp * price, 2)} €` : "–");

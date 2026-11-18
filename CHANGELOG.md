@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.14.0
+
+- **Several inverters** (*Settings → Rooms & devices → Energy*): every solar source from Home Assistant's energy settings counts now, in the live power, the energy and solar popups, and each gets its own power sensor.
+- **Battery charge level** (*Settings → Rooms & devices → Energy*): the battery shows its charge level in the energy popup and on the energy page, and its power and charge sensors can be picked by hand.
+
 ## 1.13.0
 
 - **Grouped notices** (*Settings → Home → Notices*): give notices the same group, like all pollen sensors, and they show as one notice that lists which of them are on.

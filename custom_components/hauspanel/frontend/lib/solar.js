@@ -5,18 +5,40 @@ import { openSheet } from "./dialogs.js";
 import { watts, formatWatts } from "./usage.js";
 import { t } from "./i18n.js";
 import { svgEl, num, live, stat, fmt } from "./popkit.js";
+import { solarSources, solarName } from "./energy.js";
 
 const find = (hass, re) => Object.keys(hass.states).find((id) => id.startsWith("sensor.") && re.test(id)) || null;
 
-export function solarSource(ctx) {
-  const s = (ctx.energyPrefs?.energy_sources || []).find((x) => x.type === "solar");
-  return s ? { rate: s.stat_rate || null, energy: s.stat_energy_from, name: s.name } : null;
+/**
+ * Several inverters, one curve: the lists are sampled on all their timestamps together,
+ * each keeping its last known value in between. One list comes back as it is.
+ */
+export function sumSeries(lists) {
+  const have = (lists || []).filter((l) => l?.length);
+  if (have.length < 2) return have[0] ? [...have[0]] : [];
+  const times = [...new Set(have.flat().map((p) => p.t))].sort((a, b) => a - b);
+  const at = have.map(() => 0);
+  return times.map((tm) => {
+    let v = 0;
+    have.forEach((l, i) => {
+      while (at[i] + 1 < l.length && l[at[i] + 1].t <= tm) at[i]++;
+      if (l[at[i]].t <= tm) v += l[at[i]].v;
+    });
+    return { t: tm, v };
+  });
 }
 
 export function openSolar(ctx) {
   const hass = ctx.hass;
-  const src = solarSource(ctx);
-  if (!src) return;
+  const srcs = solarSources(ctx.energyPrefs);
+  if (!srcs.length) return;
+  const rates = srcs.map((s) => s.rate).filter(Boolean);
+  const nameOf = (s) => solarName(hass, s, srcs.length > 1);
+  // What the roof makes right now: all inverters together.
+  const sunWatts = (hs) => {
+    const vals = rates.map((id) => watts(hs, id)).filter((v) => v != null);
+    return vals.length ? vals.reduce((a, v) => a + Math.max(0, v), 0) : null;
+  };
   const ids = {
     day: find(hass, /tagesertrag_solar|solar.*(daily|today).*energy/), month: find(hass, /monatsertrag_solar/), year: find(hass, /jahresertrag_solar/),
     saveDay: find(hass, /tagesersparnis_solar/), saveMonth: find(hass, /monatsersparnis_solar/), saveYear: find(hass, /jahresersparnis_solar/),
@@ -46,8 +68,14 @@ export function openSolar(ctx) {
   const sPeak = stat("mdi:chart-bell-curve", t("sol_peak"));
   const sYest = stat("mdi:history", t("sol_vs_yesterday"));
   const stats = h("div", { class: "hp-app-stats hp-pr-stats" }, sDay, sSave, sPeak, sYest, sMonth, sYear);
-  const sheet = openSheet(ctx, { title: src.name || t("solar"), subtitle: "", cls: "appliance solar" });
-  sheet.body.append(stage, stats);
+  const sheet = openSheet(ctx, { title: srcs.length === 1 ? (srcs[0].name || t("solar")) : t("solar"), subtitle: "", cls: "appliance solar" });
+  // With more than one inverter: a line each, so you can see which one makes what.
+  const invRows = srcs.length > 1 ? srcs.map((s) => {
+    const val = h("b", {}, "–");
+    const share = h("span", {}, "");
+    return { s, val, share, el: h("div", { class: "hp-water-row" }, h("span", {}, nameOf(s)), val, share) };
+  }) : [];
+  sheet.body.append(stage, stats, ...(invRows.length ? [h("div", { class: "hp-water-rows" }, ...invRows.map((x) => x.el))] : []));
 
   let today = [];
   let yesterday = [];
@@ -77,8 +105,15 @@ export function openSolar(ctx) {
     sYest.set(yUntilNow > 0.05 ? `${tSum >= yUntilNow ? "+" : "−"}${fmt(hs, Math.abs((tSum / yUntilNow - 1) * 100))} %` : "–");
   };
   const update = (hs) => {
-    const w = watts(hs, src.rate);
+    const w = sunWatts(hs);
     big.textContent = w != null ? formatWatts(hs, w) : "–";
+    for (const x of invRows) {
+      const v = x.s.rate ? watts(hs, x.s.rate) : null;
+      const txt = v != null ? formatWatts(hs, Math.max(0, v)) : "–";
+      if (x.val.textContent !== txt) x.val.textContent = txt;
+      const pct = v != null && w > 0 ? `${fmt(hs, (Math.max(0, v) / w) * 100, 0)} %` : "";
+      if (x.share.textContent !== pct) x.share.textContent = pct;
+    }
     const sunSt = hs.states["sun.sun"];
     const up = sunSt?.state === "above_horizon";
     sub.textContent = up ? t("sol_producing") : t("ov_sun_down");
@@ -108,12 +143,14 @@ export function openSolar(ctx) {
   update(hass);
   sheet.updaters.push(update);
 
-  if (src.rate) {
+  if (rates.length) {
     const start = new Date(day0.getTime() - 86400e3);
-    hass.callWS({ type: "history/history_during_period", start_time: start.toISOString(), entity_ids: [src.rate], minimal_response: true, no_attributes: true, significant_changes_only: false })
+    hass.callWS({ type: "history/history_during_period", start_time: start.toISOString(), entity_ids: rates, minimal_response: true, no_attributes: true, significant_changes_only: false })
       .then((r) => {
-        const unit = hass.states[src.rate]?.attributes.unit_of_measurement;
-        const pts = (r[src.rate] || []).map((x) => ({ t: (x.lu ?? x.lc) * 1000, v: Number(x.s) / (unit === "W" ? 1000 : 1) })).filter((p) => Number.isFinite(p.v));
+        const pts = sumSeries(rates.map((id) => {
+          const unit = hass.states[id]?.attributes.unit_of_measurement;
+          return (r[id] || []).map((x) => ({ t: (x.lu ?? x.lc) * 1000, v: Number(x.s) / (unit === "W" ? 1000 : 1) })).filter((p) => Number.isFinite(p.v));
+        }));
         today = pts.filter((p) => p.t >= day0.getTime() && p.t <= day1.getTime());
         yesterday = pts.filter((p) => p.t >= day0.getTime() - 86400e3 && p.t <= day1.getTime() - 86400e3);
         draw(ctx.hass);

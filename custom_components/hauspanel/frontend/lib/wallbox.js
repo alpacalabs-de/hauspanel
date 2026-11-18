@@ -7,6 +7,7 @@ import { watts, formatWatts } from "./usage.js";
 import { carDevices, carName } from "./car.js";
 import { t } from "./i18n.js";
 import { svgEl, num, live, slotsOf, stat, hint, btn, twoTap, fmt } from "./popkit.js";
+import { solarRates } from "./energy.js";
 
 const SLOTS = [
   ["online", /^binary_sensor\..*_status$/],
@@ -85,7 +86,7 @@ export function openWallbox(ctx, dev) {
   const carDev = carDevices(hass)[0];
   const c = carDev ? slotsOf(hass, carDev, CAR) : {};
   const prefs = ctx.energyPrefs || {};
-  const solarRate = (prefs.energy_sources || []).find((x) => x.type === "solar")?.stat_rate;
+  const sunRates = solarRates(prefs);
   const priceId = (prefs.energy_sources || []).find((x) => x.type === "grid")?.entity_energy_price;
   const d = hass.devices?.[dev] || { name: dev.startsWith("pfx:") ? dev.slice(4).replace(/_/g, " ").toUpperCase() : "Wallbox" };
   const area = ctx.model.areaById.get(d?.area_id || hass.devices?.[carDev]?.area_id)?.name;
@@ -128,7 +129,8 @@ export function openWallbox(ctx, dev) {
     const charging = hs.states[s.charging]?.state === "on" || p > 0.1 || /^charging$/i.test(hs.states[c.cstate]?.state || "");
     const plugged = hs.states[s.plug]?.state === "on" || /connect|plug/i.test(hs.states[c.cstate]?.state || "") && !/connect_cable/i.test(hs.states[c.cstate]?.state || "");
     const offline = !live(hs, s.power) && !live(hs, s.session) && !live(hs, s.plug);
-    const sun = solarRate ? Math.max(0, (watts(hs, solarRate) ?? 0) / 1000) : 0;
+    // Sun that could pay for the charge: all inverters together.
+    const sun = sunRates.reduce((a, id) => a + Math.max(0, watts(hs, id) ?? 0), 0) / 1000;
     const green = charging && p > 0 && sun >= p * 0.8;
     stage.classList.toggle("on", charging);
     stage.classList.toggle("green", green);

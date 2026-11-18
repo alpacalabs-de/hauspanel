@@ -14,7 +14,8 @@ import { setupHints } from "./hints.js";
 import { noticesSection } from "./notices.js";
 import { setPref } from "./userprefs.js";
 import { takeSettings } from "./store.js";
-import { powerSensors, gridRate } from "./energy.js";
+import { powerSensors, gridRate, solarName } from "./energy.js";
+import { batteryKey, batteryName, socSensors, deviceSoc } from "./battery.js";
 import { meterSensors, deviceName } from "./usage.js";
 import { doorbells, bellCameras, openers, bellEnabled, bellCamera, bellOpener, ringNow } from "./doorbell.js";
 import { SAVER_MINUTES, saverLayout } from "./screensaver.js";
@@ -490,23 +491,53 @@ export function openSettings(ctx) {
         const nameOf = (id) => ctx.hass.states[id]?.attributes.friendly_name || id;
         const sensors = powerSensors(ctx.hass);
         const setPick = (fn) => { S.update((x) => { const p = JSON.parse(JSON.stringify(x.energyPick || {})); fn(p); x.energyPick = p; }); draw(); };
-        const picker = (cur, auto, onPick, canHide = false) => {
+        const picker = (cur, auto, onPick, canHide = false, list = sensors) => {
           const sel = h("select", { class: "hp-select" },
             h("option", { value: "" }, auto ? t("set_energy_auto", { name: nameOf(auto) }) : t("set_energy_nothing")),
             ...(canHide ? [h("option", { value: "none" }, t("set_energy_hide"))] : []),
-            ...sensors.map((id) => h("option", { value: id }, nameOf(id))));
+            ...list.map((id) => h("option", { value: id }, nameOf(id))));
           sel.value = cur || "";
           sel.addEventListener("change", () => onPick(sel.value || null));
           return sel;
         };
         const src = raw.energy_sources || [];
         const grid = src.find((x) => x.type === "grid");
-        const solar = src.find((x) => x.type === "solar");
+        const suns = src.filter((x) => x.type === "solar" && x.stat_energy_from);
         // Sensor names are long: the label above, the picker in full width below it.
         const stack = (el) => { el.classList.add("stack"); return el; };
         const rows = [];
         if (grid) rows.push(stack(row(t("set_energy_grid"), picker(pick.grid, gridRate(grid), (v) => setPick((p) => { p.grid = v; })))));
-        if (solar) rows.push(stack(row(t("set_energy_solar"), picker(pick.solar, solar.stat_rate, (v) => setPick((p) => { p.solar = v; })))));
+        // One picker per solar source, so a house with two inverters can name both.
+        suns.forEach((sun, i) => {
+          const label = suns.length > 1
+            ? `${t("set_energy_solar")} · ${solarName(ctx.hass, { energy: sun.stat_energy_from, rate: sun.stat_rate, name: sun.name }, true)}`
+            : t("set_energy_solar");
+          const cur = pick.solarBy?.[sun.stat_energy_from] || (i === 0 ? pick.solar : null);
+          rows.push(stack(row(label, picker(cur, sun.stat_rate, (v) => setPick((p) => {
+            p.solarBy ||= {};
+            if (v) p.solarBy[sun.stat_energy_from] = v; else delete p.solarBy[sun.stat_energy_from];
+            if (i === 0) delete p.solar;
+          })))));
+        });
+        // The battery: its power sensor (Home Assistant does not always have one) and how full it is.
+        const batts = src.filter((x) => x.type === "battery");
+        const socs = socSensors(ctx.hass);
+        batts.forEach((b, i) => {
+          const key = batteryKey(b, i);
+          const shape = { from: b.stat_energy_from || null, to: b.stat_energy_to || null, rate: b.stat_rate || null, soc: b.stat_soc || null, name: b.name || null };
+          const tag = batts.length > 1 ? ` · ${batteryName(ctx.hass, shape, true)}` : "";
+          const set = (fn) => setPick((p) => {
+            p.batteryBy ||= {};
+            const cur = { ...(p.batteryBy[key] || {}) };
+            fn(cur);
+            if (cur.power || cur.soc) p.batteryBy[key] = cur; else delete p.batteryBy[key];
+          });
+          rows.push(stack(row(`${t("set_energy_battery")}${tag}`,
+            picker(pick.batteryBy?.[key]?.power, b.stat_rate, (v) => set((c) => { if (v) c.power = v; else delete c.power; })))));
+          rows.push(stack(row(`${t("battery_soc")}${tag}`,
+            picker(pick.batteryBy?.[key]?.soc, (b.stat_soc && ctx.hass.states[b.stat_soc] ? b.stat_soc : null) || deviceSoc(ctx.hass, shape),
+              (v) => set((c) => { if (v) c.soc = v; else delete c.soc; }), false, socs))));
+        });
         const devs = (raw.device_consumption || []).filter((d) => d.stat_consumption);
         const devRows = devs.map((d) => stack(row(d.name || deviceName(ctx.hass, d.stat_consumption),
           picker(pick.devices?.[d.stat_consumption], d.stat_rate || meterSensors(ctx.hass, d.stat_consumption).power,

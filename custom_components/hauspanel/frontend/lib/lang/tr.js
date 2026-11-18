@@ -147,6 +147,8 @@ export default {
   set_energy_hint: "Tüketim ve maliyetler Home Assistant'ın enerji ayarlarından gelir. HausPanel yanlış tahmin ettiyse, burada şu anki gücü hangi sensörün göstereceğini seçersin.",
   set_energy_grid: "Ev şu anda",
   set_energy_solar: "Güneş şu anda",
+  set_energy_battery: "Batarya şu anda",
+  battery_soc: "Şarj seviyesi",
   set_energy_devices: "Cihazlar",
   set_energy_auto: "Otomatik ({name})",
   set_energy_nothing: "Otomatik (bulunamadı)",
