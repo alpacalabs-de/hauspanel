@@ -285,3 +285,33 @@ test("a group counts as one device, but not next to its own members", async () =
   assert.deepEqual(dedupeGroups(hass, ["light.ceiling", "light.loose"]), ["light.ceiling", "light.loose"], "plain lamps are never dropped");
   assert.deepEqual(dedupeGroups(hass, []), []);
 });
+
+test("people in the header: hidden in Home Assistant means hidden here", async () => {
+  const { visiblePersons } = await import(LIB + "model.js");
+  const hass = fakeHass({
+    entities: {
+      "person.alex": { platform: "person" },
+      "person.tablet": { platform: "person", hidden: true },
+    },
+    states: { "person.alex": "home", "person.tablet": "not_home", "person.guest": "home", "light.ceiling": "on" },
+  });
+  // person.guest has no registry entry at all and stays, like a lamp from YAML would.
+  assert.deepEqual(visiblePersons(hass), ["person.alex", "person.guest"], "the hidden one is gone, no lamp sneaks in");
+});
+
+test("people in the header: sorted, and a hidden one takes no slot", async () => {
+  const { visiblePersons } = await import(LIB + "model.js");
+  const names = ["a", "b", "c", "d", "e", "f"];
+  const hass = fakeHass({
+    entities: Object.fromEntries(names.map((n) => ["person." + n, { platform: "person" }])),
+    states: Object.fromEntries(names.map((n) => ["person." + n, "home"])),
+  });
+  assert.deepEqual(visiblePersons(hass), ["person.a", "person.b", "person.c", "person.d", "person.e"], "sorted, five at most");
+  hass.entities["person.b"].hidden = true;
+  assert.deepEqual(visiblePersons(hass), ["person.a", "person.c", "person.d", "person.e", "person.f"], "the sixth moves up");
+});
+
+test("people in the header: nobody there is no people", async () => {
+  const { visiblePersons } = await import(LIB + "model.js");
+  assert.deepEqual(visiblePersons(fakeHass({ states: { "light.ceiling": "on" } })), []);
+});

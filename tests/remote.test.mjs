@@ -1,9 +1,10 @@
 // Which remote belongs to a media player, and what is sent when a button is pressed.
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { LIB, fakeHass } from "./fake.mjs";
 
-const { remoteFor, sendKey, PLATFORM_KEYS } = await import(LIB + "remote.js");
+const { remoteFor, sendKey, PLATFORM_KEYS, swipeKeys, SWIPE_PX } = await import(LIB + "remote.js");
 
 const KEYS = ["up", "down", "left", "right", "ok", "back", "home", "menu"];
 
@@ -94,4 +95,34 @@ test("a button goes to remote.send_command, an LG one to webostv.button", () => 
 
   assert.equal(sendKey(hass, { type: "remote", entity: "remote.tv", keys: {} }, "up"), null);
   assert.equal(sent.length, 2, "a button the platform has not got sends nothing");
+});
+
+test("a swipe on the touchpad sends one arrow per step of travel", () => {
+  assert.deepEqual(swipeKeys(100, 0, 40), { key: "right", count: 2, rest: 20, tap: false });
+  assert.deepEqual(swipeKeys(-100, 0, 40), { key: "left", count: 2, rest: -20, tap: false });
+  assert.deepEqual(swipeKeys(0, 90, 40), { key: "down", count: 2, rest: 10, tap: false });
+  assert.deepEqual(swipeKeys(0, -40, 40), { key: "up", count: 1, rest: 0, tap: false });
+  // Without a step given it goes by SWIPE_PX.
+  assert.equal(swipeKeys(SWIPE_PX * 3, 0).count, 3);
+});
+
+test("a crooked swipe counts as its main direction", () => {
+  assert.equal(swipeKeys(60, 20, 40).key, "right");
+  assert.equal(swipeKeys(20, -60, 40).key, "up");
+  // Exactly diagonal: sideways wins, so a swipe is never without a direction.
+  assert.equal(swipeKeys(50, 50, 40).key, "right");
+});
+
+test("below the step nothing is sent, and barely moving means OK", () => {
+  assert.deepEqual(swipeKeys(20, 10, 40), { key: null, count: 0, rest: 20, tap: false });
+  assert.deepEqual(swipeKeys(4, -3, 40), { key: null, count: 0, rest: 4, tap: true });
+  assert.deepEqual(swipeKeys(0, 0, 40), { key: null, count: 0, rest: 0, tap: true });
+});
+
+test("without a saved choice the touchpad is the one that shows", () => {
+  // Checked on the source: the pad needs a DOM, which there is none of here.
+  const src = readFileSync(new URL("remote.js", LIB), "utf8");
+  assert.match(src, /remotePad\?\.\[entityId\] === "pad" \? "pad" : "touch"/);
+  assert.match(src, /touch\.hidden = mode !== "touch"/);
+  assert.match(src, /pad\.hidden = mode !== "pad"/);
 });

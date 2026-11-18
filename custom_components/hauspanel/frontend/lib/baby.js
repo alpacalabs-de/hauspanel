@@ -56,7 +56,9 @@ export function openBaby(ctx, cam) {
   const hums = inRoom("humidity");
 
   const media = h("div", { class: "hp-pr-media live hp-baby-media" }, h("span", { class: "hp-pr-badge" }, h("i"), t("live")));
-  const video = liveVideo(ctx, cam);
+  // Sound is remembered per screen, so the tablet in the hallway can stay quiet.
+  let sound = ctx.settings?.device?.babySound === true;
+  const video = liveVideo(ctx, cam, { muted: !sound });
   media.prepend(video);
   const sTemp = stat("mdi:thermometer", t("baby_temp"));
   const sHum = stat("mdi:water-percent", t("th_humidity"));
@@ -68,20 +70,77 @@ export function openBaby(ctx, cam) {
   const stripBox = h("div", { class: "hp-app-chart" }, h("div", { class: "hp-app-chart-head" }, h("small", {}, t("baby_3h")), h("small", { class: "max" })), strip,
     h("div", { class: "hp-baby-axis" }), h("div", { class: "hp-baby-times" }));
 
-  const sheet = openSheet(ctx, { title: t("baby_title"), subtitle: area?.name, cls: "appliance baby", onClose: () => video.stop() });
+  let tick = null;
+  const sheet = openSheet(ctx, { title: t("baby_title"), subtitle: area?.name, cls: "appliance baby", onClose: () => { clearInterval(tick); video.stop(); } });
   // Night view only when switched on here.
   let night = false;
   const dim = btn("mdi:weather-night", t("baby_night"));
   dim.addEventListener("click", () => { night = !night; paintNight(); });
+  const snd = btn("mdi:volume-off", t("sound_off"));
   const full = btn("mdi:fullscreen", t("fullscreen"));
+
+  // Sound. Only the view on top plays it, otherwise the same stream is heard twice.
+  let fullApi = null;
+  const sndBtns = [snd];
+  const view = () => fullApi || video;
+  // A browser plays sound only after a tap of its own; until then it keeps the picture muted.
+  const refused = () => sound && view().playing() && view().muted() && view().hasAudio() !== false;
+  const paintSound = () => {
+    const none = view().hasAudio() === false;
+    const wait = refused();
+    const on = sound && !none && !wait;
+    for (const b of sndBtns) {
+      b.disabled = none;
+      b.querySelector("ha-icon")?.setAttribute("icon", on ? "mdi:volume-high" : "mdi:volume-off");
+      b.querySelector("span").textContent = none ? t("sound_none") : wait ? t("sound_tap") : on ? t("sound_on") : t("sound_off");
+      b.classList.toggle("lit", on);
+    }
+  };
+  const applySound = async () => {
+    if (fullApi) video.setMuted(true);
+    const no = await view().setMuted(!sound);
+    if (no) view().setMuted(true);
+    paintSound();
+  };
+  const toggleSound = () => {
+    if (view().hasAudio() === false) return;
+    // While the browser refuses, the tap itself is the permission: keep the wish and try again.
+    if (!refused()) sound = !sound;
+    ctx.settings?.setDevice?.("babySound", sound);
+    paintSound();
+    applySound();
+  };
+  snd.addEventListener("click", toggleSound);
+  video.onPlay = () => paintSound();
+  tick = setInterval(paintSound, 3000);
+
   // The panel's own full-screen view (the browser's full screen does not work on the iPhone), without a time limit.
-  full.addEventListener("click", () => openCameraFull(ctx, cam, [cam], { title: t("baby_title"), subtitle: area?.name || "", limit: 12 * 3600e3, cls: night ? "baby-night" : "" }));
+  full.addEventListener("click", () => {
+    const sb = h("button", { class: "hp-camfull-act" }, icon("mdi:volume-off"), h("span", {}, t("sound_off")));
+    sb.addEventListener("click", (e) => { e.stopPropagation(); toggleSound(); });
+    const api = openCameraFull(ctx, cam, [cam], { title: t("baby_title"), subtitle: area?.name || "", limit: 12 * 3600e3, cls: night ? "baby-night" : "", actions: [sb], sound });
+    fullApi = api;
+    sndBtns.push(sb);
+    // The picture underneath keeps running: it goes quiet while the full screen is on top.
+    api.onPlay = () => applySound();
+    applySound();
+    const done = api.close.bind(api);
+    api.close = () => {
+      fullApi = null;
+      sndBtns.splice(sndBtns.indexOf(sb), 1);
+      done();
+      // From here the popup underneath carries the sound again.
+      applySound();
+    };
+    paintSound();
+  });
   const paintNight = () => {
     sheet.el.classList.toggle("night", night);
     dim.classList.toggle("lit", night);
   };
   paintNight();
-  sheet.body.append(media, stats, stripBox, h("div", { class: "hp-sheet-actions hp-app-foot" }, dim, full));
+  sheet.body.append(media, stats, stripBox, h("div", { class: "hp-sheet-actions hp-app-foot" }, dim, snd, full));
+  paintSound();
 
   const avg = (hs, ids) => {
     const v = ids.map((id) => num(hs, id)).filter((x) => x != null && x > -20 && x < 60);

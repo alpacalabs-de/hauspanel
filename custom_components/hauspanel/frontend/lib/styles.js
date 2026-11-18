@@ -634,11 +634,21 @@ ha-icon.hp-player-noart { --mdc-icon-size: 44px; opacity: .4; }
 .hp-player-source { display: flex; align-items: center; gap: 8px; color: var(--hp-sub); }
 .hp-player.compact .hp-player-source, .hp-player.compact .hp-vol .hp-round:last-child { display: none; }
 
-/* Remote in the player popup: two columns on a tablet, everything under each other on a phone. */
+/* Remote in the player popup: one column on every screen, like a real remote. */
 .hp-player-tabs { align-self: start; margin-bottom: 4px; }
-.hp-rc { display: grid; grid-template-columns: auto 1fr; gap: 22px; align-items: start; }
-.hp-rc-side { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
-.hp-rc-side.left { align-items: center; }
+/* While the remote is showing, the body is a column so the pad can take the room that is left. */
+.hp-sheet.player .hp-sheet-body:has(> .hp-rc:not([hidden])) { display: flex; flex-direction: column; }
+.hp-rc { display: flex; flex-direction: column; gap: 10px; width: min(400px, 100%); margin: 0 auto; flex: 1; min-height: 0; }
+/* The pad sits on top and takes the room the rest of the remote leaves, but is never taller than wide. */
+.hp-rc-padbox { display: flex; justify-content: center; }
+.hp-rc-padbox:has(> .hp-rc-touch:not([hidden])) { flex: 1; min-height: 220px; }
+.hp-rc-touch { width: 100%; aspect-ratio: 1; min-height: 220px; max-height: 100%; align-self: center; display: grid; place-items: center;
+  border-radius: 24px; background: var(--hp-glass); border: 1px solid var(--hp-border); touch-action: none; cursor: pointer; transition: background .15s; }
+.hp-rc-touch.down { background: rgba(255,255,255,.14); }
+ha-icon.hp-rc-touch-ic { --mdc-icon-size: 40px; opacity: .3; pointer-events: none; }
+.hp-rc-padfoot { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.hp-rc-hint { min-width: 0; }
+.hp-rc-pick { font-size: 12.5px; }
 /* The cross: OK in the middle, the four arrows around it. */
 .hp-rc-pad { display: grid; grid-template-columns: repeat(3, 48px); grid-template-rows: repeat(3, 48px); place-items: center; border-radius: 50%; background: var(--hp-glass); border: 1px solid var(--hp-border); padding: 6px; }
 .hp-rc-pad .hp-rc-up { grid-area: 1 / 2; }
@@ -648,21 +658,14 @@ ha-icon.hp-player-noart { --mdc-icon-size: 44px; opacity: .4; }
 .hp-rc-pad .hp-rc-down { grid-area: 3 / 2; }
 .hp-rc-pad .hp-round { touch-action: none; }
 .hp-rc-pad .hp-rc-ok ha-icon { --mdc-icon-size: 28px; }
-.hp-rc-nav, .hp-rc-play { display: flex; align-items: center; justify-content: center; gap: 10px; flex-wrap: wrap; }
-.hp-rc-vol { display: flex; align-items: center; gap: 10px; }
-.hp-rc-vol .hp-slider { flex: 1; }
+/* Each row of buttons is a glass card, so the remote reads as one piece. */
+.hp-rc-row { display: flex; align-items: center; justify-content: center; gap: 12px; padding: 10px 14px; border-radius: 18px; background: var(--hp-glass); border: 1px solid var(--hp-border); }
+.hp-rc-vol { gap: 10px; }
+.hp-rc-vol .hp-slider { flex: 1; min-width: 0; }
+.hp-rc .hp-group-label { margin: 8px 2px 0; }
 .hp-rc-sources { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
 .hp-rc-chips { display: flex; gap: 8px; flex-wrap: wrap; }
 .hp-rc-chips .hp-chip.active { background: #f7f1ea; color: #2b2125; border-color: transparent; }
-/* Phone: one column, and the sources scroll sideways instead of wrapping. */
-.hp-rc.narrow { grid-template-columns: 1fr; gap: 16px; }
-.hp-rc.narrow .hp-rc-chips { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }
-.hp-rc.narrow .hp-rc-chips::-webkit-scrollbar { display: none; }
-/* Back, Home, Menu and playback share one row on the phone; the big play button would make it wrap. */
-.hp-rc.narrow .hp-rc-nav { flex-wrap: nowrap; gap: 8px; }
-.hp-rc.narrow .hp-rc-play { gap: 8px; }
-.hp-rc.narrow .hp-rc-nav .hp-round.big { width: 42px; height: 42px; }
-.hp-rc.narrow .hp-rc-nav .hp-round.big ha-icon { --mdc-icon-size: 22px; }
 .hp-browse { grid-column: 1 / -1; }
 .hp-browse-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 12px; }
 .hp-browse-item { display: flex; flex-direction: column; gap: 6px; text-align: left; font-size: 13px; font-weight: 500; }
@@ -1209,6 +1212,15 @@ ha-icon.hp-player-noart { --mdc-icon-size: 44px; opacity: .4; }
 .hp-onpill.notice.batt .hp-onpill-ic { background: #ffd166; color: #3a2a05; }
 @keyframes hp-hz-pulse { 50% { box-shadow: 0 0 0 6px rgba(239, 83, 80, .25); } }
 @media (prefers-reduced-motion: reduce) { .hp-onpill.notice.alarm .hp-onpill-ic { animation: none; } }
+.hp-onpill.notice.wide { grid-column: span 2; }
+/* The warning popup behind a DWD or NINA notice: one card per warning, red from level 3 on. */
+.hp-warn-list { display: grid; gap: 8px; }
+.hp-warn { display: grid; gap: 6px; padding: 14px 16px; border-radius: 18px; background: var(--hp-glass); border: 1px solid var(--hp-border); }
+.hp-warn b { font-weight: 600; }
+.hp-warn small { font-size: 12.5px; color: var(--hp-sub); }
+.hp-warn p { margin: 0; font-size: 14px; line-height: 1.5; white-space: pre-line; overflow-wrap: anywhere; }
+.hp-warn .hp-warn-advice { color: var(--hp-sub); }
+.hp-warn.bad { background: rgba(239, 83, 80, .16); border-color: rgba(239, 83, 80, .5); }
 .hp-notice-ctl { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .hp-notice-ctl > .hp-input, .hp-notice-ctl > .hp-select { flex: 1; min-width: 0; }
 .hp-notice-ctl > .hp-muted { flex: 1; }
@@ -1700,6 +1712,8 @@ ha-icon.hp-player-noart { --mdc-icon-size: 44px; opacity: .4; }
 .hp-app-foot .hp-btn[hidden] { display: none; }
 .hp-app-foot .hp-btn.lit { background: color-mix(in srgb, #7fc8f8 24%, transparent); border-color: color-mix(in srgb, #7fc8f8 45%, transparent); }
 .hp-app-foot .hp-btn.armed { background: var(--hp-red); color: #fff; }
+/* A camera without sound: the speaker button stays there, greyed out. */
+.hp-app-foot .hp-btn:disabled, .hp-camfull-act:disabled { opacity: .45; cursor: default; }
 .hp-sheet.appliance .hp-app-stats .hp-app-stat b { overflow: hidden; text-overflow: ellipsis; }
 
 /* ---- vacuum */

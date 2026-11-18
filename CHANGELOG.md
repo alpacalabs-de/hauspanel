@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.11.0
+
+- **Baby monitor with sound**: a speaker button in the baby monitor and its full-screen view turns the camera's sound on and off, and each screen remembers the choice. Needs a camera that sends sound; it plays only while the baby monitor is open.
+- **People in the header**: a person that is hidden in Home Assistant (*entity settings → Visible*) no longer shows up in the header.
+- **Remote control** (*player popup → Remote*): one column on every screen, like a real remote, with the same buttons throughout and a touchpad instead of the arrow pad (swipe to move, tap for OK). The arrow pad can still be picked on each screen.
+- **Weather warnings in notices** (*Settings → Home → Notices*): a DWD or NINA warning shows its headline, and a tap opens the full text with the time it applies.
+
 ## 1.10.0
 
 - **French README** (README.fr.md). Thanks to @Marlboro62.

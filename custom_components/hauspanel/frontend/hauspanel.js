@@ -1,6 +1,6 @@
 // HausPanel: a dashboard for Home Assistant that builds itself.
 import { h, icon, formatTime, formatDate, fireHass, debounce, formatNumber } from "./lib/util.js";
-import { buildModel, registrySignature, isOn, roomHasContent } from "./lib/model.js";
+import { buildModel, registrySignature, isOn, roomHasContent, visiblePersons } from "./lib/model.js";
 import { Settings } from "./lib/store.js";
 import { renderHome, renderRooms, renderPage, specialTiles } from "./lib/layouts.js";
 import { SIDE_DEFAULTS } from "./lib/sidepanel.js";
@@ -785,11 +785,11 @@ class HausPanelElement extends HTMLElement {
   /** Avatars of the people at home, with a dot for home or away. */
   _updatePersons() {
     if (!this._persons) return;
-    const ids = Object.keys(this._hass.states).filter((id) => id.startsWith("person.")).sort();
+    const ids = visiblePersons(this._hass);
     const sig = ids.map((id) => `${id}${this._hass.states[id].state}${this._hass.states[id].attributes.entity_picture || ""}`).join("|");
     if (this._persons.dataset.sig === sig) return;
     this._persons.dataset.sig = sig;
-    this._persons.replaceChildren(...ids.slice(0, 5).map((id, i) => {
+    this._persons.replaceChildren(...ids.map((id, i) => {
       const st = this._hass.states[id];
       const name = st.attributes.friendly_name || id;
       const pic = st.attributes.entity_picture;

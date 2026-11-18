@@ -88,6 +88,23 @@ export function mediaAspect(m) {
 }
 
 /**
+ * Does this picture element carry sound? `true`, `false` or `null` while nothing
+ * says yet. An MJPEG picture never has any; a WebRTC stream says it straight out;
+ * Safari lists its tracks, Firefox has a flag, and Chrome only counts decoded
+ * bytes, which stay at zero for the first seconds of playback.
+ */
+export function mediaHasAudio(m) {
+  if (!m) return null;
+  if (m.tagName === "IMG") return false;
+  const webrtc = m.srcObject?.getAudioTracks?.();
+  if (webrtc) return webrtc.length > 0;
+  if (m.audioTracks) return m.audioTracks.length > 0 ? true : m.readyState >= 2 ? false : null;
+  if (typeof m.mozHasAudio === "boolean") return m.mozHasAudio;
+  if (m.webkitAudioDecodedByteCount > 0) return true;
+  return null;
+}
+
+/**
  * Keeps `--ar` on `el` at the camera's own shape, measured from the live picture.
  * A still can come from a substream with another shape, so the live one wins;
  * until it arrives, `--ar` keeps its default from the stylesheet (16/9).
@@ -118,12 +135,18 @@ export function trackAspect(el, player, { fillSelector = "", fit = "", every = 1
   return () => clearInterval(timer);
 }
 
-/** A moving picture that keeps working: HA's player first, MJPEG when that shows nothing. */
-export function liveVideo(ctx, entityId, { controls = false } = {}) {
+/**
+ * A moving picture that keeps working: HA's player first, MJPEG when that shows nothing.
+ * `muted: false` asks for the camera's sound (only the baby monitor does). The picture
+ * then still starts without it and `setMuted(false)` is tried once frames arrive, because
+ * a browser blocks autoplay with sound and the picture would be lost with it.
+ */
+export function liveVideo(ctx, entityId, { controls = false, muted = true } = {}) {
   const wrap = h("div", { class: "hp-live-wrap" });
   let player = null;
   let mjpeg = null;
   let watchdog = null;
+  let wantMuted = true;
 
   const startMjpeg = () => {
     NEEDS_MJPEG.add(entityId);
@@ -155,7 +178,7 @@ export function liveVideo(ctx, entityId, { controls = false } = {}) {
     el.hass = ctx.hass;
     el.stateObj = st;
     el.controls = controls;
-    el.muted = true;
+    el.muted = wantMuted;
     el.classList.add("hp-cam-live");
     wrap.append(el);
     // WebRTC either connects quickly or not at all; HLS (often 4K) can take a while to start.
@@ -168,6 +191,24 @@ export function liveVideo(ctx, entityId, { controls = false } = {}) {
     };
     watchdog = setTimeout(() => check(1), WATCHDOG_MS);
   };
+  const mediaNow = () => mjpeg || findMedia(player?.shadowRoot) || findMedia(player);
+  /** Sound on or off. Answers `true` when the browser refused to play with sound. */
+  wrap.setMuted = async (on) => {
+    wantMuted = on;
+    if (player) player.muted = on;
+    const media = mediaNow();
+    if (!media || media.tagName !== "VIDEO") return false;
+    media.muted = on;
+    try {
+      await media.play();
+    } catch {
+      if (!on) return true; // NotAllowedError: the browser wants a tap of its own
+    }
+    return !on && media.paused;
+  };
+  wrap.muted = () => wantMuted;
+  wrap.hasAudio = () => mediaHasAudio(mediaNow());
+  wrap.playing = () => played;
   wrap.update = (hass) => {
     if (!player) return;
     player.hass = hass;
@@ -186,6 +227,7 @@ export function liveVideo(ctx, entityId, { controls = false } = {}) {
   let seen = false;
   let lastFrame = 0;
   let lastTime = -1;
+  let played = false;
   const guard = setInterval(() => {
     const media = mjpeg || findMedia(player?.shadowRoot);
     let ok = hasPicture(media);
@@ -193,8 +235,15 @@ export function liveVideo(ctx, entityId, { controls = false } = {}) {
       // A video only counts while its time moves on (a frozen stream keeps its last picture).
       if (media.currentTime !== lastTime) { lastTime = media.currentTime; lastFrame = Date.now(); }
       ok = !media.paused && Date.now() - lastFrame < 4000;
+      // HA's player can swap the video element (another stream type): keep the chosen sound.
+      if (media.muted !== wantMuted) media.muted = wantMuted;
     }
     wrap.classList.toggle("playing", ok);
+    if (ok && !played) {
+      played = true;
+      if (!muted) wrap.setMuted(false).then((no) => { if (no) wrap.setMuted(true); });
+      wrap.onPlay?.();
+    }
     if (wrap.isConnected) seen = true;
     else if (seen) {
       clearInterval(guard);
@@ -288,7 +337,7 @@ export function openCamera(ctx, entityId) {
 }
 
 /** Security page: a tap on a camera opens its live picture over the whole screen. Swipe or arrows for the next camera. */
-export function openCameraFull(ctx, entityId, list = [entityId], { title: heading = "", subtitle = "", actions = [], limit = 10 * 60 * 1000, cls = "" } = {}) {
+export function openCameraFull(ctx, entityId, list = [entityId], { title: heading = "", subtitle = "", actions = [], limit = 10 * 60 * 1000, cls = "", sound = false } = {}) {
   if (!ctx.hass.states[entityId]) return;
   const cams = list.includes(entityId) ? list : [entityId, ...list];
   let idx = cams.indexOf(entityId);
@@ -323,8 +372,9 @@ export function openCameraFull(ctx, entityId, list = [entityId], { title: headin
       if (u && u !== still.src) still.src = u;
     }, SNAPSHOT_EVERY);
     if (st && st.state !== "unavailable") {
-      const p = liveVideo(ctx, id);
+      const p = liveVideo(ctx, id, { muted: !sound });
       player = p;
+      p.onPlay = () => api.onPlay?.();
       stage.append(p);
       // HA's player puts its picture at the top; centre it like the still underneath.
       let tries = 0;
@@ -343,6 +393,11 @@ export function openCameraFull(ctx, entityId, list = [entityId], { title: headin
   };
   const api = {
     update(hass) { player?.update(hass); },
+    // Sound, for the view that asked for it (the baby monitor).
+    setMuted(on) { return player ? player.setMuted(on) : Promise.resolve(false); },
+    muted() { return player ? player.muted() : true; },
+    hasAudio() { return player ? player.hasAudio() : null; },
+    playing() { return !!player?.playing(); },
     close() {
       clearInterval(snapTimer);
       clearTimeout(idle);

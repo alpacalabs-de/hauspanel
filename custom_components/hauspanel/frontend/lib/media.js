@@ -181,7 +181,7 @@ export function openPlayer(ctx, entityId) {
   // Only players with a remote get the switch; everything else stays exactly as it was.
   const rc = remoteFor(ctx.hass, entityId);
   if (!rc) return;
-  const remote = remoteView(ctx, entityId, rc, { narrow: ctx.narrow });
+  const remote = remoteView(ctx, entityId, rc);
   sheet.body.append(remote);
   sheet.updaters.push((hass) => remote.update(hass));
   // Speaker grouping and playlists belong to the player, so they go away with it.

@@ -2,6 +2,7 @@
 import { h, icon, domainOf, bindTapHold, entityName, toggleSwitch, formatNumber } from "./util.js";
 import { entityIcon, stateText, HAZARD, hazardInfo } from "./domains.js";
 import { candidateEntities, isOutdoorRoom, OUTSIDE } from "./model.js";
+import { warningInfo, warningLine, openWarnings } from "./warnings.js";
 import { t } from "./i18n.js";
 
 /** Kinds that are simply on or off: shown while on. */
@@ -231,7 +232,7 @@ function hazardBattPill(ctx, item) {
   return el;
 }
 
-/** One notice as a pill: tap opens the details; a helper switch is cleared with its icon. */
+/** One notice as a pill: tap opens the details, a weather warning its own text; a helper switch is cleared with its icon. */
 function noticePill(ctx, id) {
   const ic = icon("mdi:bell-outline");
   const name = h("b", {});
@@ -247,13 +248,20 @@ function noticePill(ctx, id) {
       if (!ctx.editing) ctx.hass.callService("input_boolean", "turn_off", { entity_id: id });
     });
   }
-  bindTapHold(el, { canStart: () => !ctx.editing, tap: () => ctx.openDetails(id), hold: () => ctx.openDetails(id) });
+  // A weather or civil-protection warning says more than its state: the headline below, the full text on a tap.
+  let warns = [];
+  const open = () => (warns.length ? openWarnings(ctx, id) : ctx.openDetails(id));
+  bindTapHold(el, { canStart: () => !ctx.editing, tap: open, hold: open });
   el.update = (hass) => {
     const st = hass.states[id];
     if (!st) return;
+    warns = warningInfo(hass, id) || [];
     ic.icon = clear ? "mdi:check" : entityIcon(hass, st);
     name.textContent = entityName(hass, id, room);
-    sub.textContent = clear ? room || t("notice_done_hint") : [room, stateText(hass, st)].filter(Boolean).join(" · ");
+    // A warning headline is a sentence, so the pill takes two columns like the other warning pills.
+    el.classList.toggle("wide", warns.length > 0);
+    if (warns.length) sub.textContent = [room, warningLine(warns)].filter(Boolean).join(" · ");
+    else sub.textContent = clear ? room || t("notice_done_hint") : [room, stateText(hass, st)].filter(Boolean).join(" · ");
   };
   el.update(ctx.hass);
   return el;

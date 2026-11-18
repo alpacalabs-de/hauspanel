@@ -22,9 +22,31 @@ export const PLATFORM_KEYS = {
 /** A held arrow repeats about this often. */
 export const REPEAT_MS = 300;
 
+/** Every this much travel on the touchpad sends one arrow. */
+export const SWIPE_PX = 40;
+
+/** Moving less than this is not a swipe but a tap, and a tap means OK. */
+export const TAP_PX = 10;
+
 /** The order the buttons are drawn in, with their icon and text. */
 const PAD = [["up", "mdi:chevron-up", "rc_up"], ["left", "mdi:chevron-left", "rc_left"], ["right", "mdi:chevron-right", "rc_right"], ["down", "mdi:chevron-down", "rc_down"]];
 const NAV = [["back", "mdi:arrow-u-left-top", "back"], ["home", "mdi:home-outline", "rc_home"], ["menu", "mdi:menu", "menu"]];
+
+/**
+ * What a swipe on the touchpad means: the arrow of its main direction, one per `step` of travel,
+ * and what is left over for the next move (`rest`, on the main axis). `tap` says the finger
+ * barely moved, which stands for OK.
+ *
+ * Only the main direction counts, so a slightly crooked swipe to the right stays "right".
+ */
+export function swipeKeys(dx, dy, step = SWIPE_PX) {
+  const sideways = Math.abs(dx) >= Math.abs(dy);
+  const main = sideways ? dx : dy;
+  const count = Math.floor(Math.abs(main) / step);
+  if (!count) return { key: null, count: 0, rest: main, tap: Math.abs(dx) < TAP_PX && Math.abs(dy) < TAP_PX };
+  const key = sideways ? (main > 0 ? "right" : "left") : (main > 0 ? "down" : "up");
+  return { key, count, rest: main - Math.sign(main) * count * step, tap: false };
+}
 
 /**
  * The remote that belongs to a media player, or null when there is none (then the popup shows
@@ -62,11 +84,66 @@ export function sendKey(hass, rc, key) {
 }
 
 /**
- * The remote itself. `narrow` stacks it for the phone and puts play/pause next to back, home and menu.
+ * The touchpad: swiping moves, a short tap is OK. Pointer events with capture, so a swipe that
+ * leaves the pad still counts; the styles add `touch-action: none` so the popup does not scroll
+ * along. While the finger lies still after a swipe, the last direction repeats like a held arrow.
+ */
+function touchpad(press) {
+  const el = h("div", { class: "hp-rc-touch", role: "button", "aria-label": t("rc_touch_hint") },
+    icon("mdi:gesture-swipe", "hp-rc-touch-ic"));
+  let accX = 0, accY = 0, travel = 0, prevX = 0, prevY = 0, sent = false, down = false, timer = null;
+  const stop = () => { clearInterval(timer); timer = null; };
+  const repeat = (key) => {
+    stop();
+    timer = setInterval(() => (el.isConnected ? press(key) : stop()), REPEAT_MS);
+  };
+  el.addEventListener("pointerdown", (e) => {
+    e.stopPropagation();
+    e.preventDefault();
+    stop();
+    try { el.setPointerCapture?.(e.pointerId); } catch { /* not every pointer can be captured */ }
+    accX = accY = travel = 0;
+    sent = false;
+    down = true;
+    prevX = e.clientX;
+    prevY = e.clientY;
+    el.classList.add("down");
+  });
+  el.addEventListener("pointermove", (e) => {
+    if (!down) return;
+    const mx = e.clientX - prevX;
+    const my = e.clientY - prevY;
+    prevX = e.clientX;
+    prevY = e.clientY;
+    accX += mx;
+    accY += my;
+    travel += Math.abs(mx) + Math.abs(my);
+    const g = swipeKeys(accX, accY);
+    if (!g.count) return;
+    for (let i = 0; i < g.count; i++) press(g.key);
+    sent = true;
+    // Only what is left over on the main axis carries over into the next move.
+    if (g.key === "left" || g.key === "right") { accX = g.rest; accY = 0; } else { accY = g.rest; accX = 0; }
+    repeat(g.key);
+  });
+  const end = () => {
+    if (!down) return;
+    down = false;
+    el.classList.remove("down");
+    stop();
+    if (!sent && travel < TAP_PX) press("ok");
+  };
+  for (const ev of ["pointerup", "pointercancel"]) el.addEventListener(ev, end);
+  return el;
+}
+
+/**
+ * The remote itself: one column on every screen, like a real remote. From the top the touchpad
+ * (or the arrow pad instead), then back/home/menu, then playback, volume and the sources.
  * Volume, source and playback go through the media player, like in the player view; what the player
  * cannot do is hidden.
  */
-export function remoteView(ctx, entityId, rc, { narrow = false } = {}) {
+export function remoteView(ctx, entityId, rc) {
   const call = (svc, data = {}) => ctx.hass.callService("media_player", svc, { entity_id: entityId, ...data });
   const press = (key) => sendKey(ctx.hass, rc, key);
 
@@ -94,28 +171,52 @@ export function remoteView(ctx, entityId, rc, { narrow = false } = {}) {
     }),
     roundBtn("mdi:circle-medium", t("rc_ok"), () => press("ok"), "main hp-rc-ok"));
 
-  const nav = h("div", { class: "hp-rc-nav" },
-    ...NAV.map(([key, ic, label]) => roundBtn(ic, t(label), () => press(key), "ghost")));
+  const touch = touchpad(press);
 
-  const mute = roundBtn("mdi:volume-high", t("mute"), () => call("volume_mute", { is_volume_muted: !ctx.hass.states[entityId]?.attributes.is_volume_muted }), "ghost");
-  const down = roundBtn("mdi:minus", t("volume"), () => call("volume_down"), "ghost");
-  const up = roundBtn("mdi:plus", t("volume"), () => call("volume_up"), "ghost");
+  const nav = h("div", { class: "hp-rc-row hp-rc-nav" },
+    ...NAV.map(([key, ic, label]) => roundBtn(ic, t(label), () => press(key))));
+
+  const mute = roundBtn("mdi:volume-high", t("mute"), () => call("volume_mute", { is_volume_muted: !ctx.hass.states[entityId]?.attributes.is_volume_muted }));
+  const down = roundBtn("mdi:minus", t("volume"), () => call("volume_down"));
+  const up = roundBtn("mdi:plus", t("volume"), () => call("volume_up"));
   const vol = slider({ value: 0, cls: "volume", label: t("volume"), onChange: (v) => call("volume_set", { volume_level: v / 100 }) });
-  const volBox = h("div", { class: "hp-rc-vol" }, mute, down, vol, up);
+  const volBox = h("div", { class: "hp-rc-row hp-rc-vol" }, mute, down, vol, up);
+  const volLabel = h("div", { class: "hp-group-label" }, t("volume"));
 
   const chips = h("div", { class: "hp-rc-chips" });
-  const srcBox = h("div", { class: "hp-rc-sources" }, h("span", { class: "hp-label" }, t("rc_source")), chips);
+  const srcBox = h("div", { class: "hp-rc-sources" }, h("div", { class: "hp-group-label" }, t("rc_source")), chips);
 
-  const play = roundBtn("mdi:play", t("play_pause"), () => call("media_play_pause"), "main big");
+  const play = roundBtn("mdi:play", t("play_pause"), () => call("media_play_pause"), "main");
   const prev = roundBtn("mdi:skip-previous", t("previous"), () => call("media_previous_track"));
   const next = roundBtn("mdi:skip-next", t("next"), () => call("media_next_track"));
-  const playBox = h("div", { class: "hp-rc-play" }, prev, play, next);
+  const playBox = h("div", { class: "hp-rc-row hp-rc-play" }, prev, play, next);
 
-  // On the phone everything is under each other and play/pause joins back, home and menu.
-  if (narrow) nav.append(playBox);
-  const el = h("div", { class: `hp-rc ${narrow ? "narrow" : ""}` },
-    h("div", { class: "hp-rc-side left" }, pad, nav),
-    h("div", { class: "hp-rc-side right" }, volBox, srcBox, narrow ? null : playBox));
+  // Touchpad or arrow pad, kept per player and per screen. Without a setting the touchpad wins.
+  const hint = h("div", { class: "hp-sub hp-rc-hint" }, t("rc_touch_hint"));
+  const seg = h("div", { class: "hp-seg hp-rc-pick" });
+  let mode = ctx.settings.device.remotePad?.[entityId] === "pad" ? "pad" : "touch";
+  const paintMode = () => {
+    touch.hidden = mode !== "touch";
+    pad.hidden = mode !== "pad";
+    hint.hidden = mode !== "touch";
+    for (const b of seg.children) b.classList.toggle("active", b.dataset.pad === mode);
+  };
+  for (const [key, label] of [["touch", t("rc_touchpad")], ["pad", t("rc_dpad")]]) {
+    const b = h("button", { dataset: { pad: key } }, label);
+    b.addEventListener("click", (e) => {
+      e.stopPropagation();
+      mode = key;
+      paintMode();
+      ctx.settings.setDevice("remotePad", { ...(ctx.settings.device.remotePad || {}), [entityId]: key });
+    });
+    seg.append(b);
+  }
+
+  const el = h("div", { class: "hp-rc" },
+    h("div", { class: "hp-rc-padbox" }, touch, pad),
+    h("div", { class: "hp-rc-padfoot" }, hint, seg),
+    nav, playBox, volLabel, volBox, srcBox);
+  paintMode();
 
   let lastList = null;
   el.update = (hass) => {
@@ -134,6 +235,7 @@ export function remoteView(ctx, entityId, rc, { narrow = false } = {}) {
     vol.hidden = !supports(st, MEDIA.VOLUME_SET);
     if (!vol.hidden) vol.update(Math.round((a.volume_level ?? 0) * 100));
     volBox.hidden = mute.hidden && vol.hidden && !step;
+    volLabel.hidden = volBox.hidden;
     const list = supports(st, MEDIA.SELECT_SOURCE) ? a.source_list || [] : [];
     srcBox.hidden = !list.length;
     if (lastList !== list.join("|")) {

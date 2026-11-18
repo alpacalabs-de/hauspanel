@@ -123,6 +123,18 @@ export function candidateEntities(hass) {
   return out;
 }
 
+/**
+ * The people for the header, sorted by entity id, at most `max` of them. Someone whose entity is
+ * hidden in Home Assistant stays out, so users that only exist for automations or for another
+ * dashboard don't show up as a person. Hiding happens before the cut, so they take no slot either.
+ */
+export function visiblePersons(hass, max = 5) {
+  return Object.keys(hass.states || {})
+    .filter((id) => id.startsWith("person.") && !hass.entities?.[id]?.hidden)
+    .sort()
+    .slice(0, max);
+}
+
 export function buildModel(hass, hide) {
   const hidden = hideMatcher(hass, hide);
   const areas = new Map();
