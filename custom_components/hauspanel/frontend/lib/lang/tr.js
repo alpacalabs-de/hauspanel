@@ -1018,6 +1018,7 @@ export default {
   leave_undone: "Işıklar, müzik ve ısıtma geri geldi.",
   leave_undo_failed: "Geri alınacak bir şey kalmadı.",
   leave_undo_note: "Saat {time}'de kapatıldı. Geri al, ışıkları, müziği ve ısıtmayı geri getirir (kilitler kilitli kalır).",
+  leave_skip: "Dokunulmayanlar", leave_skip_hint: "Çıkarken rahat bırakılması için bir cihaza dokun.",
   player: "Oynatıcı", remote: "Kumanda", rc_ok: "OK", rc_up: "Yukarı", rc_down: "Aşağı", rc_left: "Sol", rc_right: "Sağ", rc_home: "Ana ekran", rc_source: "Kaynak",
   rc_touchpad: "Dokunmatik alan", rc_dpad: "Yön tuşları", rc_touch_hint: "Hareket için kaydır, OK için dokun",
   modes: "Modlar", modes_pick: "Modları seç", modes_empty: "Mod olarak kullandığın anahtarları seç, örneğin bir misafir modu.", modes_edit_hint: "Sıralamak için sürükle. Eksi, modu çipten çıkarır, Home Assistant’ta kalır.",

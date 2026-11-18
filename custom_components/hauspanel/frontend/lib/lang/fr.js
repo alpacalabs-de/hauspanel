@@ -899,6 +899,7 @@ export default {
   leave_undone: "Lumières, musique et chauffage rétablis.",
   leave_undo_failed: "Plus rien à annuler.",
   leave_undo_note: "Éteint à {time}. Annuler rétablit les lumières, la musique et le chauffage (les serrures restent verrouillées).",
+  leave_skip: "Laissés tranquilles", leave_skip_hint: "Touche un appareil pour le laisser tranquille quand tu pars.",
   wel_title: "Bienvenue dans HausPanel",
   wel_sub: "Trois étapes rapides, et c'est à vous.",
   wel_rooms: "Vos pièces",

@@ -94,11 +94,15 @@ export function isHelperGroup(hass, entityId, reg) {
 /** Sensors that measure a thing, not the air of the room: pool, oven, heating water, printer, fridge, tank. */
 const NOT_AIR = /pool|wasser|water|vorlauf|r(ü|u|ue)cklauf|flow|return|speicher|kessel|boiler|misch|tank|zisterne|cistern|level|kondens|garraum|oven|ofen|dampf|steam|druck|d(ü|u|ue)se|nozzle|bett|bed_temp|cpu|chip|board|akku|batter|k(ü|u|ue)hl|gefrier|fridge|freezer|sauna|grill|soil|boden|ziel|target|soll|setpoint/i;
 export const OUTSIDE = /au(ß|ss)en|outdoor|outside|exterior/i;
-// A winter garden is indoors.
-const OUTDOOR_ROOM = /(?<!winter[ _-]?)(?:garten|garden)|terrasse|terrace|patio|balkon|balcony|einfahrt|driveway|hof|yard|outdoor|au(ß|ss)en|pool|carport/i;
+// A winter garden is indoors, so it is taken out of the name before the test.
+// Not a lookbehind: Safari parses those only from 16.4, and an iPad left on iPadOS 15
+// would fail to read this file at all, which takes the whole panel down with it.
+const WINTER_GARDEN = /winter[ _-]?(?:garten|garden)/gi;
+const OUTDOOR_ROOM = /garten|garden|terrasse|terrace|patio|balkon|balcony|einfahrt|driveway|hof|yard|outdoor|au(ß|ss)en|pool|carport/i;
 const PREFERRED = /heizung|thermostat|raum|room|zimmer|klima|wandthermostat|bwth|climate/i;
 
-export const isOutdoorRoom = (area) => OUTDOOR_ROOM.test(`${area.name || ""} ${area.floor?.name || ""}`);
+export const isOutdoorRoom = (area) =>
+  OUTDOOR_ROOM.test(`${area.name || ""} ${area.floor?.name || ""}`.replace(WINTER_GARDEN, " "));
 
 function roomTemperature(hass, area, ids) {
   const outdoor = isOutdoorRoom(area);

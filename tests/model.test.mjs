@@ -335,3 +335,24 @@ test("people in the header: nobody there is no people", async () => {
   const { visiblePersons } = await import(LIB + "model.js");
   assert.deepEqual(visiblePersons(fakeHass({ states: { "light.ceiling": "on" } })), []);
 });
+
+test("outdoor rooms: a winter garden stays indoors, a garden in winter does not", async () => {
+  const { isOutdoorRoom } = await import(LIB + "model.js");
+  const room = (name, floor) => isOutdoorRoom({ name, floor: floor ? { name: floor } : undefined });
+
+  assert.equal(room("Garten"), true, "garden");
+  assert.equal(room("Terrasse"), true, "terrace");
+  assert.equal(room("Carport"), true, "carport");
+  assert.equal(room("Wohnzimmer"), false, "living room");
+
+  // Only the word "winter" right in front turns the garden into a room.
+  assert.equal(room("Wintergarten"), false, "winter garden");
+  assert.equal(room("Winter Garten"), false, "winter garden, written apart");
+  assert.equal(room("Winter-Garden"), false, "winter garden, English and hyphenated");
+  assert.equal(room("Garten im Winter"), true, "a garden that merely mentions winter");
+  assert.equal(room("Wintergarten Terrasse"), true, "its terrace is outdoors all the same");
+
+  // The floor counts as well.
+  assert.equal(room("Sitzecke", "Garten"), true, "a corner on the garden floor");
+  assert.equal(room("Sitzecke", "Wintergarten"), false, "a corner in the winter garden");
+});

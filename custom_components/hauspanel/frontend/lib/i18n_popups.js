@@ -58,6 +58,7 @@ export const EN_POP = {
   leave_media: "{n} playing", leave_media_sub: "Will be paused", leave_apps: "{n} running", leave_apps_sub: "Machines keep running",
   leave_all_good: "Everything is off and closed.", leave_done: "Done – have a good time!", leave_failed: "That did not work.", leave_undone: "Lights, music and heating are back.",
   leave_undo_failed: "Nothing to undo any more.", leave_undo_note: "Switched off at {time}. Undo puts lights, music and heating back (locks stay locked).",
+  leave_skip: "Left alone", leave_skip_hint: "Tap a device to leave it alone when you go.",
 };
 
 export const DE_POP = {
@@ -119,4 +120,5 @@ export const DE_POP = {
   leave_media: "{n} spielt", leave_media_sub: "Wird pausiert", leave_apps: "{n} läuft", leave_apps_sub: "Geräte laufen weiter",
   leave_all_good: "Alles ist aus und zu.", leave_done: "Erledigt – bis später!", leave_failed: "Das hat nicht geklappt.", leave_undone: "Licht, Musik und Heizung sind wieder wie vorher.",
   leave_undo_failed: "Es gibt nichts mehr rückgängig zu machen.", leave_undo_note: "Um {time} ausgeschaltet. Rückgängig bringt Licht, Musik und Heizung zurück (Schlösser bleiben zu).",
+  leave_skip: "Ausgenommen", leave_skip_hint: "Tippe auf ein Gerät, damit es beim Weggehen in Ruhe bleibt.",
 };

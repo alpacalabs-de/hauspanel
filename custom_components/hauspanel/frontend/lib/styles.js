@@ -1918,6 +1918,11 @@ ha-icon.hp-rc-touch-ic { --mdc-icon-size: 40px; opacity: .3; pointer-events: non
 .hp-leave-chk.on { color: var(--hp-green); }
 .hp-leave-group .items { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 10px; }
 .hp-leave-group .it { padding: 4px 10px; border-radius: 999px; background: var(--hp-glass-2); font-size: 12.5px; }
+.hp-leave-group .it.tap { cursor: pointer; border: 1px solid transparent; }
+.hp-leave-group .it.tap:hover, .hp-leave-group .it.tap:focus-visible { border-color: var(--hp-border); }
+.hp-leave-group.skipped { opacity: .75; }
+.hp-leave-hint { margin-top: 10px; font-size: 12.5px; color: var(--hp-sub); text-align: center; }
+.hp-leave-hint[hidden] { display: none; }
 .hp-leave-ok { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 28px 10px; color: var(--hp-green); --mdc-icon-size: 44px; }
 .hp-leave-ok b { color: var(--hp-text); font-size: 16px; }
 .hp-leave-note { margin-top: 12px; font-size: 13px; color: var(--hp-sub); text-align: center; }

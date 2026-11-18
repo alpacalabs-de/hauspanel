@@ -29,7 +29,7 @@ export const DEFAULT_SETTINGS = {
  * the Security page shows, doorbell, baby monitor, calendars and weather … Copying "the house" from
  * another panel takes these; looks, order and the Home screen stay as they are.
  */
-export const HOUSE_KEYS = ["hide", "secAllow", "doorbell", "baby", "calendars", "todos", "weather", "meters", "maintIgnore", "nightCheck", "sceneConfirm", "energyPick", "notices", "modes", "windowHeat", "airHint", "hazardHint", "editLock", "editPin", "xmas"];
+export const HOUSE_KEYS = ["hide", "secAllow", "doorbell", "baby", "calendars", "todos", "weather", "meters", "maintIgnore", "nightCheck", "sceneConfirm", "energyPick", "notices", "modes", "leaveSkip", "windowHeat", "airHint", "hazardHint", "editLock", "editPin", "xmas"];
 const houseContainer = (k) => k.startsWith("security:");
 
 /** The settings after taking `from` (another panel's) into `to`: "house" or "all". Neither is changed. */
@@ -380,6 +380,14 @@ export class Settings {
 
   toggleSize(key) {
     this.cycleSize(key);
+  }
+
+  /** A device left alone when leaving home, like a motion light outside. */
+  toggleLeaveSkip(id) {
+    this.update((s) => {
+      const list = [...(s.leaveSkip || [])];
+      s.leaveSkip = list.includes(id) ? list.filter((k) => k !== id) : [...list, id];
+    });
   }
 
   // ---- own pages ----

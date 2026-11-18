@@ -899,6 +899,7 @@ export default {
   leave_undone: "Lampor, musik och värme är tillbaka.",
   leave_undo_failed: "Inget att ångra längre.",
   leave_undo_note: "Avstängt kl. {time}. Ångra sätter tillbaka lampor, musik och värme (lås förblir låsta).",
+  leave_skip: "Lämnas i fred", leave_skip_hint: "Tryck på en enhet för att lämna den i fred när du går.",
   wel_title: "Välkommen till HausPanel",
   wel_sub: "Tre korta steg, sedan är det ditt.",
   wel_rooms: "Dina rum",

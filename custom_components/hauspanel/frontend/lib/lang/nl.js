@@ -899,6 +899,7 @@ export default {
   leave_undone: "Lampen, muziek en verwarming zijn terug.",
   leave_undo_failed: "Er is niets meer om ongedaan te maken.",
   leave_undo_note: "Uitgezet om {time}. Ongedaan maken zet lampen, muziek en verwarming terug (sloten blijven vergrendeld).",
+  leave_skip: "Met rust gelaten", leave_skip_hint: "Tik op een apparaat om het met rust te laten als je weggaat.",
   wel_title: "Welkom bij HausPanel",
   wel_sub: "Drie korte stappen, dan is het van jou.",
   wel_rooms: "Je kamers",

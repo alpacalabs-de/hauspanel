@@ -899,6 +899,7 @@ export default {
   leave_undone: "Luci, musica e riscaldamento sono tornati.",
   leave_undo_failed: "Non c'è più niente da annullare.",
   leave_undo_note: "Spento alle {time}. Annulla riporta luci, musica e riscaldamento (le serrature restano bloccate).",
+  leave_skip: "Lasciati stare", leave_skip_hint: "Tocca un dispositivo per lasciarlo stare quando esci.",
   wel_title: "Benvenuto in HausPanel",
   wel_sub: "Tre brevi passi, poi è tuo.",
   wel_rooms: "Le tue stanze",

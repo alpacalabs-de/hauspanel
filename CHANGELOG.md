@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.14.1
+
+- **Older iPads** show the panel again. On an iPad that Apple no longer updates (iPadOS 15, so an iPad Air 2, mini 4 or iPad 5), the panel stayed blank with "Unable to load custom panel" — since 1.6.4 one room rule used a regular expression that Safari reads only from 16.4. The rule is written differently now and works the same.
+- **Leaving home**: tap a device in the window to leave it alone when you go, like a motion light outside. It moves to "Left alone" and can be brought back from there.
+
 ## 1.14.0
 
 - **Several inverters** (*Settings → Rooms & devices → Energy*): every solar source from Home Assistant's energy settings counts now, in the live power, the energy and solar popups, and each gets its own power sensor.
