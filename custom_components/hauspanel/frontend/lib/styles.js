@@ -2816,6 +2816,61 @@ a.hp-parcel-row { color: inherit; text-decoration: none; }
 .hp-roomcard.names-wrap:not(.short) .hp-roomcard-name { white-space: normal; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-height: 1.2; hyphens: auto; }
 .hp-roomcard.names-wrap:not(.short) .hp-roomcard-name.one { display: block; white-space: nowrap; text-overflow: ellipsis; }
 
+/* ---- christmas */
+.hp-cat.xmas .hp-cat-ic { background: #3c8a5c; color: #eafff0; }
+.hp-cat.xmas.active .hp-cat-ic { background: #ff6f6f; color: #3a0f12; box-shadow: 0 0 12px rgba(255,111,111,.45); }
+.hp-sheet.xmas .hp-xm-hero, .hp-sheet.xmas-intro .hp-xm-hero { --c: #ff6f6f; }
+.hp-sheet.xmas-intro .hp-xm-hero { margin-bottom: 6px; }
+.hp-sheet.xmas-intro .hp-ov-h2 { line-height: 1.4; }
+.hp-sheet.xmas-intro .hp-app-foot { gap: 8px; }
+.hp-sheet.xmas .hp-xm-hero.dark { --c: rgba(255,255,255,.25); }
+.hp-sheet.xmas .hp-app-status[data-phase="run"] { background: #ff6f6f; color: #3a0f12; }
+.hp-xm-dial { width: 140px; height: 140px; }
+.hp-xm-drum { position: absolute; inset: 16px; border-radius: 50%; overflow: hidden; background: radial-gradient(circle at 50% 40%, #2a2630, #141217 75%);
+  box-shadow: inset 0 0 0 6px color-mix(in srgb, var(--hp-text) 8%, transparent), inset 0 8px 24px rgba(0,0,0,.55); }
+.hp-xm-tree { position: absolute; inset: 0; width: 100%; height: 100%; }
+.hp-xm-tree .star { fill: #6d6670; transition: fill .5s; }
+.hp-xm-drum.on .hp-xm-tree .star { fill: #ffd36e; filter: drop-shadow(0 0 5px #ffd36e); }
+.hp-xm-tree .bulb { fill: #4a4450; transition: fill .5s; }
+.hp-xm-tree .bulb.lit { fill: var(--b); filter: drop-shadow(0 0 3px var(--b)); animation: hp-xm-twinkle 1.8s ease-in-out infinite; }
+@keyframes hp-xm-twinkle { 50% { opacity: .4; } }
+.hp-xm-drum .flake { position: absolute; top: -6px; left: var(--x); width: 3px; height: 3px; border-radius: 50%; background: rgba(255,255,255,.7); opacity: 0; }
+.hp-xm-drum.on .flake { opacity: 1; animation: hp-xm-snow var(--d) linear infinite; animation-delay: var(--w); }
+@keyframes hp-xm-snow { to { transform: translate(10px, 130px); } }
+.hp-xm-modes { grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); }
+.hp-xm-modes .hp-ov-mode[hidden] { display: none; }
+.hp-xm-stats .hp-app-stat[hidden] { display: none; }
+.hp-xm-label { display: flex; letter-spacing: .08em; }
+.hp-xm-label:first-child { margin-top: 4px; }
+.hp-xm-rows { display: flex; flex-direction: column; }
+.hp-xm-row.lit { background: linear-gradient(100deg, rgba(255,192,105,.16), transparent 70%), var(--hp-glass); border-color: rgba(255,192,105,.22); }
+.hp-xm-row.lit .hp-ov-ic { background: #ffc46e; color: #3a2a12; box-shadow: 0 0 14px rgba(255,196,110,.45); }
+.hp-xm-row.na { opacity: .45; }
+.hp-xm-row .hp-ov-right > [hidden] { display: none; }
+.hp-xm-empty { margin-top: 12px; }
+.hp-xm-edit-row, .hp-xm-gone { cursor: default; }
+.hp-xm-edit-row { display: grid; grid-template-columns: 34px minmax(0, 1fr) auto; column-gap: 12px; row-gap: 8px; padding: 10px; }
+.hp-xm-edit-row + .hp-xm-edit-row { border-top: 1px solid rgba(255,255,255,.06); border-radius: 0; }
+.hp-xm-edit-row .hp-add-text > div { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 500; }
+.hp-xm-edit-row .hp-xm-seg { grid-column: 2 / -1; justify-self: start; }
+.hp-xm-time { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+.hp-xm-time input { width: 150px; }
+.hp-xm-gone .hp-tile-icon, .hp-xm-gone .hp-add-text { opacity: .5; }
+.hp-xm-seg, .hp-xm-setbtns { flex: none; flex-wrap: nowrap; white-space: nowrap; }
+.hp-xm-seg button { padding: 0 10px; }
+@container (min-width: 900px) {
+  .hp-sheet.xmas { width: min(1060px, 94cqw); }
+  .hp-xm-grid { display: grid; grid-template-columns: 340px minmax(0, 1fr); gap: 22px; align-items: start; }
+  .hp-sheet.xmas .hp-xm-hero { flex-direction: column; text-align: center; }
+  .hp-sheet.xmas .hp-xm-hero .hp-app-info { align-items: center; text-align: center; }
+  .hp-sheet.xmas .hp-xm-hero .hp-app-status { align-self: center; }
+  .hp-sheet.xmas .hp-xm-dial { width: 180px; height: 180px; }
+  .hp-sheet.xmas .hp-xm-drum { inset: 20px; }
+  .hp-xm-stats { grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); }
+  .hp-xm-rows { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@container (max-width: 520px) { .hp-xm-dial { width: 112px; height: 112px; } .hp-xm-drum { inset: 13px; } }
+@media (prefers-reduced-motion: reduce) { .hp-xm-tree .bulb.lit, .hp-xm-drum.on .flake { animation: none !important; } }
 `;
 
 /** The font has to be declared on the page itself; shadow roots ignore @font-face. */

@@ -1,6 +1,6 @@
 // Security page: a status row (locks, doors, alarm, smoke) and a wall of live cameras.
 import { h, icon, entityName, bindTapHold, domainOf, isUnavailable } from "./util.js";
-import { isOn } from "./model.js";
+import { isOn, hideMatcher } from "./model.js";
 import { entityIcon, stateText, tapAction, linkedCover, HAZARD, hazardInfo } from "./domains.js";
 import { openSheet } from "./dialogs.js";
 import { liveVideo, snapshotUrl, trackAspect, openCameraFull } from "./camera.js";
@@ -82,15 +82,30 @@ export function isAlert(hass, id) {
 }
 
 /**
+ * What the security popup shows: nothing a hide rule catches (Settings → Hide), and nothing hidden
+ * by hand, either in the popup itself (container "home:security", the eye in its pencil menu) or on
+ * the security page (containers "security:<room>"). The popup counts through this, so everything
+ * that counts along with it leaves the same things out.
+ */
+export function secShown(ctx, hass = ctx.hass) {
+  const s = ctx.settings?.s || {};
+  const hiddenRule = hideMatcher(hass, s.hide);
+  const hiddenSec = new Set(Object.entries(s.containers || {})
+    .filter(([k]) => k === "home:security" || k.startsWith("security:")).flatMap(([, c]) => c.hidden || []));
+  return (id) => !hiddenRule(id) && !hiddenSec.has(id);
+}
+
+/**
  * How much of the house is open, counted exactly like the security popup: the same things
  * (alarm, locks, gates, doors; a lock that shows together with its lock sensor counts once, as the
- * sensor) and the same test (isAlert, so an allowed time window stays quiet). Everywhere else that
- * says "2 unlocked · 1 open" counts through this, so chip, card, page and SecurityPanel agree with
- * the popup. Locks and lock sensors are "unlocked", the rest is "open".
+ * sensor), the same hiding (secShown) and the same test (isAlert, so an allowed time window stays
+ * quiet). Everywhere else that says "2 unlocked · 1 open" counts through this, so chip, card, page
+ * and SecurityPanel agree with the popup. Locks and lock sensors are "unlocked", the rest is "open".
  */
 export function openSecurity(ctx, hass = ctx.hass) {
   const s = statusItems(ctx, hass);
-  const bad = (ids) => ids.filter((id) => isAlert(hass, id));
+  const shown = secShown(ctx, hass);
+  const bad = (ids) => ids.filter((id) => shown(id) && isAlert(hass, id));
   return { unlocked: bad(s.locks), open: [...bad(s.alarm), ...bad(s.gates), ...bad(s.doors)] };
 }
 

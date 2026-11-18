@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.12.0
+
+- **Christmas** (*Settings → Home → Christmas*): a Christmas chip on Home from the first Sunday of Advent to 7 January. Its popup switches your Christmas lights (all on, outdoor only, all off), counts down to Christmas Eve and shows sunset and power. Lights are found by a "christmas" label, by their name or added by hand. It stays off until you turn it on; a welcome window offers it once.
+- **Modes chip** (*Settings → Home → Status chips*): pick the switches and helpers you use as modes, like a guest or party mode. The chip shows which one is on, and a tap switches each of them.
+- **Security badge**: doors, windows and locks hidden in the security popup no longer count on the badge, the security card, the security page or the SecurityPanel.
+
 ## 1.11.0
 
 - **Baby monitor with sound**: a speaker button in the baby monitor and its full-screen view turns the camera's sound on and off, and each screen remembers the choice. Needs a camera that sends sound; it plays only while the baby monitor is open.

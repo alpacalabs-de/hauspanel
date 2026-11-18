@@ -1,5 +1,5 @@
 // Layouts and the building blocks they share: home status, scenes, room cards, room view, room menu.
-import { h, icon, formatNumber, formatTime, formatDate, bindTapHold, domainOf, entityName } from "./util.js";
+import { h, icon, formatNumber, formatTime, formatDate, bindTapHold, domainOf, entityName, isUnavailable } from "./util.js";
 import { isOn, roomPresence, roomHasContent, dedupeGroups } from "./model.js";
 import { createTile, createSeparator, createScenePill } from "./tile.js";
 import { MEDIA, entityIcon, stateText } from "./domains.js";
@@ -30,9 +30,11 @@ import { snapshotUrl } from "./camera.js";
 import { ago, since } from "./popkit.js";
 import { wasteSources, loadPickups, openWaste, whenText } from "./waste.js";
 import { noticesBlock } from "./notices.js";
+import { xmasPrefs, xmasDevices, xmasChipShown, xmasEnabled, openChristmas } from "./christmas.js";
 import { hasParcels, incomingParcels, deliveredParcels, parcelChipText, openParcels } from "./parcels.js";
 import { switchLights } from "./switching.js";
 import { gridRate } from "./energy.js";
+import { modeIds, modesSummary, modesText, openModes } from "./modes.js";
 
 export const LAYOUTS = [
   { id: "grid", icon: "mdi:view-grid-outline" },
@@ -119,9 +121,9 @@ export function statusBlock(ctx, { compact = false } = {}) {
  * The home at a glance: round category chips (light, climate, security, energy, today) and "All lights off".
  * Each chip leads to its page where there is one.
  */
-export const CAT_DEFAULTS = { light: true, climate: true, shades: true, security: true, energy: true, today: true, waste: true, parcels: true, maint: true, leave: true };
+export const CAT_DEFAULTS = { light: true, climate: true, shades: true, security: true, energy: true, today: true, waste: true, parcels: true, maint: true, leave: true, modes: true, xmas: true };
 
-export const CAT_ORDER = ["light", "climate", "shades", "security", "energy", "today", "waste", "parcels", "maint", "leave"];
+export const CAT_ORDER = ["light", "climate", "shades", "security", "energy", "today", "waste", "parcels", "maint", "leave", "modes", "xmas"];
 
 export function homeCats(ctx) {
   const box = h("div", { class: "hp-cats" });
@@ -163,10 +165,16 @@ export function homeCats(ctx) {
   const parcels = hasParcels(ctx.hass) ? chip("parcels", "mdi:package-variant-closed", t("parcels"), () => openParcels(ctx)) : null;
   // Maintenance only shows up when something needs looking after.
   const maint = chip("maint", "mdi:wrench-outline", t("maintenance"), () => openMaintenanceSheet(ctx));
+  // Christmas: only when switched on (Settings → Home), and on Home only in Christmas time or while one of its devices is on.
+  const xmasIds = () => xmasDevices(ctx.hass, xmasPrefs(ctx.settings.s));
+  const xmas = xmasEnabled(ctx.settings.s) ? chip("xmas", "mdi:pine-tree", t("xm_title"), () => openChristmas(ctx)) : null;
   const leave = chip("leave", "mdi:home-export-outline", t("leave_chip"), () => openLeave(ctx));
   // Every window shade in the house: how many are open; the popup moves all or each.
   const allShades = m.all.filter((id) => domainOf(id) === "cover" && !NOT_SHADE.has(ctx.hass.states[id]?.attributes.device_class));
   const shades = allShades.length ? chip("shades", "mdi:blinds-horizontal", t("shades"), () => ctx.openShades({ title: t("whole_house"), ids: allShades })) : null;
+  // Modes: switches and helpers picked by hand (a guest or party mode). No chip while none of them is picked.
+  const modeList = modeIds(ctx.settings.s);
+  const modes = modesSummary(ctx.hass, modeList) ? chip("modes", "mdi:toggle-switch-variant", t("modes"), () => openModes(ctx)) : null;
   // Own order first, then the rest in the default order.
   const order = [...(ctx.settings.s.catOrder || []).filter((k) => CAT_ORDER.includes(k)), ...CAT_ORDER];
   const placed = new Set();
@@ -225,6 +233,14 @@ export function homeCats(ctx) {
       const k = leaveItems(ctx, hass).count;
       leave.val.textContent = k ? t("leave_n_todo", { n: k }) : t("leave_ready");
     }
+    if (xmas) {
+      const ids = xmasIds();
+      const ok = ids.filter((id) => !isUnavailable(hass.states[id]));
+      const n = ok.filter((id) => isOn(hass.states[id])).length;
+      xmas.hidden = !xmasChipShown(hass, ids, new Date(), xmasPrefs(ctx.settings.s)) && !editing;
+      xmas.val.textContent = !ids.length ? t("xm_chip_none") : n ? t("ov_n_of_m", { n, m: ok.length }) : t("all_off");
+      xmas.classList.toggle("active", n > 0);
+    }
     if (parcels) {
       const coming = incomingParcels(hass);
       const done = deliveredParcels(hass);
@@ -232,6 +248,11 @@ export function homeCats(ctx) {
       parcels.val.textContent = parcelChipText(hass, coming, done) || "–";
       parcels.classList.toggle("active", coming.some((p) => p.status === "out_for_delivery" || p.status === "at_pickup_point"));
       parcels.classList.toggle("alert", coming.some((p) => p.status === "problem"));
+    }
+    if (modes) {
+      const sum = modesSummary(hass, modeList);
+      modes.val.textContent = modesText(hass, sum);
+      modes.classList.toggle("active", !!sum?.on.length);
     }
     if (today) {
       const k = ctx.agenda.todayEvents().length;

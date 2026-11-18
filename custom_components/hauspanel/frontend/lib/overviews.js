@@ -6,7 +6,7 @@ import { isOn, hideMatcher } from "./model.js";
 import { openSheet } from "./dialogs.js";
 import { hazardInfo, entityIcon } from "./domains.js";
 import { snapshotUrl } from "./camera.js";
-import { statusItems, isAlert, isAllowedOpen, allowRule, pillName, secLabel, secLine, cameraList, HOME_SEC_CONTAINER, secIcon } from "./securityview.js";
+import { statusItems, isAlert, isAllowedOpen, allowRule, pillName, secLabel, secLine, cameraList, HOME_SEC_CONTAINER, secIcon, secShown } from "./securityview.js";
 import { openThermostat } from "./thermostat.js";
 import { heatPumps, openHeatPump } from "./heatpump.js";
 import { loadVisits } from "./visitors.js";
@@ -110,9 +110,7 @@ export function openSecurityOverview(ctx, openClassic) {
   // Everything that can be open: doors, gates, windows and locks from the security list, plus the alarm's door sensors.
   // What was hidden in HausPanel (by rule, or with − in the security popup) stays out, wherever it comes from.
   const hiddenRule = hideMatcher(hass, ctx.settings.s.hide);
-  const hiddenSec = new Set(Object.entries(ctx.settings.s.containers || {})
-    .filter(([k]) => k === "home:security" || k.startsWith("security:")).flatMap(([, c]) => c.hidden || []));
-  const shown = (id) => !hiddenRule(id) && !hiddenSec.has(id);
+  const shown = secShown(ctx, hass);
   const byOrder = (ids) => {
     const order = ctx.settings.cont(HOME_SEC_CONTAINER).order || [];
     const pos = (id) => { const i = order.indexOf(id); return i < 0 ? 1e6 : i; };

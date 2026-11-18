@@ -21,6 +21,8 @@ import { SAVER_MINUTES, saverLayout } from "./screensaver.js";
 import { camModes } from "./nightview.js";
 import { openDiagnostics } from "./diagnostics.js";
 import { lockMode, choosePin } from "./editlock.js";
+import { xmasPrefs, xmasDevices, xmasEnabled, openXmasEdit, openChristmas, openXmasIntro, seasonStart, seasonEnd } from "./christmas.js";
+import { modeIds, openModesEdit } from "./modes.js";
 
 /** Soft surface of lit cards. */
 export const CARD_COLORS = {
@@ -353,17 +355,61 @@ export function openSettings(ctx) {
       const cats = { ...CAT_DEFAULTS, ...(s.cats || {}) };
       const chipsSection = section(t("cat_chips"), h("p", { class: "hp-muted small" }, t("cat_chips_hint")),
         ...[["light", "mdi:lightbulb-outline", t("cat_light")], ["climate", "mdi:thermometer", t("climate")], ["shades", "mdi:blinds-horizontal", t("shades")], ["security", "mdi:shield-outline", t("security")],
-          ["energy", "mdi:lightning-bolt-outline", t("energy")], ["today", "mdi:calendar-blank-outline", t("cat_today")], ["waste", "mdi:delete-variant", t("waste")], ["parcels", "mdi:package-variant-closed", t("parcels")], ["maint", "mdi:wrench-outline", t("maintenance")], ["leave", "mdi:home-export-outline", t("leave_chip")]].map(([k, ic, label]) =>
+          ["energy", "mdi:lightning-bolt-outline", t("energy")], ["today", "mdi:calendar-blank-outline", t("cat_today")], ["waste", "mdi:delete-variant", t("waste")], ["parcels", "mdi:package-variant-closed", t("parcels")], ["maint", "mdi:wrench-outline", t("maintenance")], ["leave", "mdi:home-export-outline", t("leave_chip")] ].map(([k, ic, label]) =>
           row(h("span", {}, icon(ic), " ", label), toggleSwitch(cats[k], () => {
             S.update((x) => { x.cats = { ...cats, [k]: !cats[k] }; });
             draw();
           }))),
+        // Modes: the chip only shows once switches or helpers are picked, so the picker sits right here.
+        (() => {
+          const picked = modeIds(s);
+          const pick = h("button", { class: "hp-btn ghost" }, icon("mdi:playlist-edit"), t("modes_pick"));
+          pick.addEventListener("click", () => openModesEdit(ctx, draw));
+          return row(h("span", {}, icon("mdi:toggle-switch-variant"), " ", t("modes")),
+            h("div", { class: "hp-notice-ctl" }, pick, toggleSwitch(cats.modes, () => {
+              S.update((x) => { x.cats = { ...cats, modes: !cats.modes }; });
+              draw();
+            })), picked.length ? t("n_devices", { n: picked.length }) : t("modes_empty"));
+        })(),
         // What the energy chip shows: the grid, or the whole house (grid, solar and battery together).
         cats.energy ? row(t("energy_chip_shows"), h("div", { class: "hp-seg" }, [["grid", t("grid")], ["house", t("ef_house")]].map(([v, label]) => {
           const b = h("button", { class: (s.energyChip === "house" ? "house" : "grid") === v ? "active" : "" }, label);
           b.addEventListener("click", () => { S.update((x) => { x.energyChip = v; }); draw(); });
           return b;
         })), t("energy_chip_hint")) : null);
+      // Christmas: one switch for the whole house; when on, which devices belong to it and a look at the popup.
+      const xmOn = xmasEnabled(s);
+      const xmBtns = (list) => h("div", { class: "hp-seg hp-xm-setbtns" }, ...list.map(([k, fn]) => {
+        const b = h("button", {}, t(k));
+        b.addEventListener("click", fn);
+        return b;
+      }));
+      // When Christmas time is: from the first Advent or a date, until 7 January or a date. Stored as "MM-DD".
+      const xmasTimeRows = () => {
+        const p = xmasPrefs(s);
+        const now = new Date();
+        const y = now.getMonth() < 6 ? now.getFullYear() - 1 : now.getFullYear();
+        const iso = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+        const setP = (fn) => { S.update((x) => { const q = xmasPrefs(x); fn(q); x.xmas = q; }); draw(); ctx.rerender?.(); };
+        const toMd = (v) => (/^\d{4}-\d{2}-\d{2}$/.test(v) ? v.slice(5) : null);
+        const byDate = !!p.from;
+        const fromIn = h("input", { type: "date", class: "hp-input", value: iso(seasonStart(y, p)) });
+        fromIn.addEventListener("change", () => { const v = toMd(fromIn.value); if (v) setP((q) => { q.from = v; }); });
+        const startSeg = h("div", { class: "hp-seg" }, ...[[false, "xm_from_advent"], [true, "xm_from_date"]].map(([v, k]) => {
+          const b = h("button", { class: byDate === v ? "active" : "" }, t(k));
+          b.addEventListener("click", () => setP((q) => { if (v) q.from = toMd(iso(seasonStart(y, q))) || "12-01"; else delete q.from; }));
+          return b;
+        }));
+        const toIn = h("input", { type: "date", class: "hp-input", value: iso(seasonEnd(y, p)) });
+        toIn.addEventListener("change", () => { const v = toMd(toIn.value); if (v) setP((q) => { q.to = v; }); });
+        return [row(t("xm_from"), h("div", { class: "hp-xm-time" }, startSeg, byDate ? fromIn : null)),
+          row(t("xm_to"), h("div", { class: "hp-xm-time" }, toIn), t("xm_time_hint"))];
+      };
+      const xmasSection = section(t("xm_title"), h("p", { class: "hp-muted small" }, t("xm_setting_intro")),
+        row(t("xm_switch"), toggleSwitch(xmOn, () => { S.update((x) => { x.xmas = { ...xmasPrefs(x), on: !xmOn }; }); draw(); ctx.rerender?.(); })),
+        xmOn ? row(t("xm_devices"), xmBtns([["xm_edit", () => openXmasEdit(ctx)], ["xm_open", () => openChristmas(ctx)]]), t("xm_setting_hint", { n: xmasDevices(ctx.hass, xmasPrefs(s)).length })) : null,
+        ...(xmOn ? xmasTimeRows() : []),
+        row(t("xm_intro_again"), xmBtns([["wel_again", () => openXmasIntro(ctx)]])));
       const style = s.homeStyle === "favorites" ? "favorites" : "rooms";
       const pick = (v, ic, label, hint) => {
         const b = h("button", { class: `hp-home-style ${style === v ? "active" : ""}` }, icon(ic), h("b", {}, label), h("small", {}, hint));
@@ -373,7 +419,7 @@ export function openSettings(ctx) {
       add("home", section(t("home_style"),
         h("div", { class: "hp-home-styles" },
           pick("rooms", "mdi:view-grid-outline", t("home_style_rooms"), t("home_style_rooms_hint")),
-          pick("favorites", "mdi:star-outline", t("home_style_fav"), t("home_style_fav_hint")))), chipsSection,
+          pick("favorites", "mdi:star-outline", t("home_style_fav"), t("home_style_fav_hint")))), chipsSection, xmasSection,
         noticesSection(ctx, S, draw, noticeState, { section, row }));
       add("rooms", section(t("rooms"),
         // What a tap on a room opens, as two clear choices (holding opens the other one).

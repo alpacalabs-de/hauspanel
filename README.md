@@ -63,6 +63,7 @@ Installing the integration adds three entries to the Home Assistant sidebar. Eac
 - **Window open, heating on**: a notice on Home for each room where a window is open while its heating runs. A tap opens the thermostat.
 - **Time to air**: a notice for each room with 1400 ppm CO₂ or more, or 70 % humidity or more, unless a window is already open.
 - **Parcels** on their way from the [parcel integrations](https://ha-parcel-integrations.github.io/): a status chip on Home with sender, carrier, status and delivery time.
+- **Christmas**: a chip from the first Advent to 7 January that switches your fairy lights, plugs and inflatables all on, only outside or all off, and counts down to Christmas Eve. They are found by a *Christmas* label in Home Assistant, by their name, or you add them by hand. It stays off until you switch it on under *Settings → Home → Christmas*.
 
 **Rooms**
 - A tap on a room opens the **room popup**: a temperature ring, big tiles for light, shades, music and switches, the room's devices and scenes. Under *Customise* you choose which sections open by default.

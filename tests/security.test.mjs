@@ -79,8 +79,9 @@ test("an allowed window silences the warning, but never a triggered alarm", () =
   assert.equal(sv.isAlert(hass, "alarm_control_panel.home"), true, "a triggered alarm always warns");
 });
 
-// A context just big enough for statusItems/openSecurity: the security entities and model.all for gates.
-const secCtx = (hass, security, all = []) => ({ hass, model: { all }, securityItems: () => security });
+// A context just big enough for statusItems/openSecurity: the security entities, model.all for gates
+// and the panel settings that say what is hidden (hide rules and the popup's own containers).
+const secCtx = (hass, security, all = [], s = {}) => ({ hass, model: { all }, securityItems: () => security, settings: { s } });
 
 test("the open count skips a lock that shows together with its lock sensor", () => {
   setRule("x", null);
@@ -119,6 +120,37 @@ test("a lock without a sensor, an open window and a gate all count", () => {
   const { unlocked, open } = sv.openSecurity(secCtx(hass, ids, ["cover.yard_gate"]));
   assert.deepEqual(unlocked, ["lock.front"], "only the unlocked lock");
   assert.deepEqual(open, ["cover.yard_gate", "binary_sensor.bath_window"], "the gate like the popup, and the window");
+});
+
+// What the security popup leaves out must not count on the badge either (#12).
+const hideCtx = (s) => {
+  const hass = fakeHass({ states: {
+    "binary_sensor.bath_window": { state: "on", attributes: { device_class: "window", friendly_name: "Bath Window" } },
+    "cover.yard_gate": { state: "open", attributes: { device_class: "gate" } },
+  } });
+  return secCtx(hass, ["binary_sensor.bath_window"], ["cover.yard_gate"], s);
+};
+
+test("a window hidden in the security popup does not count", () => {
+  setRule("x", null);
+  assert.deepEqual(sv.openSecurity(hideCtx({})).open, ["cover.yard_gate", "binary_sensor.bath_window"], "both count while nothing is hidden");
+  const hidden = { containers: { "home:security": { hidden: ["binary_sensor.bath_window"] } } };
+  assert.deepEqual(sv.openSecurity(hideCtx(hidden)).open, ["cover.yard_gate"], "the window is out, the gate stays");
+});
+
+test("a hide rule keeps a window and a gate out of the count", () => {
+  setRule("x", null);
+  assert.deepEqual(sv.openSecurity(hideCtx({ hide: { entities: ["binary_sensor.bath_window"] } })).open, ["cover.yard_gate"]);
+  assert.deepEqual(sv.openSecurity(hideCtx({ hide: { patterns: ["bath"] } })).open, ["cover.yard_gate"], "by pattern too");
+  assert.deepEqual(sv.openSecurity(hideCtx({ hide: { domains: ["cover"] } })).open, ["binary_sensor.bath_window"], "a hidden gate does not count");
+});
+
+test("hidden on the security page does not count either", () => {
+  setRule("x", null);
+  const hidden = { containers: { "security:bath": { hidden: ["binary_sensor.bath_window"] }, "security:garden": { hidden: ["cover.yard_gate"] } } };
+  assert.deepEqual(sv.openSecurity(hideCtx(hidden)).open, [], "nothing left to count");
+  assert.equal(sv.openSecurity(hideCtx({ containers: { "room:bath": { hidden: ["binary_sensor.bath_window"] } } })).open.length, 2,
+    "a room container is none of its business");
 });
 
 test("an allowed time window keeps a door out of the count", () => {

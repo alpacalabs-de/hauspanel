@@ -41,6 +41,7 @@ import { openSettings, CARD_COLORS, ACCENTS, BACKGROUNDS } from "./lib/settings.
 import { guarded, showChangeButtons } from "./lib/editlock.js";
 import { setLanguage, t } from "./lib/i18n.js";
 import { maybeWelcome } from "./lib/welcome.js";
+import { maybeXmasIntro } from "./lib/christmas.js";
 import { loadPrefs } from "./lib/userprefs.js";
 import { STYLES, loadFont } from "./lib/styles.js";
 
@@ -172,6 +173,8 @@ class HausPanelElement extends HTMLElement {
     this.weather.start();
     // The very first time this user opens HausPanel (not on a camera-only screen): three short steps.
     if (this.layout !== "security") setTimeout(() => maybeWelcome(this), 800);
+    // New in the Christmas weeks: a window that shows and explains Christmas, once per user, after the welcome.
+    if (this.layout !== "security") setTimeout(() => maybeXmasIntro(this), 2500);
 
     // Slow tablet? A second of frames after start tells; Settings → This screen can also force it.
     measureSpeed().then((slow) => { this._slow = slow; if (slow && this.lite) this.rerender(); });
