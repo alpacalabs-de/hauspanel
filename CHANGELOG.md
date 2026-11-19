@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.15.0
+
+- **Panel files** are served through Home Assistant's own static file handling, so loading a dashboard no longer checks files on Home Assistant's event loop, which could stall it on slow storage like an SD card.
+- **Parcel links** only open for http and https addresses from the parcel sensors.
+- **evcc wallboxes** (ha-evcc integration): the wallbox popup finds every evcc charge point, with its charging power, this charge, the total, whether a car is plugged in or charging, and the car's charge level and range from evcc. With several wallboxes, the energy popup has a button for each.
+- **EMS-ESP hot water** (*heat pump popup*): the hot water button starts and stops a hot water charge through EMS-ESP's dhw charge switch, and defrosting and a compressor fault show up as such.
+- **EMS-ESP heat pumps** (Buderus and others over MQTT): the heat pump popup finds them without a water heater entity and shows heating or hot water from the compressor activity.
+- **SolaX HAC wallbox**: the wallbox popup finds a SolaX HAC from the solax-modbus integration, with its charging power, this charge, the total and whether a car is plugged in or charging.
+- **Portuguese** texts, following Home Assistant's language (Português and Português (Brasil)).
+- **Music search** (*player popup*): the search field finds songs, artists and albums as well as playlists in Music Assistant, and a tap plays it on that speaker.
+- **Lights that don't count** (*edit mode → light tile*): mark a light like a word clock or an aquarium as not counted. It keeps its tile and switches as usual, but the room card, the dots, the room, floor and home buttons, Leaving home and the Good night check leave it alone.
+
 ## 1.14.1
 
 - **Older iPads** show the panel again. On an iPad that Apple no longer updates (iPadOS 15, so an iPad Air 2, mini 4 or iPad 5), the panel stayed blank with "Unable to load custom panel" — since 1.6.4 one room rule used a regular expression that Safari reads only from 16.4. The rule is written differently now and works the same.

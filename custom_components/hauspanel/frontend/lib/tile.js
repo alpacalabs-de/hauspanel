@@ -136,6 +136,20 @@ export function createTile(ctx, entityId, { size = 1, areaName, variant = "tile"
     el.append(mb);
   }
 
+  // Edit mode: a light that is on almost always (word clock, aquarium) can be left out of the counts.
+  if (ctx.editing && variant !== "row" && d === "light") {
+    const off = !!ctx.settings.s.uncounted?.[entityId];
+    const cb = h("button", { class: `hp-edit-count ${off ? "active" : ""}`, "aria-label": t("not_counted"), title: t("not_counted") },
+      icon(off ? "mdi:minus-circle-outline" : "mdi:counter"), h("span", {}, off ? t("not_counted") : t("counts_short")));
+    cb.addEventListener("pointerdown", (e) => e.stopPropagation());
+    cb.addEventListener("click", (e) => {
+      e.stopPropagation();
+      ctx.settings.toggleUncounted(entityId);
+      ctx.toast(`${entityName(ctx.hass, entityId, areaName)}: ${off ? t("now_counted") : t("now_not_counted")}`);
+    });
+    el.append(cb);
+  }
+
   bindTapHold(el, {
     canStart: () => !ctx.editing,
     tap: () => tapOrOpen(ctx, entityId),

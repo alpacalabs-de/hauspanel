@@ -6,7 +6,7 @@ import { meterSensors, watts, formatWatts, deviceName } from "./usage.js";
 import { t } from "./i18n.js";
 import { svgEl, stat, fmt } from "./popkit.js";
 import { openSolar } from "./solar.js";
-import { wallboxes, openWallbox } from "./wallbox.js";
+import { wallboxes, openWallbox, wallboxName } from "./wallbox.js";
 import { solarSources } from "./energy.js";
 import { batterySoc, socText } from "./battery.js";
 
@@ -113,10 +113,14 @@ export function openEnergyFlow(ctx, rate) {
   }
   const solB = hasSun ? h("button", { class: "hp-btn ghost" }, icon("mdi:solar-power-variant"), h("span", {}, t("solar"))) : null;
   solB?.addEventListener("click", () => openSolar(ctx));
+  // With more than one wallbox each gets its own button, named after its device.
   const wbs = wallboxes(hass);
-  const wbB = wbs.length ? h("button", { class: "hp-btn ghost" }, icon("mdi:ev-station"), h("span", {}, t("wb_title"))) : null;
-  wbB?.addEventListener("click", () => openWallbox(ctx, wbs[0]));
-  sheet.body.append(stage, stats, h("div", { class: "hp-label hp-ef-label" }, t("using_now")), list, h("div", { class: "hp-sheet-actions hp-app-foot" }, ...[solB, wbB, page].filter(Boolean)));
+  const wbBtns = wbs.map((k) => {
+    const b = h("button", { class: "hp-btn ghost" }, icon("mdi:ev-station"), h("span", {}, wbs.length > 1 ? wallboxName(hass, k) : t("wb_title")));
+    b.addEventListener("click", () => openWallbox(ctx, k));
+    return b;
+  });
+  sheet.body.append(stage, stats, h("div", { class: "hp-label hp-ef-label" }, t("using_now")), list, h("div", { class: "hp-sheet-actions hp-app-foot" }, ...[solB, ...wbBtns, page].filter(Boolean)));
 
   const speed = (w) => `${Math.max(0.6, Math.min(6, 6 - Math.log10(Math.max(1, Math.abs(w))) * 1.4)).toFixed(2)}s`;
   const update = (hs) => {

@@ -89,14 +89,26 @@ const statusText = (p) => t(`parcel_${STATUSES.has(p.status) ? p.status : "unkno
 
 const ICONS = { out_for_delivery: "mdi:truck-delivery-outline", at_pickup_point: "mdi:store-marker-outline", problem: "mdi:alert-circle-outline", returning: "mdi:keyboard-return", delivered: "mdi:package-variant-closed-check" };
 
+/** A tracking address we are willing to open: only http and https, so a `javascript:` or `data:` address from a sensor stays text. */
+export function safeUrl(u) {
+  if (typeof u !== "string") return null;
+  try {
+    const { protocol } = new URL(u);
+    return protocol === "http:" || protocol === "https:" ? u : null;
+  } catch {
+    return null;
+  }
+}
+
 /** One parcel as a row: sender (or carrier), then carrier, status and when; a tap opens the tracking page. */
 function parcelRow(hass, p, delivered = false) {
   const status = delivered ? "delivered" : p.status;
+  const url = safeUrl(p.url);
   const sub = [p.sender && p.carrier ? p.carrier : null, delivered ? t("parcel_delivered") : statusText(p), delivered ? null : parcelWhen(hass, p)].filter(Boolean).join(" · ");
-  return h(p.url ? "a" : "div", { class: `hp-qrow hp-parcel-row ${status || ""}`, ...(p.url ? { href: p.url, target: "_blank", rel: "noopener noreferrer" } : {}) },
+  return h(url ? "a" : "div", { class: `hp-qrow hp-parcel-row ${status || ""}`, ...(url ? { href: url, target: "_blank", rel: "noopener noreferrer" } : {}) },
     h("span", { class: "hp-qrow-ic" }, icon(ICONS[status] || "mdi:package-variant-closed")),
     h("div", { class: "hp-qrow-text" }, h("b", {}, p.sender || p.carrier || t("parcels")), h("small", {}, sub)),
-    p.url ? icon("mdi:open-in-new", "hp-hint-go") : null);
+    url ? icon("mdi:open-in-new", "hp-hint-go") : null);
 }
 
 /** The popup behind the Parcels chip: what is coming, then what came in the last two days. */

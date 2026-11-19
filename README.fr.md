@@ -15,7 +15,7 @@ Pour la tablette murale, le téléphone dans la poche et un écran pour les cam�
 
 <p align="center"><img src="images/demo.gif" alt="HausPanel sur une tablette murale : ouvrir une pièce, régler tous les volets d'un seul curseur, la fenêtre Sécurité, toutes les pièces d'un coup" width="860"><br><sub>Ouvrir une pièce, régler tous ses volets d'un seul curseur, voir ce qui est ouvert, afficher toutes les pièces. (Données de démonstration.)</sub></p>
 
-Home Assistant connaît déjà votre maison : quelles pièces sont à quel étage, et où se trouvent chaque lampe, chaque thermostat et chaque serrure. HausPanel part de ce plan et en fait des écrans lisibles d'un coup d'œil, depuis le couloir comme depuis le canapé. Quand vous ajoutez un appareil à une pièce, il apparaît tout simplement dans cette pièce. L'intégration tourne sur votre propre Home Assistant et ne communique avec rien d'autre.
+Home Assistant connaît déjà votre maison : quelles pièces sont à quel étage, et où se trouvent chaque lampe, chaque thermostat et chaque serrure. HausPanel part de ce plan et en fait des écrans lisibles d'un coup d'œil, depuis le couloir comme depuis le canapé. Quand vous ajoutez un appareil à une pièce, il apparaît tout simplement dans cette pièce. L'intégration tourne sur votre propre Home Assistant et ne communique avec rien d'autre, sauf avec Open-Meteo pour les prévisions lorsqu'aucune de vos entités météo n'en fournit (elle envoie alors la position de votre maison).
 
 Gratuit et open source (MIT), réalisé par [Alpaca Labs](https://alpacalabs.de). *English: [README.md](README.md).*
 

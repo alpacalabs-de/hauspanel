@@ -1,7 +1,7 @@
 // Room popup: a glowing card with the temperature ring on top, big control tiles (light, shades, music, switches),
 // the room's own devices, scenes, and closed sections with every lamp, shade, switch and player.
 import { h, icon, domainOf, slider, toggleSwitch, lightColor, entityName } from "./util.js";
-import { isOn, roomPresence, dedupeGroups } from "./model.js";
+import { isOn, roomPresence, dedupeGroups, countedLights } from "./model.js";
 import { entityIcon, tapAction } from "./domains.js";
 import { openSheet } from "./dialogs.js";
 import { openThermostat } from "./thermostat.js";
@@ -47,7 +47,9 @@ export function openRoomPopup(ctx, areaId) {
   // stands for one device, but not while its own members are in the room. A group next to its members is
   // no light of its own then; it stays a plain tile under "Other" below.
   const once = dedupeGroups(hass, tiles);
-  const lights = once.filter((id) => domainOf(id) === "light");
+  // A light marked "not counted" (word clock, aquarium) is no light of the room: it keeps its own
+  // tile under "More in this room" and switches there, but it stays out of the count and the all switch.
+  const lights = countedLights(ctx.settings.s, once.filter((id) => domainOf(id) === "light"));
   const shades = once.filter((id) => domainOf(id) === "cover" && !NOT_SHADE.has(hass.states[id]?.attributes.device_class));
   const covers = tiles.filter((id) => domainOf(id) === "cover" && NOT_SHADE.has(hass.states[id]?.attributes.device_class));
   // Heating goes into the ring; an air conditioner next to it gets its own tile.

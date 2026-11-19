@@ -282,16 +282,45 @@ async function maEntryId(hass) {
   return maEntry;
 }
 
-/** Playlists anywhere in Music Assistant's sources (Spotify), for the search field. */
-async function searchPlaylists(hass, query) {
+/** What the search looks for, in the order the results show up. */
+const FOUND_KINDS = [
+  { kind: "track", field: "tracks", label: "songs", icon: "mdi:music-note" },
+  { kind: "artist", field: "artists", label: "artists", icon: "mdi:account-music" },
+  { kind: "album", field: "albums", label: "albums", icon: "mdi:album" },
+  { kind: "playlist", field: "playlists", label: "playlists", icon: "mdi:playlist-music" },
+];
+
+/** Songs, artists, albums and playlists anywhere in Music Assistant's sources (Spotify), for the search field. */
+async function searchMusic(hass, query) {
   const entry = await maEntryId(hass);
-  if (!entry) return [];
+  if (!entry) return null;
   const r = await hass.connection.sendMessagePromise({
     type: "call_service", domain: "music_assistant", service: "search",
-    service_data: { config_entry_id: entry, name: query, media_type: ["playlist"], limit: 24 },
+    service_data: { config_entry_id: entry, name: query, media_type: FOUND_KINDS.map((k) => k.kind), limit: 24 },
     return_response: true,
   });
-  return r?.response?.playlists || [];
+  return r?.response || null;
+}
+
+/**
+ * What the search found, by kind and at most `max` each: songs, artists, albums, playlists.
+ * Your own matching playlists stay in front of the found ones, and nothing shows up twice.
+ */
+export function groupResults(res, mine = [], max = 6) {
+  const seen = new Set();
+  const groups = [];
+  for (const k of FOUND_KINDS) {
+    const from = k.kind === "playlist" ? [...(mine || []), ...(res?.[k.field] || [])] : res?.[k.field] || [];
+    const items = [];
+    for (const it of from) {
+      if (!it || !it.uri || !it.name || seen.has(it.uri)) continue;
+      seen.add(it.uri);
+      items.push(it.media_type ? it : { ...it, media_type: k.kind });
+      if (items.length >= max) break;
+    }
+    if (items.length) groups.push({ kind: k.kind, label: k.label, items });
+  }
+  return groups;
 }
 
 async function loadPlaylists(hass) {
@@ -305,35 +334,59 @@ async function loadPlaylists(hass) {
   return r?.response?.items || [];
 }
 
+/** Cover if the item has one, the icon of its kind otherwise. */
+function mediaThumb(p, fallback) {
+  const box = h("span", { class: "hp-pl-ic" });
+  if (p.image) {
+    const img = h("img", { src: p.image, alt: "", loading: "lazy" });
+    img.addEventListener("error", () => box.replaceChildren(icon(fallback)));
+    box.append(img);
+  } else {
+    box.append(icon(/^spotify/.test(p.uri) ? "mdi:spotify" : fallback));
+  }
+  return box;
+}
+
+const mediaArtists = (p) => (p.artists || []).map((a) => a?.name).filter(Boolean).join(", ");
+
 function playlistPicker(ctx, entityId) {
   const twin = maPlayerFor(ctx.hass, entityId);
   if (!twin) return null;
-  const grid = h("div", { class: "hp-pl-grid" }, h("div", { class: "hp-muted small" }, t("loading")));
-  const search = h("input", { class: "hp-input hp-pl-search", type: "search", placeholder: t("search_playlists") });
+  const box = h("div", { class: "hp-pl-scroll" }, h("div", { class: "hp-muted small" }, t("loading")));
+  const search = h("input", { class: "hp-input hp-pl-search", type: "search", placeholder: t("search_music") });
   let items = [];
-  let found = [];
+  let found = null;
   let seq = 0;
+  const row = (p, fallback) => {
+    const sub = mediaArtists(p);
+    const b = h("button", { class: "hp-pl" }, mediaThumb(p, fallback),
+      h("span", { class: "hp-pl-text" }, h("span", { class: "hp-pl-name" }, p.name),
+        ...(sub ? [h("span", { class: "hp-pl-sub" }, sub)] : [])));
+    b.addEventListener("click", async () => {
+      box.querySelectorAll(".hp-pl.playing").forEach((x) => x.classList.remove("playing"));
+      b.classList.add("playing");
+      try {
+        await ctx.hass.callService("music_assistant", "play_media", { media_id: p.uri, media_type: p.media_type || "playlist", enqueue: "replace" }, { entity_id: twin });
+        ctx.toast(t("playing_x", { name: p.name }));
+      } catch (e) {
+        b.classList.remove("playing");
+        ctx.toast(t("play_failed"));
+      }
+    });
+    return b;
+  };
   const draw = () => {
     const q = search.value.trim().toLowerCase();
     const mine = items.filter((p) => !q || p.name.toLowerCase().includes(q));
-    const uris = new Set(mine.map((p) => p.uri));
-    const shown = [...mine, ...(q ? found.filter((p) => !uris.has(p.uri)) : [])];
-    grid.replaceChildren(...shown.map((p) => {
-      const b = h("button", { class: "hp-pl" }, h("span", { class: "hp-pl-ic" }, icon(/^spotify/.test(p.uri) ? "mdi:spotify" : "mdi:playlist-music")), h("span", { class: "hp-pl-name" }, p.name));
-      b.addEventListener("click", async () => {
-        grid.querySelectorAll(".hp-pl.playing").forEach((x) => x.classList.remove("playing"));
-        b.classList.add("playing");
-        try {
-          await ctx.hass.callService("music_assistant", "play_media", { media_id: p.uri, media_type: "playlist", enqueue: "replace" }, { entity_id: twin });
-          ctx.toast(t("playing_x", { name: p.name }));
-        } catch (e) {
-          b.classList.remove("playing");
-          ctx.toast(t("play_failed"));
-        }
-      });
-      return b;
-    }));
-    if (!shown.length) grid.append(h("div", { class: "hp-muted small" }, t(items.length ? "nothing_found" : "no_playlists")));
+    const groups = q ? groupResults(found, mine) : (mine.length ? [{ kind: "playlist", items: mine }] : []);
+    const nodes = [];
+    for (const g of groups) {
+      const fallback = FOUND_KINDS.find((k) => k.kind === g.kind)?.icon || "mdi:playlist-music";
+      if (q) nodes.push(h("div", { class: "hp-group-label" }, t(g.label)));
+      nodes.push(h("div", { class: "hp-pl-grid" }, ...g.items.map((p) => row(p, fallback))));
+    }
+    box.replaceChildren(...nodes);
+    if (!nodes.length) box.append(h("div", { class: "hp-muted small" }, t(items.length || q ? "nothing_found" : "no_playlists")));
   };
   // Typing also searches Spotify (and the other sources), after a short pause.
   let timer = null;
@@ -341,12 +394,12 @@ function playlistPicker(ctx, entityId) {
     draw();
     clearTimeout(timer);
     const q = search.value.trim();
-    found = [];
+    found = null;
     if (q.length < 3) return;
     const my = ++seq;
-    timer = setTimeout(() => searchPlaylists(ctx.hass, q).then((list) => {
+    timer = setTimeout(() => searchMusic(ctx.hass, q).then((res) => {
       if (my !== seq) return;
-      found = list;
+      found = res;
       draw();
     }).catch(() => {}), 450);
   });
@@ -355,8 +408,8 @@ function playlistPicker(ctx, entityId) {
     const own = (p) => !p.uri.startsWith("library://") || !/random|infinite|favorit|zufall/i.test(p.name);
     items = [...list.filter(own), ...list.filter((p) => !own(p))];
     draw();
-  }).catch(() => grid.replaceChildren(h("div", { class: "hp-muted small" }, t("no_playlists"))));
+  }).catch(() => box.replaceChildren(h("div", { class: "hp-muted small" }, t("no_playlists"))));
   return h("div", { class: "hp-pl-block" },
     h("div", { class: "hp-pl-head" }, h("div", { class: "hp-label" }, icon("mdi:playlist-music"), t("playlists")), search),
-    grid);
+    box);
 }

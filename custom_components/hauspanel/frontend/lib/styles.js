@@ -1274,7 +1274,7 @@ ha-icon.hp-rc-touch-ic { --mdc-icon-size: 40px; opacity: .3; pointer-events: non
 .hp-onpill-text small { font-size: 11.5px; color: var(--hp-sub); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .hp-onnow-more { align-self: flex-start; }
 .hp-onnow-more[hidden] { display: none; }
-.editing .hp-onnow .hp-edit-minus, .editing .hp-onnow .hp-edit-resize, .editing .hp-onnow .hp-edit-meter { display: none; }
+.editing .hp-onnow .hp-edit-minus, .editing .hp-onnow .hp-edit-resize, .editing .hp-onnow .hp-edit-meter, .editing .hp-onnow .hp-edit-count { display: none; }
 .hp-onnow-empty { padding: 2px 4px; }
 .hp-fav-empty { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 26px 16px; border: 1.5px dashed var(--hp-border); border-radius: var(--hp-radius); color: var(--hp-sub); text-align: center; font-size: 14px; }
 .hp-fav-empty > ha-icon { --mdc-icon-size: 28px; }
@@ -1394,6 +1394,13 @@ ha-icon.hp-rc-touch-ic { --mdc-icon-size: 40px; opacity: .3; pointer-events: non
 .hp-edit-meter ha-icon { --mdc-icon-size: 13px; }
 .hp-edit-meter.active { background: var(--hp-accent); color: #2b2125; }
 .editing .hp-edit-meter { display: inline-flex; }
+
+/* edit mode: a light that counts, or one that is left out of the counts */
+.hp-edit-count { position: absolute; z-index: 3; top: -8px; right: -6px; height: 22px; padding: 0 8px 0 5px; border-radius: 11px; display: none; align-items: center; gap: 3px;
+  font-size: 10.5px; font-weight: 600; background: rgba(43,33,37,.85); color: #fff; box-shadow: 0 2px 6px rgba(0,0,0,.3); white-space: nowrap; }
+.hp-edit-count ha-icon { --mdc-icon-size: 13px; }
+.hp-edit-count.active { background: var(--hp-accent); color: #2b2125; }
+.editing .hp-edit-count { display: inline-flex; }
 
 /* side panel: home status with the security chips under it */
 .hp-side-status .hp-status.compact { flex-direction: row; flex-wrap: nowrap; align-items: center; gap: 10px; margin: 0; }
@@ -1676,14 +1683,21 @@ ha-icon.hp-rc-touch-ic { --mdc-icon-size: 40px; opacity: .3; pointer-events: non
 .hp-pl-head { display: flex; align-items: center; gap: 12px; justify-content: space-between; }
 .hp-pl-head .hp-label { margin: 0; }
 .hp-pl-search { width: 220px; height: 36px; margin: 0; }
-.hp-pl-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 8px; max-height: 240px; overflow-y: auto; scrollbar-width: none; }
+.hp-pl-scroll { max-height: 240px; overflow-y: auto; scrollbar-width: none; }
+.hp-pl-scroll > .hp-group-label { margin: 14px 2px 8px; }
+.hp-pl-scroll > .hp-group-label:first-child { margin-top: 0; }
+.hp-pl-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 8px; }
 .hp-pl { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 14px; background: rgba(255,255,255,.06); text-align: left; color: inherit; min-width: 0; }
-.hp-pl-ic { width: 32px; height: 32px; border-radius: 10px; display: grid; place-items: center; background: rgba(255,255,255,.08); flex: none; }
+.hp-pl-ic { width: 32px; height: 32px; border-radius: 10px; display: grid; place-items: center; background: rgba(255,255,255,.08); flex: none; overflow: hidden; }
 .hp-pl-ic ha-icon { --mdc-icon-size: 18px; }
+.hp-pl-ic img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.hp-pl-text { display: flex; flex-direction: column; min-width: 0; }
 .hp-pl-name { font-size: 13.5px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hp-pl-sub { font-size: 11.5px; color: var(--hp-sub); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .hp-pl.playing { background: #fff; color: #1e2833; }
+.hp-pl.playing .hp-pl-sub { color: rgba(30,40,51,.65); }
 .hp-pl.playing .hp-pl-ic { background: #1db954; color: #fff; }
-@container (max-width: 640px) { .hp-pl-search { width: 140px; } .hp-pl-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); max-height: none; } }
+@container (max-width: 640px) { .hp-pl-search { width: 140px; } .hp-pl-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .hp-pl-scroll { max-height: none; } }
 
 
 /* Scene armed for its second tap: wins over every layout's pill style. */

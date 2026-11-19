@@ -1,7 +1,7 @@
 // "Leaving home": what is still open, on or playing, and one button that switches it all off and locks.
 // Before that, Home Assistant takes a snapshot (scene.create), so "Undo" puts lights and music back.
 import { h, icon, domainOf } from "./util.js";
-import { isOn } from "./model.js";
+import { isOn, countedLights } from "./model.js";
 import { openSheet } from "./dialogs.js";
 import { runningAppliances } from "./usage.js";
 import { t } from "./i18n.js";
@@ -35,7 +35,7 @@ export function leaveItems(ctx, hass) {
   const cars = new Set(carDevices(hass));
   const notCar = (id) => !cars.has(hass.entities?.[id]?.device_id) && !/(^|\.|_)(car|auto)_/i.test(id);
   const all = Object.keys(hass.states);
-  const lights = m.lights.filter((id) => keep(id) && inHouse(id) && isOn(hass.states[id]));
+  const lights = countedLights(ctx.settings?.s, m.lights).filter((id) => keep(id) && inHouse(id) && isOn(hass.states[id]));
   const media = all.filter((id) => keep(id) && domainOf(id) === "media_player" && hass.states[id].state === "playing" && !hass.entities?.[id]?.hidden);
   const open = all.filter((id) => keep(id) && domainOf(id) === "binary_sensor" && OPENINGS.includes(hass.states[id].attributes.device_class)
     && hass.states[id].state === "on" && notCar(id) && inHouse(id) && !hass.entities?.[id]?.hidden);

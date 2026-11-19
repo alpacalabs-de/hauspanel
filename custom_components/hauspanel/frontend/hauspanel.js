@@ -1,6 +1,6 @@
 // HausPanel: a dashboard for Home Assistant that builds itself.
 import { h, icon, formatTime, formatDate, fireHass, debounce, formatNumber } from "./lib/util.js";
-import { buildModel, registrySignature, isOn, roomHasContent, visiblePersons } from "./lib/model.js";
+import { buildModel, registrySignature, isOn, roomHasContent, visiblePersons, countedLights } from "./lib/model.js";
 import { Settings } from "./lib/store.js";
 import { renderHome, renderRooms, renderPage, specialTiles } from "./lib/layouts.js";
 import { SIDE_DEFAULTS } from "./lib/sidepanel.js";
@@ -691,7 +691,7 @@ class HausPanelElement extends HTMLElement {
       this._bgGlow.style.opacity = "1";
       return;
     }
-    const lights = this.model.lights.filter((id) => this.model.areaOf[id]);
+    const lights = countedLights(this.settings.s, this.model.lights.filter((id) => this.model.areaOf[id]));
     const on = lights.filter((id) => isOn(this._hass.states[id])).length;
     const f = lights.length ? on / lights.length : 0;
     this._bgGlow.style.opacity = String(0.15 + 0.85 * Math.min(1, f * 1.5));

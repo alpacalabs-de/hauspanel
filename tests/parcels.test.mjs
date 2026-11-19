@@ -3,7 +3,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { LIB, fakeHass } from "./fake.mjs";
 
-const { parcelSensors, incomingParcels, deliveredParcels, parcelChipText, hasParcels, parcelWhen } = await import(LIB + "parcels.js");
+const { parcelSensors, incomingParcels, deliveredParcels, parcelChipText, hasParcels, parcelWhen, safeUrl } = await import(LIB + "parcels.js");
 
 const p = (carrier, barcode, status, from, extra = {}) => ({ carrier, barcode, status, planned_from: from, planned_to: from, delivered: status === "delivered", ...extra });
 
@@ -72,4 +72,19 @@ test("sensors in another language are found by the integration's own key, pickup
   hass.entities["sensor.paket_sammler_eingehende_pakete"] = { entity_id: "x", platform: "parcel_aggregator", translation_key: "incoming" };
   hass.entities["sensor.paket_sammler_unterwegs_zur_abholstelle"] = { entity_id: "x", platform: "parcel_aggregator", translation_key: "en_route_to_pickup_point" };
   assert.deepEqual(parcelSensors(hass), ["sensor.paket_sammler_eingehende_pakete"], "the aggregator still wins");
+});
+
+test("only http and https tracking addresses become a link", () => {
+  assert.equal(safeUrl("https://www.dhl.de/track?id=1"), "https://www.dhl.de/track?id=1");
+  assert.equal(safeUrl("http://192.168.1.5/track"), "http://192.168.1.5/track");
+  assert.equal(safeUrl("HTTPS://example.com/x"), "HTTPS://example.com/x", "the scheme is read case-insensitively");
+  assert.equal(safeUrl("javascript:alert(1)"), null);
+  assert.equal(safeUrl("data:text/html,<script>alert(1)</script>"), null);
+  assert.equal(safeUrl("file:///etc/passwd"), null);
+  assert.equal(safeUrl("/track/1"), null, "a relative address has no scheme we can check");
+  assert.equal(safeUrl("not an address"), null);
+  assert.equal(safeUrl(""), null);
+  assert.equal(safeUrl(undefined), null);
+  assert.equal(safeUrl(null), null);
+  assert.equal(safeUrl({ toString: () => "https://example.com" }), null, "only strings count");
 });

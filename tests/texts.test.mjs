@@ -41,7 +41,8 @@ test("setup texts (config flow) exist for every language, with the same keys as 
   const dir = new URL("../custom_components/hauspanel/translations/", import.meta.url);
   const keys = (o, p = "") => Object.entries(o).flatMap(([k, v]) => (typeof v === "object" ? keys(v, `${p}${k}.`) : [`${p}${k}`])).sort();
   const base = keys(JSON.parse(readFileSync(new URL("en.json", dir))));
-  for (const code of ["de", ...i18n.LANGS]) {
+  // pt-BR is not a language of its own here: Home Assistant looks for pt-BR.json for Português (Brasil).
+  for (const code of ["de", ...i18n.LANGS, "pt-BR"]) {
     assert.deepEqual(keys(JSON.parse(readFileSync(new URL(`${code}.json`, dir)))), base, `translations/${code}.json`);
   }
 });

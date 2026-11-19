@@ -1,7 +1,7 @@
 // Good night check: before the night scene runs, what is still on or open, each with a button to fix it,
 // then the scene and (optionally) the alarm on "home".
 import { h, icon, domainOf } from "./util.js";
-import { isOn, hideMatcher } from "./model.js";
+import { isOn, hideMatcher, countedLights } from "./model.js";
 import { openSheet } from "./dialogs.js";
 import { statusItems, isAlert, pillName, secLine } from "./securityview.js";
 import { runningAppliances } from "./usage.js";
@@ -25,7 +25,7 @@ export function openGoodNight(ctx, sceneId) {
 
   const groups = [
     { key: "lights", ic: "mdi:lightbulb-on-outline", okIc: "mdi:lightbulb-off-outline", label: "gn_lights", okLabel: "gn_lights_ok",
-      ids: () => m.lights.filter((id) => inHouse(id) && isOn(ctx.hass.states[id])), fix: (ids) => switchLights(ctx, ids, false), fixLabel: "gn_off" },
+      ids: () => countedLights(ctx.settings.s, m.lights).filter((id) => inHouse(id) && isOn(ctx.hass.states[id])), fix: (ids) => switchLights(ctx, ids, false), fixLabel: "gn_off" },
     { key: "doors", ic: "mdi:door-open", okIc: "mdi:door-closed", label: "gn_doors", okLabel: "gn_doors_ok",
       ids: () => s.doors.filter(shown).filter((id) => isAlert(ctx.hass, id)) },
     { key: "gates", ic: "mdi:garage-open-variant", okIc: "mdi:garage-variant", label: "gn_gates", okLabel: "gn_gates_ok", two: true,

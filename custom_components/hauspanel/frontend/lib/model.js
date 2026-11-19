@@ -76,6 +76,14 @@ export function dedupeGroups(hass, ids) {
 }
 
 /**
+ * Lights marked "not counted" in edit mode: a word clock, an aquarium or a night light that is on
+ * almost always. They keep their tile and switch as usual, but they are left out wherever lights are
+ * counted (room card, dots, the Light chip) or switched together (room, floor and home buttons,
+ * Leaving home, the Good night check).
+ */
+export const countedLights = (s, ids) => ids.filter((id) => !s?.uncounted?.[id]);
+
+/**
  * Group helpers (All Lights Bedroom, All Shades) and "all on / all off" scripts: the room
  * already switches all its lights and the shade tile moves all shades, so they would only
  * show the same devices twice.

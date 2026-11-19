@@ -29,7 +29,7 @@ export const DEFAULT_SETTINGS = {
  * the Security page shows, doorbell, baby monitor, calendars and weather … Copying "the house" from
  * another panel takes these; looks, order and the Home screen stay as they are.
  */
-export const HOUSE_KEYS = ["hide", "secAllow", "doorbell", "baby", "calendars", "todos", "weather", "meters", "maintIgnore", "nightCheck", "sceneConfirm", "energyPick", "notices", "modes", "leaveSkip", "windowHeat", "airHint", "hazardHint", "editLock", "editPin", "xmas"];
+export const HOUSE_KEYS = ["hide", "secAllow", "doorbell", "baby", "calendars", "todos", "weather", "meters", "maintIgnore", "nightCheck", "sceneConfirm", "energyPick", "notices", "modes", "leaveSkip", "uncounted", "windowHeat", "airHint", "hazardHint", "editLock", "editPin", "xmas"];
 const houseContainer = (k) => k.startsWith("security:");
 
 /** The settings after taking `from` (another panel's) into `to`: "house" or "all". Neither is changed. */
@@ -380,6 +380,15 @@ export class Settings {
 
   toggleSize(key) {
     this.cycleSize(key);
+  }
+
+  /** A light that keeps its tile but is left out of the counts and the group buttons. */
+  toggleUncounted(key) {
+    this.update((s) => {
+      s.uncounted = { ...(s.uncounted || {}) };
+      if (s.uncounted[key]) delete s.uncounted[key];
+      else s.uncounted[key] = true;
+    });
   }
 
   /** A device left alone when leaving home, like a motion light outside. */

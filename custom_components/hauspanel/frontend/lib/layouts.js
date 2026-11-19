@@ -1,6 +1,6 @@
 // Layouts and the building blocks they share: home status, scenes, room cards, room view, room menu.
 import { h, icon, formatNumber, formatTime, formatDate, bindTapHold, domainOf, entityName, isUnavailable } from "./util.js";
-import { isOn, roomPresence, roomHasContent, dedupeGroups } from "./model.js";
+import { isOn, roomPresence, roomHasContent, dedupeGroups, countedLights } from "./model.js";
 import { createTile, createSeparator, createScenePill } from "./tile.js";
 import { MEDIA, entityIcon, stateText } from "./domains.js";
 import { sortable } from "./drag.js";
@@ -55,7 +55,9 @@ export function roomStats(ctx, area) {
   // Counts, dots and the power buttons take every device once: a light group added by hand stands for one
   // device, but not while its own lamps are in the room (they count, the group would double them).
   const once = dedupeGroups(hass, items);
-  const lights = once.filter((id) => domainOf(id) === "light");
+  // A light marked "not counted" (word clock, aquarium) keeps its tile, but no count and no group
+  // button takes it along, so a room with nothing else on really says "All off".
+  const lights = countedLights(ctx.settings.s, once.filter((id) => domainOf(id) === "light"));
   // The power buttons and "1 of 3 on" are about lights only, never sockets, heating or anything else.
   const counted = lights;
   const on = counted.filter((id) => isOn(hass.states[id]));
@@ -102,7 +104,7 @@ export function onText(stats) {
 export function statusBlock(ctx, { compact = false } = {}) {
   const big = h("div", { class: "hp-status-big" });
   const allOff = h("button", { class: "hp-btn solid" }, icon("mdi:power"), t("turn_all_off"));
-  const lights = () => ctx.model.lights.filter((id) => ctx.model.areaOf[id] && ctx.model.areaOf[id] !== "_other");
+  const lights = () => countedLights(ctx.settings.s, ctx.model.lights.filter((id) => ctx.model.areaOf[id] && ctx.model.areaOf[id] !== "_other"));
   allOff.addEventListener("click", () => switchLights(ctx, lights(), false));
   const el = h("div", { class: `hp-status ${compact ? "compact" : ""}` },
     h("div", { class: "hp-status-text" }, h("div", { class: "hp-label" }, t("home_status")), big),
@@ -147,7 +149,7 @@ export function homeCats(ctx) {
     return el;
   };
   const m = ctx.model;
-  const lights = () => m.lights.filter((id) => m.areaOf[id] && m.areaOf[id] !== "_other");
+  const lights = () => countedLights(ctx.settings.s, m.lights.filter((id) => m.areaOf[id] && m.areaOf[id] !== "_other"));
   const climates = m.all.filter((id) => id.startsWith("climate."));
   // Each chip can be switched off per panel (Settings → Home, or − in edit mode); a tap always opens a popup.
   const light = chip("light", "mdi:lightbulb-outline", t("cat_light"), () => (classicPopups(ctx) ? openLightSheet(ctx, lights) : openLightOverview(ctx, lights, () => openLightSheet(ctx, lights))));
@@ -1346,7 +1348,7 @@ function focusHome(ctx) {
     clock.textContent = formatTime(hass, now);
     date.textContent = formatDate(hass, now, { weekday: "long", month: "long", day: "numeric" });
     const w = ctx.weather.current();
-    const n = ctx.model.lights.filter((id) => ctx.model.areaOf[id] && isOn(hass.states[id])).length;
+    const n = countedLights(ctx.settings.s, ctx.model.lights.filter((id) => ctx.model.areaOf[id])).filter((id) => isOn(hass.states[id])).length;
     const parts = [w ? `${formatNumber(hass, w.temperature, 0)}° · ${w.label}` : null, n ? t(n === 1 ? "one_light_home" : "lights_home", { n }) : t("all_lights_off")].filter(Boolean);
     const sig = parts.join("|");
     if (line.dataset.sig !== sig) {

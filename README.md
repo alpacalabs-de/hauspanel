@@ -15,7 +15,7 @@ For the tablet on the wall, the phone in your pocket and a screen for the camera
 
 <p align="center"><img src="images/demo.gif" alt="HausPanel on a wall tablet: open a room, move all shades with one slider, the security popup, every room at once" width="860"><br><sub>Open a room, move all its shades with one slider, check what is open, see every room. (Demo data.)</sub></p>
 
-Home Assistant already knows your house: which rooms are on which floor, and which lamp, thermostat or lock hangs where. HausPanel takes that map and turns it into screens you can use at a glance, from the hallway as well as from the sofa. When you add a device to a room, it simply turns up in that room. The integration runs on your own Home Assistant and talks to nothing else.
+Home Assistant already knows your house: which rooms are on which floor, and which lamp, thermostat or lock hangs where. HausPanel takes that map and turns it into screens you can use at a glance, from the hallway as well as from the sofa. When you add a device to a room, it simply turns up in that room. The integration runs on your own Home Assistant and talks to nothing else, except Open-Meteo for the forecast when none of your weather entities offers one (it then sends your home's location).
 
 Free and open source (MIT), made by [Alpaca Labs](https://alpacalabs.de). *Deutsch: [weiter unten](#deutsch). Français : [README.fr.md](README.fr.md).*
 
@@ -93,7 +93,7 @@ Installing the integration adds three entries to the Home Assistant sidebar. Eac
 - *My own settings* gives one person their own arrangement of a panel.
 - Any panel can be made visible to administrators only.
 - **Lock changes**: Edit and the settings only for admins, or only with a PIN, against changes by accident on a family tablet.
-- In English, German, French, Dutch, Spanish, Italian, Polish, Swedish and Turkish, following the language of Home Assistant.
+- In English, German, French, Dutch, Spanish, Italian, Polish, Portuguese, Swedish and Turkish, following the language of Home Assistant.
 
 ## Popups for your devices
 
@@ -208,7 +208,7 @@ Bugs and ideas are welcome as [issues](https://github.com/alpacalabs-de/hauspane
 
 ## Help with translations
 
-English and German are written by hand. French, Dutch, Spanish, Italian, Polish, Swedish and Turkish were translated by machine, so a native speaker's eye helps a lot.
+English and German are written by hand. French, Dutch, Spanish, Italian, Polish, Portuguese, Swedish and Turkish were translated by machine, so a native speaker's eye helps a lot.
 
 - **Just tell us:** open a [translation issue](https://github.com/alpacalabs-de/hauspanel/issues/new?template=translation.yml) with the text you saw and your better wording.
 - **Change it yourself:** each language is one file, `custom_components/hauspanel/frontend/lib/lang/<code>.js` (one line per text, `key: "text"`). Edit the text on GitHub (pencil icon) and propose the change. Keep words in `{braces}` as they are, they are filled in by HausPanel. The setup texts are in `custom_components/hauspanel/translations/<code>.json`.
@@ -236,7 +236,7 @@ MIT © 2026 Alpaca Labs. See [LICENSE](LICENSE).
 
 **Ein Home-Assistant-Dashboard, das sich aus deinen Räumen selbst aufbaut**: für das Tablet an der Wand, das Handy und einen Bildschirm für die Kameras.
 
-Home Assistant kennt dein Haus schon: welche Räume auf welcher Etage liegen und welche Lampe, welches Thermostat oder Schloss wo hängt. HausPanel macht daraus Bildschirme, die man im Vorbeigehen versteht. Ein neues Gerät in einem Raum taucht einfach in diesem Raum auf. Die Integration läuft auf deinem eigenen Home Assistant und spricht mit sonst niemandem.
+Home Assistant kennt dein Haus schon: welche Räume auf welcher Etage liegen und welche Lampe, welches Thermostat oder Schloss wo hängt. HausPanel macht daraus Bildschirme, die man im Vorbeigehen versteht. Ein neues Gerät in einem Raum taucht einfach in diesem Raum auf. Die Integration läuft auf deinem eigenen Home Assistant und spricht mit sonst niemandem, außer mit Open-Meteo für die Vorhersage, wenn keine deiner Wetter-Entitäten eine liefert (dann schickt sie den Standort deines Hauses).
 
 **Drei Einträge in der Seitenleiste**, jeder mit eigenen Einstellungen:
 

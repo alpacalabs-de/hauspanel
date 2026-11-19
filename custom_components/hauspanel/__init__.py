@@ -13,9 +13,8 @@ from typing import Any
 import voluptuous as vol
 
 from homeassistant.components import frontend, panel_custom, websocket_api
-from aiohttp import web
 
-from homeassistant.components.http import HomeAssistantView
+from homeassistant.components.http import StaticPathConfig
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import config_validation as cv
@@ -138,11 +137,17 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # "Off in 30 minutes": runs here in Home Assistant, so it also fires with the tablet off.
     await timers.async_start(hass)
 
-    if not hass.data.get(f"{DOMAIN}_static"):
-        hass.http.register_view(FrontendView())
-        hass.data[f"{DOMAIN}_static"] = True
+    # Home Assistant serves the panel's files itself, so loading a dashboard never looks at the disk on the event loop.
+    # Once per start: the build id stays in the path until the next restart, and reloading the entry adds no second route.
+    build = hass.data.get(f"{DOMAIN}_static")
+    if not build:
+        build = await hass.async_add_executor_job(_build_id)
+        await hass.http.async_register_static_paths(
+            [StaticPathConfig(f"{STATIC_URL}/{build}", str(FRONTEND_DIR), cache_headers=not DEV)]
+        )
+        hass.data[f"{DOMAIN}_static"] = build
 
-    module_url = f"{STATIC_URL}/{await hass.async_add_executor_job(_build_id)}/hauspanel.js"
+    module_url = f"{STATIC_URL}/{build}/hauspanel.js"
     # Options: panels that only administrators see (Settings → Devices & services → HausPanel → Configure).
     admin = {panel: bool(entry.options.get(key, False)) for panel, key in ADMIN_ONLY.items()}
     entry.async_on_unload(entry.add_update_listener(_options_changed))
@@ -197,23 +202,6 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     hass.data.pop(DOMAIN, None)
     timers.stop(hass)
     return True
-
-
-class FrontendView(HomeAssistantView):
-    """Serve the panel's modules under a build id."""
-
-    url = STATIC_URL + "/{build}/{path:.+}"
-    name = "hauspanel:frontend"
-    requires_auth = False
-
-    async def get(self, request: web.Request, build: str, path: str) -> web.StreamResponse:
-        root = FRONTEND_DIR.resolve()
-        file = (root / path).resolve()
-        if root not in file.parents or not file.is_file() or file.suffix not in (".js", ".css", ".svg", ".png", ".woff2"):
-            raise web.HTTPNotFound
-        # The build id in the URL changes with every update, so files can be cached for long.
-        cache = "no-store" if DEV else "public, max-age=31536000, immutable"
-        return web.FileResponse(file, headers={"Cache-Control": cache})
 
 
 def _build_id() -> str:

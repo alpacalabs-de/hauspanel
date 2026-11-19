@@ -19,6 +19,44 @@ const SLOTS = [
   ["current", /^sensor\..*_max_current$/],
   ["target", /^sensor\..*_energy_target$/],
 ];
+// A SolaX HAC over the solax_modbus integration names its sensors differently and has no plug or
+// charging binary sensor at all; what the charger is doing comes from its Run Mode sensor instead.
+// Only used for entities of that integration, so these names can't catch anyone else's sensors.
+const SOLAX = "solax_modbus";
+const SOLAX_SLOTS = [
+  ["power", /^sensor\..*_charge_power_total$/],
+  ["session", /^sensor\..*_charge_added$/],
+  ["total", /^sensor\..*_charge_added_(cumulative|total)$/],
+  ["runmode", /^sensor\..*_run_mode$/],
+];
+// Run Mode values that say a car is sitting at the charger (the charger knows a lot more of them,
+// like Faulted or Unavailable; those say nothing about a car, so they fall through to the sensors).
+const PLUGGED_MODES = new Set(["preparing", "finishing", "suspended ev", "suspended evse", "charge paused", "stopping", "occupied"]);
+// evcc over the ha-evcc integration gives every charge point its own device and names its entities
+// after evcc's own values, so none of the names above fit; session energy happens to be the same.
+// It also knows the car's charge level and range without a car integration. Same rule: this list
+// only ever sees entities of that integration, so it can't catch anyone else's sensors.
+const EVCC = "evcc_intg";
+const EVCC_SLOTS = [
+  ["power", /^sensor\..*_charge_power$/],
+  ["total", /^sensor\..*_charge_total_import$/],
+  ["plug", /^binary_sensor\..*_connected$/],
+  ["charging", /^binary_sensor\..*_charging$/],
+  ["vsoc", /^sensor\..*_vehicle_soc$/],
+  ["vrange", /^sensor\..*_vehicle_range$/],
+];
+/** Extra names an integration brings along, tried before the usual ones. */
+const EXTRA_SLOTS = { [SOLAX]: SOLAX_SLOTS, [EVCC]: EVCC_SLOTS };
+// What makes a charging power sensor, per integration.
+const POWER_RE = { [SOLAX]: /^sensor\.(.*)_charge_power_total$/, [EVCC]: /^sensor\.(.*)_charge_power$/ };
+
+/** What a Run Mode sensor says: "charging", "plugged", "ready", or null when we can't tell. */
+export function runModeState(state) {
+  const v = String(state ?? "").trim().toLowerCase().replace(/[_-]+/g, " ");
+  if (v === "charging") return "charging";
+  if (v === "available") return "ready";
+  return PLUGGED_MODES.has(v) ? "plugged" : null;
+}
 const CAR = [
   ["battery", /^sensor\..*_(batteriestand|battery_level)$/],
   ["range", /^sensor\.(?!.*(elektrische|fossile|electric|combustion|fuel)_(reichweite|range)$).*_(reichweite|range)$/],
@@ -38,9 +76,10 @@ export function wallboxes(hass) {
   const out = new Set();
   const cars = new Set(carDevices(hass));
   for (const id of Object.keys(hass.states)) {
-    const mm = /^sensor\.(.*)_charging_power$/.exec(id);
+    const ent = hass.entities?.[id];
+    const mm = /^sensor\.(.*)_charging_power$/.exec(id) || POWER_RE[ent?.platform]?.exec(id);
     if (!mm) continue;
-    const dev = hass.entities?.[id]?.device_id;
+    const dev = ent?.device_id;
     if (dev && cars.has(dev)) continue;
     const key = dev || `pfx:${mm[1]}`;
     const s = wbSlots(hass, key);
@@ -50,7 +89,15 @@ export function wallboxes(hass) {
 }
 /** The wallbox's entities, by device or by name prefix. */
 export function wbSlots(hass, key) {
-  if (!key.startsWith("pfx:")) return slotsOf(hass, key, SLOTS);
+  if (!key.startsWith("pfx:")) {
+    const out = {};
+    for (const e of Object.values(hass.entities || {})) {
+      if (e.device_id !== key) continue;
+      const list = EXTRA_SLOTS[e.platform];
+      for (const [slot, re] of list ? list.concat(SLOTS) : SLOTS) if (!out[slot] && re.test(e.entity_id)) out[slot] = e.entity_id;
+    }
+    return out;
+  }
   const pre = key.slice(4);
   const out = {};
   for (const id of Object.keys(hass.states)) {
@@ -64,6 +111,12 @@ export const wallboxOf = (hass, id) => {
   return wallboxes(hass).find((k) => k === dev || (k.startsWith("pfx:") && id.split(".")[1]?.startsWith(`${k.slice(4)}_`))) || null;
 };
 
+/** What to call this wallbox: its device name, the entity prefix for the ones without a device. */
+export const wallboxName = (hass, key) => {
+  const d = hass.devices?.[key];
+  return d?.name_by_user || d?.name || (key.startsWith("pfx:") ? key.slice(4).replace(/_/g, " ").toUpperCase() : t("wb_title"));
+};
+
 const kw = (hass, id) => {
   const v = num(hass, id);
   if (v == null) return null;
@@ -74,9 +127,10 @@ const kw = (hass, id) => {
 export function wallboxText(hass, dev) {
   const s = wbSlots(hass, dev);
   const p = kw(hass, s.power);
-  if (hass.states[s.charging]?.state === "on" || p > 0.1) return `${t("car_charging")} · ${fmt(hass, p, 1)} kW`;
-  if (hass.states[s.plug]?.state === "on") return t("car_plugged");
-  if (!live(hass, s.power) && !live(hass, s.session)) return t("wb_no_data");
+  const rm = runModeState(hass.states[s.runmode]?.state);
+  if (hass.states[s.charging]?.state === "on" || rm === "charging" || p > 0.1) return p != null ? `${t("car_charging")} · ${fmt(hass, p, 1)} kW` : t("car_charging");
+  if (hass.states[s.plug]?.state === "on" || rm === "plugged") return t("car_plugged");
+  if (!live(hass, s.power) && !live(hass, s.session) && !live(hass, s.runmode)) return t("wb_no_data");
   return t("wb_ready");
 }
 
@@ -84,11 +138,12 @@ export function openWallbox(ctx, dev) {
   const hass = ctx.hass;
   const s = wbSlots(hass, dev);
   const carDev = carDevices(hass)[0];
-  const c = carDev ? slotsOf(hass, carDev, CAR) : {};
+  // Without a car integration, evcc's own idea of the car fills the ring and the range.
+  const c = carDev ? slotsOf(hass, carDev, CAR) : { battery: s.vsoc, range: s.vrange };
   const prefs = ctx.energyPrefs || {};
   const sunRates = solarRates(prefs);
   const priceId = (prefs.energy_sources || []).find((x) => x.type === "grid")?.entity_energy_price;
-  const d = hass.devices?.[dev] || { name: dev.startsWith("pfx:") ? dev.slice(4).replace(/_/g, " ").toUpperCase() : "Wallbox" };
+  const d = hass.devices?.[dev];
   const area = ctx.model.areaById.get(d?.area_id || hass.devices?.[carDev]?.area_id)?.name;
 
   // Flow: wallbox → cable → car battery ring
@@ -96,7 +151,7 @@ export function openWallbox(ctx, dev) {
   const cable = svgEl("path", { d: "M78 70 C130 70 150 100 200 100 S 240 70 250 70", class: "cable" });
   const flow = svgEl("path", { d: "M78 70 C130 70 150 100 200 100 S 240 70 250 70", class: "flow" });
   svg.append(cable, flow);
-  const box = h("div", { class: "hp-wb-box" }, icon("mdi:ev-station"), h("small", {}, d?.name_by_user || d?.name || "Wallbox"));
+  const box = h("div", { class: "hp-wb-box" }, icon("mdi:ev-station"), h("small", {}, wallboxName(hass, dev)));
   const ringC = 2 * Math.PI * 34;
   const ringSvg = svgEl("svg", { viewBox: "0 0 80 80", class: "hp-wb-ring" });
   ringSvg.append(svgEl("circle", { cx: 40, cy: 40, r: 34, class: "track" }));
@@ -126,9 +181,10 @@ export function openWallbox(ctx, dev) {
 
   const update = (hs) => {
     const p = kw(hs, s.power) ?? kw(hs, c.cpower);
-    const charging = hs.states[s.charging]?.state === "on" || p > 0.1 || /^charging$/i.test(hs.states[c.cstate]?.state || "");
-    const plugged = hs.states[s.plug]?.state === "on" || /connect|plug/i.test(hs.states[c.cstate]?.state || "") && !/connect_cable/i.test(hs.states[c.cstate]?.state || "");
-    const offline = !live(hs, s.power) && !live(hs, s.session) && !live(hs, s.plug);
+    const rm = runModeState(hs.states[s.runmode]?.state);
+    const charging = hs.states[s.charging]?.state === "on" || rm === "charging" || p > 0.1 || /^charging$/i.test(hs.states[c.cstate]?.state || "");
+    const plugged = hs.states[s.plug]?.state === "on" || rm === "plugged" || /connect|plug/i.test(hs.states[c.cstate]?.state || "") && !/connect_cable/i.test(hs.states[c.cstate]?.state || "");
+    const offline = !live(hs, s.power) && !live(hs, s.session) && !live(hs, s.plug) && !live(hs, s.runmode);
     // Sun that could pay for the charge: all inverters together.
     const sun = sunRates.reduce((a, id) => a + Math.max(0, watts(hs, id) ?? 0), 0) / 1000;
     const green = charging && p > 0 && sun >= p * 0.8;
