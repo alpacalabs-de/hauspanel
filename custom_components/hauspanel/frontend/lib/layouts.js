@@ -21,7 +21,7 @@ import { openLeave, leaveItems } from "./leave.js";
 import { classicPopups, openSecurityOverview, openLightOverview, openClimateOverview } from "./overviews.js";
 import { openDoor } from "./door.js";
 import { heatPumps, heatPumpText, openHeatPump } from "./heatpump.js";
-import { wallboxes, wallboxText, openWallbox } from "./wallbox.js";
+import { wallboxes, wallboxText, wallboxLabel, openWallbox } from "./wallbox.js";
 import { openRoomPopup } from "./roompop.js";
 import { unifiNet, networkText, openNetwork } from "./network.js";
 import { babyCamera, babyMotion, babyCry, babyAreaOf, openBaby } from "./baby.js";
@@ -815,7 +815,7 @@ export function deviceKeyInfo(ctx, key) {
   if (key.startsWith("car:")) return { icon: "mdi:car-side", name: carName(hass, dev), sub: carText(hass, dev) };
   if (key.startsWith("pol:")) return { icon: "mdi:pool", name: t("pool_title"), sub: dn };
   if (key.startsWith("bel:")) return { icon: "mdi:doorbell-video", name: t("door_title"), sub: dn };
-  if (key.startsWith("wbx:")) return { icon: "mdi:ev-station", name: t("wb_title"), sub: wallboxText(hass, key.slice(4)) };
+  if (key.startsWith("wbx:")) return { icon: "mdi:ev-station", name: wallboxLabel(hass, dev), sub: wallboxText(hass, dev) };
   if (key.startsWith("hpu:")) return { icon: "mdi:heat-pump-outline", name: t("hp_title"), sub: dn };
   if (key.startsWith("net:")) return { icon: "mdi:lan", name: t("net_title"), sub: networkText(hass) };
   if (key.startsWith("bby:")) return { icon: "mdi:baby-face-outline", name: t("baby_title"), sub: dn };
@@ -848,7 +848,7 @@ function createBundleTile(ctx, key, { container, variant = "tile" }) {
   const bell = key.startsWith("bel:") ? bellOfDevice(ctx.hass, dev) : null;
   const pre = key.slice(0, 3);
   const kind = { car: "car", bel: "bell", pol: "pool", hpu: "heatpump", net: "network", bby: "baby", wbx: "wallbox" }[pre];
-  const extra = { hpu: ["mdi:heat-pump-outline", t("hp_title")], net: ["mdi:lan", t("net_title")], bby: ["mdi:baby-face-outline", t("baby_title")], wbx: ["mdi:ev-station", t("wb_title")] }[pre];
+  const extra = { hpu: ["mdi:heat-pump-outline", t("hp_title")], net: ["mdi:lan", t("net_title")], bby: ["mdi:baby-face-outline", t("baby_title")], wbx: ["mdi:ev-station", pre === "wbx" ? wallboxLabel(ctx.hass, dev) : ""] }[pre];
   const row = variant === "row";
   const el = h("div", { class: `hp-tile hp-${variant} hp-devtile ${kind}`, dataset: { key, domain: "sensor" }, tabindex: "0", role: "button" });
   const iconBox = h("div", { class: "hp-tile-icon" }, icon(extra ? extra[0] : car ? "mdi:car-side" : bell ? "mdi:doorbell-video" : "mdi:pool"));

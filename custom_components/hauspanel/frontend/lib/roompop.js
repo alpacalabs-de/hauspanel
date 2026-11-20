@@ -9,7 +9,7 @@ import { t } from "./i18n.js";
 import { num, fmt, svgEl, since } from "./popkit.js";
 import { openGate, isGate } from "./gate.js";
 import { deviceKeyTile, deviceKeyInfo, roomItems, machineParts } from "./layouts.js";
-import { createTile } from "./tile.js";
+import { createTile, editToggle, editChip } from "./tile.js";
 import { withTimer, groupTimerText } from "./timers.js";
 import { switchLights } from "./switching.js";
 
@@ -577,7 +577,10 @@ function openRoomEdit(ctx, areaId, cats, onDone) {
         else ctx.settings.unhide(C, key);
         setTimeout(draw, 50);
       });
-      return h("div", { class: `hp-qrow ${shown ? "" : "off"}` }, h("span", { class: "hp-qrow-ic" }, icon(l.ic)), h("div", { class: "hp-qrow-text" }, h("b", {}, l.name), h("small", {}, l.sub)), eye);
+      // Shown lights can be left out of the counts, shown measuring sockets set to meter only, as in edit mode.
+      const kind = shown ? editToggle(ctx, key) : null;
+      const chip = kind ? editChip(ctx, key, kind, area.name, () => { changed = true; setTimeout(draw, 50); }) : null;
+      return h("div", { class: `hp-qrow ${shown ? "" : "off"}` }, h("span", { class: "hp-qrow-ic" }, icon(l.ic)), h("div", { class: "hp-qrow-text" }, h("b", {}, l.name), h("small", {}, l.sub)), chip, eye);
     };
     list.replaceChildren(
       h("div", { class: "hp-label hp-ov-label" }, t("rp_shown"), h("span", { class: "hp-count" }, String(items.filter((k) => !parts.has(k) && !k.startsWith("sep:")).length))),

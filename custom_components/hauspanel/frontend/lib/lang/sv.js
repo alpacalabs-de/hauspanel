@@ -522,6 +522,7 @@ export default {
   wb_offline_hint: "Laddboxen rapporterar inga värden – är den nåbar?",
   wb_start: "Starta laddning",
   wb_stop: "Stoppa laddning",
+  wb_mode: "Laddläge",
   sol_today: "Idag",
   sol_saved_today: "Sparat idag",
   sol_year: "I år",

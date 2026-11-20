@@ -3,25 +3,33 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { LIB, fakeHass } from "./fake.mjs";
 
-const { wallboxes, wbSlots, wallboxText, runModeState, wallboxName } = await import(LIB + "wallbox.js");
+const { wallboxes, wbSlots, wallboxText, runModeState, wallboxName, wallboxLabel, useModes } = await import(LIB + "wallbox.js");
 const { t } = await import(LIB + "i18n.js");
 
 const w = (v) => ({ state: String(v), attributes: { unit_of_measurement: "W", device_class: "power" } });
 const kwh = (v) => ({ state: String(v), attributes: { unit_of_measurement: "kWh", device_class: "energy" } });
 
-/** A SolaX HAC as the solax_modbus integration builds it: no plug and no charging binary sensor. */
-const solax = ({ platform = "solax_modbus", power = 0, mode = "Available" } = {}) => {
+/** The options the HAC's Charger Use Mode select offers. */
+const USE = ["Stop", "Fast", "ECO", "Green"];
+
+/**
+ * A SolaX HAC as the solax_modbus integration builds it: no plug and no charging binary sensor.
+ * With `use` it also brings its Charger Use Mode select, sitting on that option.
+ */
+const solax = ({ platform = "solax_modbus", power = 0, mode = "Available", use = null } = {}) => {
   const ids = ["charge_power_total", "charge_added", "charge_added_cumulative", "run_mode"];
-  return fakeHass({
-    devices: { hac: { name: "SolaX HAC" } },
-    entities: Object.fromEntries(ids.map((k) => [`sensor.hac_${k}`, { device_id: "hac", platform }])),
-    states: {
-      "sensor.hac_charge_power_total": w(power),
-      "sensor.hac_charge_added": kwh(12.3),
-      "sensor.hac_charge_added_cumulative": kwh(1234.5),
-      "sensor.hac_run_mode": mode,
-    },
-  });
+  const entities = Object.fromEntries(ids.map((k) => [`sensor.hac_${k}`, { device_id: "hac", platform }]));
+  const states = {
+    "sensor.hac_charge_power_total": w(power),
+    "sensor.hac_charge_added": kwh(12.3),
+    "sensor.hac_charge_added_cumulative": kwh(1234.5),
+    "sensor.hac_run_mode": mode,
+  };
+  if (use) {
+    entities["select.hac_charger_use_mode"] = { device_id: "hac", platform };
+    states["select.hac_charger_use_mode"] = { state: use, attributes: { options: [...USE] } };
+  }
+  return fakeHass({ devices: { hac: { name: "SolaX HAC" } }, entities, states });
 };
 
 test("a SolaX HAC is found and its sensors land in the right slots", () => {
@@ -65,6 +73,41 @@ test("Run Mode on its own: case and spelling don't matter, unknown values say no
   assert.equal(runModeState("unknown"), null);
   assert.equal(runModeState(undefined), null);
   assert.equal(runModeState(""), null);
+});
+
+test("the Charger Use Mode select gets its own slot, and only from solax_modbus", () => {
+  const hass = solax({ use: "ECO" });
+  assert.deepEqual(wbSlots(hass, "hac"), {
+    power: "sensor.hac_charge_power_total",
+    session: "sensor.hac_charge_added",
+    total: "sensor.hac_charge_added_cumulative",
+    runmode: "sensor.hac_run_mode",
+    usemode: "select.hac_charger_use_mode",
+  });
+  // A select with the same name from somewhere else must not become the charge mode.
+  assert.equal(wbSlots(solax({ platform: "template", use: "ECO" }), "hac").usemode, undefined);
+  // Without the select, nothing changes for the wallbox.
+  assert.equal(wbSlots(solax({}), "hac").usemode, undefined);
+});
+
+test("the charge modes come from the select, with the current one marked", () => {
+  const hass = solax({ use: "ECO" });
+  assert.deepEqual(useModes(hass, "select.hac_charger_use_mode"), [
+    { value: "Stop", label: "Stop", active: false },
+    { value: "Fast", label: "Fast", active: false },
+    { value: "ECO", label: "ECO", active: true },
+    { value: "Green", label: "Green", active: false },
+  ]);
+  // Nothing to pick from, nothing to report, nothing there: no modes at all.
+  const bare = solax({ use: "ECO" });
+  delete bare.states["select.hac_charger_use_mode"].attributes.options;
+  assert.equal(useModes(bare, "select.hac_charger_use_mode"), null);
+  const empty = solax({ use: "ECO" });
+  empty.states["select.hac_charger_use_mode"].attributes.options = [];
+  assert.equal(useModes(empty, "select.hac_charger_use_mode"), null);
+  for (const dead of ["unavailable", "unknown"]) assert.equal(useModes(solax({ use: dead }), "select.hac_charger_use_mode"), null);
+  assert.equal(useModes(hass, "select.nope"), null);
+  assert.equal(useModes(hass, undefined), null);
 });
 
 test("a charger that reports nothing at all says so", () => {
@@ -187,4 +230,29 @@ test("a wallbox without a device is named after its entities", () => {
   const hass = fakeHass({});
   assert.equal(wallboxName(hass, "pfx:keba_p30"), "KEBA P30");
   assert.equal(wallboxName(hass, "nosuchdevice"), t("wb_title"));
+});
+
+test("tiles say just Wallbox with one, the device's name with several", () => {
+  // One wallbox: the plain title, as it was before.
+  assert.equal(wallboxLabel(evcc({ power: 7.4 }), "lp1"), t("wb_title"));
+  // Two: each is named after its device, so they can be told apart.
+  const two = evcc({ lps: ["lp1", "lp2"], power: 11 });
+  assert.equal(wallboxLabel(two, "lp1"), "Carport 1");
+  assert.equal(wallboxLabel(two, "lp2"), "Carport 2");
+  // A name the owner gave it in Home Assistant wins over the integration's own.
+  two.devices.lp2.name_by_user = "Carport right";
+  assert.equal(wallboxLabel(two, "lp2"), "Carport right");
+  // Wallboxes without a device (KEBA) keep their entity prefix.
+  const pfx = fakeHass({
+    states: {
+      "sensor.keba_p30_charging_power": w(0),
+      "sensor.keba_p30_session_energy": kwh(5),
+      "sensor.garage_charging_power": w(0),
+      "sensor.garage_session_energy": kwh(5),
+    },
+  });
+  assert.deepEqual(wallboxes(pfx).sort(), ["pfx:garage", "pfx:keba_p30"]);
+  assert.equal(wallboxLabel(pfx, "pfx:keba_p30"), "KEBA P30");
+  delete pfx.states["sensor.garage_charging_power"];
+  assert.equal(wallboxLabel(pfx, "pfx:keba_p30"), t("wb_title"));
 });

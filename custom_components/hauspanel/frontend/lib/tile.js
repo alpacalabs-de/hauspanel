@@ -11,6 +11,40 @@ const QUICK_ICON = new Set(["light", "switch", "media_player"]);
 /** Sockets set to "meter only" in edit mode: no switching from the dashboard, a tap shows the usage. */
 export const isMeter = (ctx, entityId) => !!ctx.settings.s.meters?.[entityId];
 
+/** Is a light left out of the counts (word clock, aquarium)? */
+export const isUncounted = (ctx, entityId) => !!ctx.settings.s.uncounted?.[entityId];
+
+/**
+ * Which extra edit button a row gets in the room popup's Customise sheet:
+ * "count" for a light, "meter" for a socket that measures power, null for anything else.
+ * Bundle keys like "wbx:garden" and separators carry a colon and never get one.
+ */
+export function editToggle(ctx, key) {
+  if (typeof key !== "string" || key.includes(":") || !ctx.hass.states[key]) return null;
+  const d = domainOf(key);
+  if (d === "light") return "count";
+  if (d === "switch" && (isMeter(ctx, key) || meterSensors(ctx.hass, key).power)) return "meter";
+  return null;
+}
+
+/** The same toggle as in edit mode, as a chip for a sheet row. Calls `after` once the setting is stored. */
+export function editChip(ctx, key, kind, areaName, after) {
+  const on = kind === "count" ? isUncounted(ctx, key) : isMeter(ctx, key);
+  const text = kind === "count" ? (on ? t("not_counted") : t("counts_short")) : on ? t("meter_short") : t("switch_short");
+  const ic = kind === "count" ? (on ? "mdi:minus-circle-outline" : "mdi:counter") : on ? "mdi:flash" : "mdi:power";
+  const label = kind === "count" ? t("not_counted") : t("meter_only");
+  const btn = h("button", { class: `hp-chip small ${on ? "active" : ""}`, "aria-label": label, title: label }, icon(ic), h("span", {}, text));
+  btn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    if (kind === "count") ctx.settings.toggleUncounted(key);
+    else ctx.settings.toggleMeter(key);
+    const said = kind === "count" ? (on ? t("now_counted") : t("now_not_counted")) : on ? t("now_switchable") : t("now_meter_only");
+    ctx.toast(`${entityName(ctx.hass, key, areaName)}: ${said}`);
+    after?.();
+  });
+  return btn;
+}
+
 function tapOrOpen(ctx, entityId) {
   if (entityId.startsWith("camera.")) return ctx.openCamera(entityId);
   if (isMeter(ctx, entityId)) return ctx.openDetails(entityId);
@@ -138,7 +172,7 @@ export function createTile(ctx, entityId, { size = 1, areaName, variant = "tile"
 
   // Edit mode: a light that is on almost always (word clock, aquarium) can be left out of the counts.
   if (ctx.editing && variant !== "row" && d === "light") {
-    const off = !!ctx.settings.s.uncounted?.[entityId];
+    const off = isUncounted(ctx, entityId);
     const cb = h("button", { class: `hp-edit-count ${off ? "active" : ""}`, "aria-label": t("not_counted"), title: t("not_counted") },
       icon(off ? "mdi:minus-circle-outline" : "mdi:counter"), h("span", {}, off ? t("not_counted") : t("counts_short")));
     cb.addEventListener("pointerdown", (e) => e.stopPropagation());

@@ -1635,6 +1635,9 @@ ha-icon.hp-rc-touch-ic { --mdc-icon-size: 40px; opacity: .3; pointer-events: non
 .hp-qrow-text b { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .hp-qrow-text small { color: rgba(247,239,233,.55); font-size: 12.5px; }
 .hp-qrow-val { font-weight: 500; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.hp-qrow > .hp-chip { flex: none; }
+/* Room popup → Customise: the counting and meter chips need room next to the name on a phone. */
+.ov-room-edit .hp-qrow { gap: 8px; }
 .hp-qempty { padding: 18px 2px; color: rgba(247,239,233,.6); text-align: center; }
 .hp-qbig { display: flex; flex-direction: column; align-items: center; padding: 8px 0 16px; }
 .hp-qbig small { color: rgba(247,239,233,.6); }
@@ -2441,6 +2444,8 @@ a.hp-parcel-row { color: inherit; text-decoration: none; }
 .hp-wb-car .mid small { font-size: 10.5px; color: var(--hp-sub); }
 .hp-wb-head { display: flex; align-items: center; gap: 10px; margin: 12px 2px 0; }
 .hp-wb-line { font-size: 14px; color: var(--hp-sub); }
+.hp-wb-modes .hp-chip:disabled { opacity: .45; cursor: default; }
+.hp-wb-modes .hp-chip.armed { background: var(--hp-accent); color: #2b2125; border-color: transparent; }
 /* ---- solar */
 .hp-sol-stage { position: relative; height: 200px; border-radius: 22px; overflow: hidden; background: linear-gradient(180deg, #3b6fb8, #7fb0e0 70%, #f1d6a1); border: 1px solid var(--hp-border); }
 .hp-sol-stage.night { background: linear-gradient(180deg, #121633, #26284d 70%, #463a5a); }

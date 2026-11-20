@@ -6,6 +6,7 @@ import { fakeHass, LIB } from "./fake.mjs";
 
 const { countedLights } = await import(LIB + "model.js");
 const { roomStats, onText } = await import(LIB + "layouts.js");
+const { editToggle } = await import(LIB + "tile.js");
 
 /** A context with just enough of HausPanel for roomStats: the states and the panel settings. */
 const ctx = (hass, s = {}) => ({
@@ -52,6 +53,35 @@ test("a room without a mark counts as before, sockets keep their own dot", () =>
   assert.equal(s.total, 2);
   assert.deepEqual(s.lights, ["light.a", "light.b"]);
   assert.deepEqual(s.dotIds, ["light.a", "light.b", "switch.plug"]);
+});
+
+test("editToggle: counting for lights, meter only for measuring sockets, nothing else", () => {
+  const hass = fakeHass({
+    states: {
+      "light.ceiling": "on",
+      "switch.plug": { state: "on" },
+      "switch.ac": "off",
+      "sensor.plug_power": { state: "42", attributes: { device_class: "power" } },
+      "media_player.tv": "off",
+    },
+    entities: {
+      "switch.plug": { device_id: "d1" },
+      "sensor.plug_power": { device_id: "d1" },
+      "switch.ac": { device_id: "d2" },
+    },
+  });
+  assert.equal(editToggle(ctx(hass), "light.ceiling"), "count");
+  // A socket only gets the button when something at its device measures power.
+  assert.equal(editToggle(ctx(hass), "switch.plug"), "meter");
+  assert.equal(editToggle(ctx(hass), "switch.ac"), null);
+  // Already set to meter only: the button stays, so it can be switched back.
+  assert.equal(editToggle(ctx(hass, { meters: { "switch.ac": true } }), "switch.ac"), "meter");
+  // Anything else, a bundle key, a separator and an entity that is gone.
+  assert.equal(editToggle(ctx(hass), "media_player.tv"), null);
+  assert.equal(editToggle(ctx(hass), "wbx:garden"), null);
+  assert.equal(editToggle(ctx(hass), "sep:1"), null);
+  assert.equal(editToggle(ctx(hass), "light.gone"), null);
+  assert.equal(editToggle(ctx(hass), undefined), null);
 });
 
 test("every light of a room not counted: no lights left to switch", () => {

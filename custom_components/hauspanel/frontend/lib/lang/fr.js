@@ -522,6 +522,7 @@ export default {
   wb_offline_hint: "La borne ne renvoie aucune valeur – est-elle joignable ?",
   wb_start: "Lancer la charge",
   wb_stop: "Arrêter la charge",
+  wb_mode: "Mode de charge",
   sol_today: "Aujourd'hui",
   sol_saved_today: "Économisé aujourd'hui",
   sol_year: "Cette année",

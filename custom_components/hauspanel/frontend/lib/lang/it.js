@@ -522,6 +522,7 @@ export default {
   wb_offline_hint: "La wallbox non segnala valori – è raggiungibile?",
   wb_start: "Avvia ricarica",
   wb_stop: "Ferma ricarica",
+  wb_mode: "Modalità di ricarica",
   sol_today: "Oggi",
   sol_saved_today: "Risparmiato oggi",
   sol_year: "Quest'anno",

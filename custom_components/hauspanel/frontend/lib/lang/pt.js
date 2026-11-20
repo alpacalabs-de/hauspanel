@@ -522,6 +522,7 @@ export default {
   wb_offline_hint: "O carregador não comunica valores: estará acessível?",
   wb_start: "Iniciar carregamento",
   wb_stop: "Parar carregamento",
+  wb_mode: "Modo de carregamento",
   sol_today: "Hoje",
   sol_saved_today: "Poupado hoje",
   sol_year: "Este ano",

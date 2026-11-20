@@ -641,6 +641,7 @@ export default {
   wb_offline_hint: "Wallbox değer bildirmiyor – ulaşılabilir mi?",
   wb_start: "Şarjı başlat",
   wb_stop: "Şarjı durdur",
+  wb_mode: "Şarj modu",
   sol_today: "Bugün",
   sol_saved_today: "Bugün tasarruf",
   sol_year: "Bu yıl",

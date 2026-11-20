@@ -11,6 +11,7 @@ For the tablet on the wall, the phone in your pocket and a screen for the camera
   <img src="https://img.shields.io/badge/Home%20Assistant-2024.7%2B-41BDF5" alt="Home Assistant 2024.7+">
   <a href="https://hacs.xyz"><img src="https://img.shields.io/badge/HACS-Default-41BDF5.svg" alt="HACS Default"></a>
   <img src="https://img.shields.io/badge/license-MIT-green" alt="MIT">
+  <a href="https://ko-fi.com/alpacalabs"><img src="https://img.shields.io/badge/Ko--fi-Buy%20us%20a%20coffee-6cc7b2?logo=kofi&logoColor=white" alt="Buy us a coffee on Ko-fi"></a>
 </p>
 
 <p align="center"><img src="images/demo.gif" alt="HausPanel on a wall tablet: open a room, move all shades with one slider, the security popup, every room at once" width="860"><br><sub>Open a room, move all its shades with one slider, check what is open, see every room. (Demo data.)</sub></p>

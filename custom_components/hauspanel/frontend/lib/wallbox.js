@@ -21,6 +21,7 @@ const SLOTS = [
 ];
 // A SolaX HAC over the solax_modbus integration names its sensors differently and has no plug or
 // charging binary sensor at all; what the charger is doing comes from its Run Mode sensor instead.
+// Its Charger Use Mode select is what decides whether it charges at all (Stop, Fast, ECO, Green).
 // Only used for entities of that integration, so these names can't catch anyone else's sensors.
 const SOLAX = "solax_modbus";
 const SOLAX_SLOTS = [
@@ -28,6 +29,7 @@ const SOLAX_SLOTS = [
   ["session", /^sensor\..*_charge_added$/],
   ["total", /^sensor\..*_charge_added_(cumulative|total)$/],
   ["runmode", /^sensor\..*_run_mode$/],
+  ["usemode", /^select\..*_charger_use_mode$/],
 ];
 // Run Mode values that say a car is sitting at the charger (the charger knows a lot more of them,
 // like Faulted or Unavailable; those say nothing about a car, so they fall through to the sensors).
@@ -56,6 +58,19 @@ export function runModeState(state) {
   if (v === "charging") return "charging";
   if (v === "available") return "ready";
   return PLUGGED_MODES.has(v) ? "plugged" : null;
+}
+
+/**
+ * The charge modes a charger offers, the current one marked: [{ value, label, active }].
+ * null when there is no such select, it reports nothing, or it offers nothing to pick from.
+ */
+export function useModes(hass, id) {
+  const st = id ? hass.states[id] : null;
+  if (!st || ["unavailable", "unknown"].includes(st.state)) return null;
+  const list = st.attributes?.options;
+  if (!Array.isArray(list) || !list.length) return null;
+  // The label follows Home Assistant's own translation of the option when it has one.
+  return list.map((value) => ({ value, label: hass.formatEntityState?.({ ...st, state: value }) || String(value), active: value === st.state }));
 }
 const CAR = [
   ["battery", /^sensor\..*_(batteriestand|battery_level)$/],
@@ -117,6 +132,9 @@ export const wallboxName = (hass, key) => {
   return d?.name_by_user || d?.name || (key.startsWith("pfx:") ? key.slice(4).replace(/_/g, " ").toUpperCase() : t("wb_title"));
 };
 
+/** The label on tiles and buttons: just "Wallbox" with one, the device's name with several. */
+export const wallboxLabel = (hass, key) => (wallboxes(hass).length > 1 ? wallboxName(hass, key) : t("wb_title"));
+
 const kw = (hass, id) => {
   const v = num(hass, id);
   if (v == null) return null;
@@ -170,6 +188,30 @@ export function openWallbox(ctx, dev) {
   const stats = h("div", { class: "hp-app-stats hp-pr-stats" }, sPow, sSess, sRange, sFull);
   const hints = h("div", { class: "hp-app-hints" });
 
+  // The charger's own charge mode (SolaX: Stop, Fast, ECO, Green). Two taps, so nobody starts a
+  // fast charge by brushing past a wall tablet.
+  const modeLabel = h("div", { class: "hp-group-label" }, t("wb_mode"));
+  const modeBox = h("div", { class: "hp-modes hp-pk-chips hp-wb-modes" });
+  let modeSig = null;
+  const paintModes = (hs) => {
+    const list = useModes(hs, s.usemode);
+    if (list) {
+      const sig = list.map((o) => o.value).join("|");
+      if (sig !== modeSig) {
+        modeSig = sig;
+        modeBox.replaceChildren(...list.map((o) => twoTap(
+          h("button", { class: "hp-chip", dataset: { mode: o.value }, title: o.label }, h("span", {}, o.label)),
+          () => ctx.hass.callService("select", "select_option", { entity_id: s.usemode, option: o.value }))));
+      }
+      const on = new Set(list.filter((o) => o.active).map((o) => o.value));
+      for (const b of modeBox.children) b.classList.toggle("active", on.has(b.dataset.mode));
+    }
+    // Not reachable: the modes stay visible but can't be picked.
+    for (const b of modeBox.children) b.disabled = !list;
+    modeBox.hidden = !modeBox.children.length;
+    modeLabel.hidden = modeBox.hidden;
+  };
+
   const sheet = openSheet(ctx, { title: t("wb_title"), subtitle: area, cls: "appliance wallbox" });
   const chargeB = c.sw ? twoTap(btn("mdi:power", t("wb_start"), "primary"), () => {
     const on = ctx.hass.states[c.sw]?.state === "on";
@@ -177,7 +219,9 @@ export function openWallbox(ctx, dev) {
   }) : null;
   const more = btn("mdi:home-assistant", t("more_short"));
   more.addEventListener("click", () => { sheet.close(); openMoreInfo(ctx.root, s.power || s.session); });
-  sheet.body.append(stage, h("div", { class: "hp-wb-head" }, status, line), stats, hints, h("div", { class: "hp-sheet-actions hp-app-foot" }, ...(chargeB ? [chargeB] : []), more));
+  sheet.body.append(stage, h("div", { class: "hp-wb-head" }, status, line), stats, hints,
+    ...(s.usemode ? [modeLabel, modeBox] : []),
+    h("div", { class: "hp-sheet-actions hp-app-foot" }, ...(chargeB ? [chargeB] : []), more));
 
   const update = (hs) => {
     const p = kw(hs, s.power) ?? kw(hs, c.cpower);
@@ -210,6 +254,7 @@ export function openWallbox(ctx, dev) {
     if (offline) list.push(hint("mdi:lan-disconnect", t("wb_offline_hint"), true));
     hints.replaceChildren(...list);
     hints.hidden = !list.length;
+    if (s.usemode) paintModes(hs);
     if (chargeB) {
       const on = hs.states[c.sw]?.state === "on";
       chargeB.querySelector("span").textContent = on ? t("wb_stop") : t("wb_start");

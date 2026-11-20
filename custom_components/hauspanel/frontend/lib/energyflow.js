@@ -6,7 +6,7 @@ import { meterSensors, watts, formatWatts, deviceName } from "./usage.js";
 import { t } from "./i18n.js";
 import { svgEl, stat, fmt } from "./popkit.js";
 import { openSolar } from "./solar.js";
-import { wallboxes, openWallbox, wallboxName } from "./wallbox.js";
+import { wallboxes, openWallbox, wallboxLabel } from "./wallbox.js";
 import { solarSources } from "./energy.js";
 import { batterySoc, socText } from "./battery.js";
 
@@ -114,9 +114,8 @@ export function openEnergyFlow(ctx, rate) {
   const solB = hasSun ? h("button", { class: "hp-btn ghost" }, icon("mdi:solar-power-variant"), h("span", {}, t("solar"))) : null;
   solB?.addEventListener("click", () => openSolar(ctx));
   // With more than one wallbox each gets its own button, named after its device.
-  const wbs = wallboxes(hass);
-  const wbBtns = wbs.map((k) => {
-    const b = h("button", { class: "hp-btn ghost" }, icon("mdi:ev-station"), h("span", {}, wbs.length > 1 ? wallboxName(hass, k) : t("wb_title")));
+  const wbBtns = wallboxes(hass).map((k) => {
+    const b = h("button", { class: "hp-btn ghost" }, icon("mdi:ev-station"), h("span", {}, wallboxLabel(hass, k)));
     b.addEventListener("click", () => openWallbox(ctx, k));
     return b;
   });

@@ -11,6 +11,7 @@ Pour la tablette murale, le téléphone dans la poche et un écran pour les cam�
   <img src="https://img.shields.io/badge/Home%20Assistant-2024.7%2B-41BDF5" alt="Home Assistant 2024.7+">
   <a href="https://hacs.xyz"><img src="https://img.shields.io/badge/HACS-Par%20d%C3%A9faut-41BDF5.svg" alt="HACS par défaut"></a>
   <img src="https://img.shields.io/badge/licence-MIT-green" alt="MIT">
+  <a href="https://ko-fi.com/alpacalabs"><img src="https://img.shields.io/badge/Ko--fi-Offrez--nous%20un%20caf%C3%A9-6cc7b2?logo=kofi&logoColor=white" alt="Offrez-nous un café sur Ko-fi"></a>
 </p>
 
 <p align="center"><img src="images/demo.gif" alt="HausPanel sur une tablette murale : ouvrir une pièce, régler tous les volets d'un seul curseur, la fenêtre Sécurité, toutes les pièces d'un coup" width="860"><br><sub>Ouvrir une pièce, régler tous ses volets d'un seul curseur, voir ce qui est ouvert, afficher toutes les pièces. (Données de démonstration.)</sub></p>

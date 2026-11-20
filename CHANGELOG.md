@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.17.0
+
+- **Group light buttons** (floor, room, all lights off): lamps that didn't follow get a second try on their own, one at a time, and Home Assistant's own error messages no longer cover the "Try again" button.
+- **Room popup → Customise**: lights can be marked as not counted and measuring sockets as meter only right there, not only in edit mode on the room page.
+- **Several wallboxes**: wallbox tiles in a room show their device's name when there is more than one wallbox, like the buttons in the energy popup.
+- **SolaX HAC charge mode** (*wallbox popup*): pick the charger's use mode (Stop, Fast, ECO, Green) right in the popup; the run mode still shows what the charger is doing.
+
 ## 1.16.0
 
 - **More devices when leaving** (*Leaving home → More devices*): pick switches and media players, like a TV or a coffee machine. They show up in the window while they are on and are switched off with the rest.

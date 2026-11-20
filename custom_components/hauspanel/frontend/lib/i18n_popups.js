@@ -1,7 +1,7 @@
 // Texts of the device popups (vacuum, thermostat, energy, speakers, garden, pool, car, door, leaving home).
 export const EN_POP = {
   wb_title: "Wallbox", wb_session: "This charge", wb_range: "Range", wb_full: "Full at", wb_ready: "Ready", wb_no_data: "No data from the wallbox", wb_with_sun: "Charging with sunshine", wb_from_grid: "Charging from the grid",
-  wb_waiting: "Plugged in, waiting", wb_electric: "electric", wb_to: "to {n} %", wb_offline_hint: "The wallbox reports no values – is it reachable?", wb_start: "Start charging", wb_stop: "Stop charging",
+  wb_waiting: "Plugged in, waiting", wb_electric: "electric", wb_to: "to {n} %", wb_offline_hint: "The wallbox reports no values – is it reachable?", wb_start: "Start charging", wb_stop: "Stop charging", wb_mode: "Charge mode",
   sol_today: "Today", sol_saved_today: "Saved today", sol_year: "This year", sol_peak: "Best moment", sol_vs_yesterday: "vs. yesterday", sol_producing: "producing now",
   gn_title: "Good night", gn_setting: "Good-night check", gn_setting_hint: "The night scene first shows what is still on or open (lights, doors, gates, locks, shades) and can set the alarm to Home.", gn_sub: "A quick check before bed", gn_ready: "ready", gn_almost: "Almost", gn_all_set: "All set", gn_n_open: "{n} things left", gn_one_open: "1 thing left", gn_app_running: "1 machine running", gn_sleep_well: "Sleep well",
   gn_then_alarm: "Then the scene and the alarm on Home", gn_then_scene: "Then the scene", gn_lights: "{n} lights on", gn_lights_ok: "Lights off", gn_doors: "{n} doors open", gn_doors_ok: "Doors closed",
@@ -66,7 +66,7 @@ export const EN_POP = {
 
 export const DE_POP = {
   wb_title: "Wallbox", wb_session: "Diese Ladung", wb_range: "Reichweite", wb_full: "Voll um", wb_ready: "Bereit", wb_no_data: "Wallbox meldet keine Werte", wb_with_sun: "Lädt mit Sonnenstrom", wb_from_grid: "Lädt aus dem Netz",
-  wb_waiting: "Angesteckt, wartet", wb_electric: "elektrisch", wb_to: "bis {n} %", wb_offline_hint: "Die Wallbox meldet keine Werte – ist sie erreichbar?", wb_start: "Laden starten", wb_stop: "Laden stoppen",
+  wb_waiting: "Angesteckt, wartet", wb_electric: "elektrisch", wb_to: "bis {n} %", wb_offline_hint: "Die Wallbox meldet keine Werte – ist sie erreichbar?", wb_start: "Laden starten", wb_stop: "Laden stoppen", wb_mode: "Lademodus",
   sol_today: "Heute", sol_saved_today: "Heute gespart", sol_year: "Dieses Jahr", sol_peak: "Bester Moment", sol_vs_yesterday: "zu gestern", sol_producing: "produziert gerade",
   gn_title: "Gute Nacht", gn_setting: "Gute-Nacht-Check", gn_setting_hint: "Die Nacht-Szene zeigt erst, was noch an oder offen ist (Licht, Türen, Tore, Schlösser, Rollos), und kann den Alarm auf Zuhause stellen.", gn_sub: "Vor dem Schlafen kurz prüfen", gn_ready: "bereit", gn_almost: "Fast fertig", gn_all_set: "Alles bereit", gn_n_open: "Noch {n} Sachen", gn_one_open: "Noch 1 Sache", gn_app_running: "1 Gerät läuft", gn_sleep_well: "Schlaf gut",
   gn_then_alarm: "Danach Szene und Alarm auf Zuhause", gn_then_scene: "Danach die Szene", gn_lights: "{n} Lichter an", gn_lights_ok: "Lichter aus", gn_doors: "{n} Türen offen", gn_doors_ok: "Türen zu",

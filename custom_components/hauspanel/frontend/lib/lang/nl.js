@@ -522,6 +522,7 @@ export default {
   wb_offline_hint: "De laadpaal meldt geen waarden – is hij bereikbaar?",
   wb_start: "Laden starten",
   wb_stop: "Laden stoppen",
+  wb_mode: "Laadmodus",
   sol_today: "Vandaag",
   sol_saved_today: "Vandaag bespaard",
   sol_year: "Dit jaar",
