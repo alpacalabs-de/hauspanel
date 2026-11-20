@@ -906,6 +906,8 @@ export default {
   leave_undo_failed: "Nie ma już czego cofnąć.",
   leave_undo_note: "Wyłączono o {time}. Cofnij przywraca światła, muzykę i ogrzewanie (zamki zostają zamknięte).",
   leave_skip: "Pomijane", leave_skip_hint: "Dotknij urządzenia, aby zostawić je w spokoju przy wyjściu.",
+  leave_extra: "{n} wciąż włączonych", leave_extra_sub: "Zostaną wyłączone", leave_extra_pick: "Więcej urządzeń",
+  leave_extra_hint: "Wybierz gniazdka i odtwarzacze, które mają się wyłączyć przy wyjściu, na przykład telewizor albo ekspres do kawy.",
   wel_title: "Witaj w HausPanel",
   wel_sub: "Trzy krótkie kroki i gotowe.",
   wel_rooms: "Twoje pomieszczenia",

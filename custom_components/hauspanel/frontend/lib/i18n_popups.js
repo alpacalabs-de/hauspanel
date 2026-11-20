@@ -60,6 +60,8 @@ export const EN_POP = {
   leave_all_good: "Everything is off and closed.", leave_done: "Done – have a good time!", leave_failed: "That did not work.", leave_undone: "Lights, music and heating are back.",
   leave_undo_failed: "Nothing to undo any more.", leave_undo_note: "Switched off at {time}. Undo puts lights, music and heating back (locks stay locked).",
   leave_skip: "Left alone", leave_skip_hint: "Tap a device to leave it alone when you go.",
+  leave_extra: "{n} still on", leave_extra_sub: "Will be switched off", leave_extra_pick: "More devices",
+  leave_extra_hint: "Pick the sockets and players that should go off when you leave, like a TV or a coffee machine.",
 };
 
 export const DE_POP = {
@@ -123,4 +125,6 @@ export const DE_POP = {
   leave_all_good: "Alles ist aus und zu.", leave_done: "Erledigt – bis später!", leave_failed: "Das hat nicht geklappt.", leave_undone: "Licht, Musik und Heizung sind wieder wie vorher.",
   leave_undo_failed: "Es gibt nichts mehr rückgängig zu machen.", leave_undo_note: "Um {time} ausgeschaltet. Rückgängig bringt Licht, Musik und Heizung zurück (Schlösser bleiben zu).",
   leave_skip: "Ausgenommen", leave_skip_hint: "Tippe auf ein Gerät, damit es beim Weggehen in Ruhe bleibt.",
+  leave_extra: "{n} noch an", leave_extra_sub: "Wird ausgeschaltet", leave_extra_pick: "Weitere Geräte",
+  leave_extra_hint: "Such dir die Steckdosen und Player aus, die beim Weggehen ausgehen sollen, zum Beispiel einen Fernseher oder die Kaffeemaschine.",
 };

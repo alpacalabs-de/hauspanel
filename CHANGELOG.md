@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.16.0
+
+- **More devices when leaving** (*Leaving home → More devices*): pick switches and media players, like a TV or a coffee machine. They show up in the window while they are on and are switched off with the rest.
+- **HACS**: HausPanel is in the HACS default list now. Search for it in HACS, no custom repository needed.
+
 ## 1.15.0
 
 - **Panel files** are served through Home Assistant's own static file handling, so loading a dashboard no longer checks files on Home Assistant's event loop, which could stall it on slow storage like an SD card.

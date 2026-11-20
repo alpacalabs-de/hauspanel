@@ -29,7 +29,7 @@ export const DEFAULT_SETTINGS = {
  * the Security page shows, doorbell, baby monitor, calendars and weather … Copying "the house" from
  * another panel takes these; looks, order and the Home screen stay as they are.
  */
-export const HOUSE_KEYS = ["hide", "secAllow", "doorbell", "baby", "calendars", "todos", "weather", "meters", "maintIgnore", "nightCheck", "sceneConfirm", "energyPick", "notices", "modes", "leaveSkip", "uncounted", "windowHeat", "airHint", "hazardHint", "editLock", "editPin", "xmas"];
+export const HOUSE_KEYS = ["hide", "secAllow", "doorbell", "baby", "calendars", "todos", "weather", "meters", "maintIgnore", "nightCheck", "sceneConfirm", "energyPick", "notices", "modes", "leaveSkip", "leaveAdd", "uncounted", "windowHeat", "airHint", "hazardHint", "editLock", "editPin", "xmas"];
 const houseContainer = (k) => k.startsWith("security:");
 
 /** The settings after taking `from` (another panel's) into `to`: "house" or "all". Neither is changed. */
@@ -388,6 +388,14 @@ export class Settings {
       s.uncounted = { ...(s.uncounted || {}) };
       if (s.uncounted[key]) delete s.uncounted[key];
       else s.uncounted[key] = true;
+    });
+  }
+
+  /** A socket or player that goes off when leaving home, like a TV or a coffee machine. */
+  toggleLeaveAdd(id) {
+    this.update((s) => {
+      const list = [...(s.leaveAdd || [])];
+      s.leaveAdd = list.includes(id) ? list.filter((k) => k !== id) : [...list, id];
     });
   }
 

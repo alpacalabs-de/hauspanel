@@ -9,7 +9,7 @@ For the tablet on the wall, the phone in your pocket and a screen for the camera
   <a href="https://github.com/alpacalabs-de/hauspanel/actions"><img src="https://github.com/alpacalabs-de/hauspanel/actions/workflows/validate.yml/badge.svg" alt="Validate"></a>
   <a href="https://github.com/alpacalabs-de/hauspanel/releases"><img src="https://img.shields.io/github/v/release/alpacalabs-de/hauspanel" alt="Release"></a>
   <img src="https://img.shields.io/badge/Home%20Assistant-2024.7%2B-41BDF5" alt="Home Assistant 2024.7+">
-  <a href="https://hacs.xyz"><img src="https://img.shields.io/badge/HACS-custom-orange" alt="HACS custom repository"></a>
+  <a href="https://hacs.xyz"><img src="https://img.shields.io/badge/HACS-Default-41BDF5.svg" alt="HACS Default"></a>
   <img src="https://img.shields.io/badge/license-MIT-green" alt="MIT">
 </p>
 
@@ -160,8 +160,10 @@ The gear at the top right opens the settings. Every tab starts with one line on 
 
 ### With HACS (recommended)
 
-1. HACS → three dots → **Custom repositories** → add `https://github.com/alpacalabs-de/hauspanel` as type **Integration**.
-2. Install **HausPanel** and restart Home Assistant.
+[![Open in HACS](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=alpacalabs-de&repository=hauspanel&category=integration)
+
+1. Open HACS, search for **HausPanel** and download it.
+2. Restart Home Assistant.
 3. **Settings → Devices & services → Add integration → HausPanel**.
 
 ### By hand
@@ -184,6 +186,7 @@ Requires Home Assistant 2024.7 or newer (tested with 2026.10 and 2026.11).
 - **Energy page empty?** It uses the sources and price from *Settings → Dashboards → Energy*. Long-term statistics need a few hours after you set them up.
 - **Cameras** use Home Assistant's own stream (WebRTC, HLS or MJPEG). The last movements in the security popup need the [Frigate integration](https://github.com/blakeblackshear/frigate-hass-integration).
 - **Screen rotation on the iPhone** can't be locked by a web page. Use the orientation lock in Control Center.
+- **Added as a custom repository before?** Nothing to do. HACS marks it as a default repository by itself, and updates keep coming as before.
 - **After an update** restart Home Assistant, a reload of the integration is not enough. HausPanel reminds admins with a *Restart* button. If a screen still shows the old version, reload it; in the Home Assistant app, clear the frontend cache (*Settings → Companion app → Troubleshooting*).
 - Font: Outfit (SIL Open Font License), shipped in `frontend/fonts/`.
 
@@ -262,7 +265,7 @@ Home Assistant kennt dein Haus schon: welche Räume auf welcher Etage liegen und
 - **Energie-Seite** aus den Energie-Einstellungen von Home Assistant, mit Kosten, Solar, Gas und Hausbatterie. Steckdosen mit Messung können auf *nur messen* gestellt werden.
 - **Einstellungen** in übersichtlichen Tabs: Startseite, Räume & Geräte, Sicherheit, Aussehen, Dieser Bildschirm, Navigation, Kalender und Wetter, Ausblenden, System. Jeder Tab erklärt oben in einem Satz, wofür er da ist.
 
-**Installieren:** In HACS unter „Benutzerdefinierte Repositories“ `https://github.com/alpacalabs-de/hauspanel` als „Integration“ hinzufügen, HausPanel installieren, Home Assistant neu starten, dann **Einstellungen → Geräte & Dienste → Integration hinzufügen → HausPanel**.
+**Installieren:** In HACS nach **HausPanel** suchen und herunterladen, Home Assistant neu starten, dann **Einstellungen → Geräte & Dienste → Integration hinzufügen → HausPanel**. Wer HausPanel schon als benutzerdefiniertes Repository eingetragen hat, muss nichts tun: HACS übernimmt es von selbst, Updates kommen wie bisher.
 
 **Nach einem Update** Home Assistant neu starten, ein Neuladen der Integration reicht nicht. In der Home-Assistant-App danach den Frontend-Cache leeren (*Einstellungen → Companion-App → Fehlerbehebung*).
 

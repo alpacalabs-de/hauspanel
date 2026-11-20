@@ -906,6 +906,8 @@ export default {
   leave_undo_failed: "Já não há nada para anular.",
   leave_undo_note: "Desligado às {time}. Anular devolve as luzes, a música e o aquecimento (as fechaduras ficam trancadas).",
   leave_skip: "Sem tocar", leave_skip_hint: "Toca num dispositivo para o deixar em paz quando saíres.",
+  leave_extra: "{n} ainda ligados", leave_extra_sub: "Vão ser desligados", leave_extra_pick: "Mais dispositivos",
+  leave_extra_hint: "Escolhe as tomadas e os reprodutores que se devem desligar quando saíres, como uma televisão ou a máquina de café.",
   wel_title: "Bem-vindo ao HausPanel",
   wel_sub: "Três passos curtos e já é teu.",
   wel_rooms: "As tuas divisões",

@@ -906,6 +906,8 @@ export default {
   leave_undo_failed: "Inget att ångra längre.",
   leave_undo_note: "Avstängt kl. {time}. Ångra sätter tillbaka lampor, musik och värme (lås förblir låsta).",
   leave_skip: "Lämnas i fred", leave_skip_hint: "Tryck på en enhet för att lämna den i fred när du går.",
+  leave_extra: "{n} fortfarande på", leave_extra_sub: "Stängs av", leave_extra_pick: "Fler enheter",
+  leave_extra_hint: "Välj de uttag och spelare som ska stängas av när du går, till exempel en tv eller kaffemaskinen.",
   wel_title: "Välkommen till HausPanel",
   wel_sub: "Tre korta steg, sedan är det ditt.",
   wel_rooms: "Dina rum",

@@ -906,6 +906,8 @@ export default {
   leave_undo_failed: "Ya no hay nada que deshacer.",
   leave_undo_note: "Apagado a las {time}. Deshacer devuelve las luces, la música y la calefacción (las cerraduras siguen bloqueadas).",
   leave_skip: "Sin tocar", leave_skip_hint: "Toca un dispositivo para dejarlo en paz al salir.",
+  leave_extra: "{n} aún encendidos", leave_extra_sub: "Se apagarán", leave_extra_pick: "Más dispositivos",
+  leave_extra_hint: "Elige los enchufes y reproductores que deben apagarse al salir, como una tele o la cafetera.",
   wel_title: "Bienvenido a HausPanel",
   wel_sub: "Tres pasos cortos y ya es tuyo.",
   wel_rooms: "Tus habitaciones",

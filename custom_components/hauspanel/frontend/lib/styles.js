@@ -1935,6 +1935,7 @@ ha-icon.hp-rc-touch-ic { --mdc-icon-size: 40px; opacity: .3; pointer-events: non
 .hp-leave-group .it.tap { cursor: pointer; border: 1px solid transparent; }
 .hp-leave-group .it.tap:hover, .hp-leave-group .it.tap:focus-visible { border-color: var(--hp-border); }
 .hp-leave-group.skipped { opacity: .75; }
+.hp-sheet-actions.hp-leave-pick { margin-top: 10px; justify-content: center; }
 .hp-leave-hint { margin-top: 10px; font-size: 12.5px; color: var(--hp-sub); text-align: center; }
 .hp-leave-hint[hidden] { display: none; }
 .hp-leave-ok { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 28px 10px; color: var(--hp-green); --mdc-icon-size: 44px; }

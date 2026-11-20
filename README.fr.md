@@ -9,7 +9,7 @@ Pour la tablette murale, le téléphone dans la poche et un écran pour les cam�
   <a href="https://github.com/alpacalabs-de/hauspanel/actions"><img src="https://github.com/alpacalabs-de/hauspanel/actions/workflows/validate.yml/badge.svg" alt="Validation"></a>
   <a href="https://github.com/alpacalabs-de/hauspanel/releases"><img src="https://img.shields.io/github/v/release/alpacalabs-de/hauspanel" alt="Version"></a>
   <img src="https://img.shields.io/badge/Home%20Assistant-2024.7%2B-41BDF5" alt="Home Assistant 2024.7+">
-  <a href="https://hacs.xyz"><img src="https://img.shields.io/badge/HACS-personnalis%C3%A9-orange" alt="Dépôt personnalisé HACS"></a>
+  <a href="https://hacs.xyz"><img src="https://img.shields.io/badge/HACS-Par%20d%C3%A9faut-41BDF5.svg" alt="HACS par défaut"></a>
   <img src="https://img.shields.io/badge/licence-MIT-green" alt="MIT">
 </p>
 
@@ -165,9 +165,13 @@ L'engrenage en haut à droite ouvre les réglages. Chaque onglet commence par un
 
 ### Avec HACS (recommandé)
 
-1. HACS → les trois points → **Dépôts personnalisés** → ajoutez `https://github.com/alpacalabs-de/hauspanel` avec le type **Intégration**.
-2. Installez **HausPanel** et redémarrez Home Assistant.
+[![Ouvrir dans HACS](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=alpacalabs-de&repository=hauspanel&category=integration)
+
+1. Ouvrez HACS, cherchez **HausPanel** et téléchargez-le.
+2. Redémarrez Home Assistant.
 3. **Paramètres → Appareils et services → Ajouter une intégration → HausPanel**.
+
+Si vous l'aviez déjà ajouté comme dépôt personnalisé, vous n'avez rien à faire : HACS le reprend tout seul et les mises à jour continuent d'arriver comme avant.
 
 ### À la main
 
