@@ -1634,6 +1634,8 @@ ha-icon.hp-rc-touch-ic { --mdc-icon-size: 40px; opacity: .3; pointer-events: non
 .hp-qrow-text { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .hp-qrow-text b { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .hp-qrow-text small { color: rgba(247,239,233,.55); font-size: 12.5px; }
+/* A notification's own text: several lines, as it was written. */
+.hp-note-body { margin-top: 4px; font-size: 13px; line-height: 1.35; white-space: pre-line; overflow-wrap: anywhere; }
 .hp-qrow-val { font-weight: 500; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .hp-qrow > .hp-chip { flex: none; }
 /* Room popup → Customise: the counting and meter chips need room next to the name on a phone. */
@@ -1766,7 +1768,7 @@ ha-icon.hp-rc-touch-ic { --mdc-icon-size: 40px; opacity: .3; pointer-events: non
 .hp-th-dial { position: relative; width: min(260px, 64vw); aspect-ratio: 1; }
 .hp-th-svg { width: 100%; height: 100%; touch-action: none; cursor: pointer; }
 .hp-th-svg .track { fill: none; stroke: var(--hp-glass-2); stroke-width: 16; stroke-linecap: round; }
-.hp-th-svg .fill { fill: none; stroke: url(#hpThGrad); stroke-width: 16; stroke-linecap: round; filter: drop-shadow(0 0 8px rgba(255,150,80,.35)); transition: d .3s; }
+.hp-th-svg .fill { fill: none; stroke: url(#hpThGrad); stroke-width: 16; stroke-linecap: round; filter: drop-shadow(0 0 8px rgba(255,150,80,.35)); }
 .hp-th-svg .ticks line { stroke: color-mix(in srgb, var(--hp-text) 22%, transparent); stroke-width: 1.4; }
 .hp-th-svg .knob { fill: #fff; stroke: rgba(0,0,0,.25); stroke-width: 2; filter: drop-shadow(0 2px 6px rgba(0,0,0,.5)); }
 .hp-th-svg .cur { fill: var(--hp-text); opacity: .85; }

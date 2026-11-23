@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.19.0
+
+- **Russian** texts, following Home Assistant's language. Thanks to @k-rts.
+- **Thermostat dial**: the coloured arc stays in its track when the dial is turned quickly.
+- **EMS-ESP heat pumps**: "Running now" shows the compressor, the heating circuit pump and the hot water circulation, and the fan turns with the compressor speed.
+- **Light groups**: a room that holds nothing but a group helper shows up with that group now, whether its lamps sit in another room, have no room at all, or are hidden in this one.
+- **Window timer** (*long press a window*): motorized windows can close on their own after 10 minutes to an hour, like the light timers. Garage doors and gates never get one.
+- **Home Assistant notifications** (*Settings → Home → Notices*): notifications from Home Assistant show up as a notice on Home, and a tap lists them to read and dismiss. Off until you switch it on.
+- **Volkswagen cars** (volkswagen_connect): the car popup finds them without a device tracker, with charge level, fuel, range, charging, service, and doors, windows and locks from their own sensors. They fill the car ring in the wallbox popup too.
+
 ## 1.18.0
 
 - **evcc charge mode and limit** (*wallbox popup*): evcc charge points get the charge mode row (off, now, pv and so on) and their charge limit with minus and plus, and "Full at" shows evcc's remaining time while charging.

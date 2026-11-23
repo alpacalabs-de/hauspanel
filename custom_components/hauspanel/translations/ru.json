@@ -1,0 +1,26 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "HausPanel",
+        "description": "Добавляет панели HausPanel, MobilePanel и SecurityPanel в боковое меню, автоматически распределяя ваши комнаты, этажи и устройства."
+      }
+    },
+    "abort": {
+      "single_instance_allowed": "Интеграция HausPanel уже настроена."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Видимость панелей",
+        "description": "Включите переключатель напротив панели, чтобы показывать её только администраторам. Остальные пользователи не увидят её в боковом меню и не смогут открыть.",
+        "data": {
+          "admin_hauspanel": "HausPanel только для администраторов",
+          "admin_mobilepanel": "MobilePanel только для администраторов",
+          "admin_securitypanel": "SecurityPanel только для администраторов"
+        }
+      }
+    }
+  }
+}

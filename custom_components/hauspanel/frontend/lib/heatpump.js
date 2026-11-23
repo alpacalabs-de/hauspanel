@@ -34,6 +34,8 @@ const EMS_SLOTS = [
   ["valve3", /^binary_sensor\..*_(ww|dhw_?)3wayvalve$/],
   ["power", /^sensor\..*_hpcurrpower$/],
   ["activity", /^sensor\..*_hpactivity$/],
+  ["pc1", /^binary_sensor\..*_pc1on$/],
+  ["circ", /^switch\..*_(ww|dhw_?)circ$/],
 ];
 // Compressor activity values that mean it isn't doing anything (EMS-ESP also has placeholders for
 // "there is no heat pump here"). Everything else it knows — heating, cooling, pool — runs.
@@ -116,6 +118,26 @@ const chargeMinutes = (hass, id) => {
 };
 
 const pumps = (hass, dev) => Object.values(hass.entities).filter((e) => e.device_id === dev && /^binary_sensor\..*_(wasserpumpe|water_pump)_\d+$/.test(e.entity_id)).map((e) => e.entity_id);
+
+/**
+ * What is running right now, as [icon, label, class] each. An EMS-ESP boiler has no water pumps at
+ * all, so without the compressor itself the list would say "nothing running" while it heats; its
+ * heating circuit pump and hot water circulation come along. Heat pumps that report water pumps
+ * are untouched: only a heat pump that knows its compressor's activity shows the compressor.
+ */
+export function runningParts(hass, s, pumpIds, running) {
+  const on = (id) => !!id && hass.states[id]?.state === "on";
+  const demand = s.demand ? Number(hass.states[s.demand]?.state) : NaN;
+  const parts = [];
+  if (s.activity && (running || demand > 0)) parts.push(["mdi:air-conditioner", t("hp_compressor"), "comp"]);
+  if (on(s.pc1)) parts.push(["mdi:pump", t("hp_circuit_pump"), "pc1"]);
+  if (on(s.circ)) parts.push(["mdi:water-sync", t("hp_circ"), "circ"]);
+  pumpIds.forEach((id, i) => { if (on(id)) parts.push(["mdi:pump", t("hp_pump_n", { n: i + 1 }), ""]); });
+  for (const [k, ic, l] of [["valve3", "mdi:valve", "hp_valve"], ["rod", "mdi:heating-coil", "hp_rod"], ["boost1", "mdi:fire", "hp_backup"]]) {
+    if (on(s[k])) parts.push([ic, t(l), k]);
+  }
+  return parts;
+}
 const costSensor = (hass, re) => Object.keys(hass.states).find((id) => id.startsWith("sensor.") && re.test(id));
 
 export function heatPumpText(hass, p) {
@@ -187,8 +209,11 @@ export function openHeatPump(ctx, p) {
     scene.classList.toggle("run", running);
     scene.classList.toggle("dhw", hot);
     const fq = num(hs, s.fan);
-    fan.style.animationDuration = fq ? `${Math.max(0.25, 6 / fq).toFixed(2)}s` : "";
-    fan.classList.toggle("spin", !!fq);
+    const demand = num(hs, s.demand);
+    // Without a fan frequency (EMS-ESP reports none) the compressor's speed turns the fan.
+    const turn = fq ? 6 / fq : demand > 0 ? 3 - (Math.min(100, demand) / 100) * 2.5 : 0;
+    fan.style.animationDuration = turn ? `${Math.max(0.25, turn).toFixed(2)}s` : "";
+    fan.classList.toggle("spin", !!turn);
     outside.replaceChildren(...(live(hs, s.outside) ? [icon("mdi:thermometer"), `${fmt(hs, num(hs, s.outside), 0)}° ${t("hp_outside")}`] : []));
     flowT.textContent = live(hs, s.flow) ? `${fmt(hs, num(hs, s.flow), 1)}°` : "";
     retT.textContent = live(hs, s.ret) ? `${fmt(hs, num(hs, s.ret), 1)}°` : "";
@@ -207,12 +232,9 @@ export function openHeatPump(ctx, p) {
     sDemand.set(dem != null ? `${Math.round(dem)} %` : "–");
     sDemand.hidden = !s.demand;
     // Only what is running right now; the rest is quiet.
-    const onParts = [
-      ...pumpIds.map((id, i) => [id, "mdi:pump", t("hp_pump_n", { n: i + 1 }), ""]),
-      ...[["valve3", "mdi:valve", "hp_valve"], ["rod", "mdi:heating-coil", "hp_rod"], ["boost1", "mdi:fire", "hp_backup"]].filter(([k]) => s[k]).map(([k, ic, l]) => [s[k], ic, t(l), k]),
-    ].filter(([id]) => hs.states[id]?.state === "on");
+    const onParts = runningParts(hs, s, pumpIds, running);
     parts.replaceChildren(h("small", { class: "lbl" }, t("hp_running_now")),
-      ...(onParts.length ? onParts.map(([, ic, l, k]) => h("span", { class: `hp-hp-part on ${k}` }, icon(ic), l)) : [h("span", { class: "hp-hp-part" }, icon("mdi:sleep"), t("hp_all_quiet"))]));
+      ...(onParts.length ? onParts.map(([ic, l, k]) => h("span", { class: `hp-hp-part on ${k}` }, icon(ic), l)) : [h("span", { class: "hp-hp-part" }, icon("mdi:sleep"), t("hp_all_quiet"))]));
     const list = [];
     if (act === "alarm") list.push(hint("mdi:alert", t("hp_alarm"), true));
     if (["rod", "boost1", "boost2"].some((k) => hs.states[s[k]]?.state === "on")) list.push(hint("mdi:heating-coil", t("hp_rod_on"), true));

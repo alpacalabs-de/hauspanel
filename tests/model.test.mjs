@@ -353,6 +353,45 @@ test("a group without a registry entry waits under Other; an all-off script stay
   assert.equal(kitchen.tiles.includes("script.all_lights_off"), false);
 });
 
+test("a room that holds nothing but a group helper shows up with it", async () => {
+  const { roomHasContent } = await import(LIB + "model.js");
+  const group = (hass, areaId, members) => {
+    hass.entities["light.attic_all"] = { entity_id: "light.attic_all", area_id: areaId, platform: "group" };
+    hass.states["light.attic_all"] = { entity_id: "light.attic_all", state: "on", attributes: { friendly_name: "Attic lights", entity_id: members } };
+    return buildModel(hass, {});
+  };
+  // Its lamps sit in another room and in none: nothing here stands for the group, so it is the tile.
+  const m = group(house(), "attic", ["light.ceiling", "light.loose"]);
+  const attic = m.areaById.get("attic");
+  assert.deepEqual(attic.tiles, ["light.attic_all"]);
+  assert.equal(roomHasContent(attic), true, "the room is worth showing now");
+  // Still not among the real lights or devices: the Light chip, All off, Leaving home and the floor
+  // buttons keep counting the real lamps, wherever they sit.
+  assert.equal(m.lights.includes("light.attic_all"), false);
+  assert.equal(m.all.includes("light.attic_all"), false);
+  assert.equal(attic.all.includes("light.attic_all"), false);
+  // It stays listed as a group, so the add dialog can still offer it once after someone hides it.
+  assert.deepEqual(attic.groups, ["light.attic_all"]);
+
+  // A lamp of the group that is hidden in this room counts as not shown, so the group comes along
+  // (gionnidepp's case in #33: he helped himself by making those single lamps visible again).
+  const withHidden = house();
+  withHidden.entities["light.attic_lamp"] = { entity_id: "light.attic_lamp", area_id: "attic", platform: "hue", hidden: true };
+  withHidden.states["light.attic_lamp"] = "on";
+  const hid = group(withHidden, "attic", ["light.attic_lamp"]);
+  assert.deepEqual(hid.areaById.get("attic").tiles, ["light.attic_all"]);
+});
+
+test("a group stays out while one of its own lamps is in the same room", async () => {
+  const hass = house();
+  hass.entities["light.kitchen_all"] = { entity_id: "light.kitchen_all", area_id: "kitchen", platform: "group" };
+  hass.states["light.kitchen_all"] = { entity_id: "light.kitchen_all", state: "on", attributes: { friendly_name: "Kitchen lights", entity_id: ["light.ceiling"] } };
+  const kitchen = buildModel(hass, {}).areaById.get("kitchen");
+  assert.deepEqual(kitchen.groups, ["light.kitchen_all"], "it waits to be added by hand, as since 1.9.0");
+  assert.equal(kitchen.tiles.includes("light.kitchen_all"), false);
+  assert.equal(kitchen.tiles.includes("light.ceiling"), true);
+});
+
 test("a group counts as one device, but not next to its own members", async () => {
   const { dedupeGroups } = await import(LIB + "model.js");
   const hass = house();

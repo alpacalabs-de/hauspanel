@@ -183,7 +183,7 @@ export function detailsDialog(ctx, entityId, { plain = false } = {}) {
     openMoreInfo(ctx.root, entityId);
   });
   // "Off in 30 min" for lights, switches and fans (not for sockets set to meter only).
-  const timer = !meter && canHaveTimer(entityId) ? timerBlock(ctx, entityId) : null;
+  const timer = !meter && canHaveTimer(entityId, ctx.hass) ? timerBlock(ctx, entityId) : null;
   sheet.body.append(h("div", { class: "hp-details-head" }, h("div", { class: "hp-tile-icon big" }, ic), stateEl), controls, ...(timer ? [timer] : []), ...(usage ? [usage] : []), h("div", { class: "hp-sheet-actions" }, more));
   if (usage) sheet.updaters.push((hs) => usage.update(hs));
   if (timer) sheet.updaters.push((hs) => timer.update(hs));

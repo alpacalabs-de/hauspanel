@@ -1,4 +1,5 @@
-"""Timers on tiles: "off in 30 minutes" for lights, switches and fans.
+"""Timers on tiles: "off in 30 minutes" for lights, switches and fans, and "closes in 10 minutes"
+for a motorized window after airing.
 
 They run in Home Assistant, not in the browser, so they also fire when the tablet is off or the page closed.
 They survive a restart (kept in .storage). Switching the device off by hand ends its timer.
@@ -26,9 +27,13 @@ from .const import DOMAIN
 STORAGE_KEY = f"{DOMAIN}.timers"
 SIGNAL = f"{DOMAIN}_timers_changed"
 DATA = f"{DOMAIN}_timers"
-# What a timer may switch off.
-DOMAINS = ("light", "switch", "fan", "input_boolean")
+# What a timer may switch off. A cover only counts when it is a motorized window (see _check):
+# a garage door, a gate, a plain door or a shade never closes on a timer.
+DOMAINS = ("light", "switch", "fan", "input_boolean", "cover")
 MAX_MINUTES = 12 * 60
+CLOSE_FEATURE = 2  # CoverEntityFeature.CLOSE
+# States in which there is nothing left to do when the time is up.
+DONE_STATES = {"off", "closed", "closing", "unavailable", "unknown"}
 
 
 class Timers:
@@ -98,9 +103,11 @@ class Timers:
         if timer is None:
             return
         st = self.hass.states.get(entity_id)
-        if st is not None and st.state not in ("off", "unavailable", "unknown"):
+        if st is not None and st.state not in DONE_STATES:
+            # A window closes, everything else switches off.
+            domain, service = ("cover", "close_cover") if entity_id.startswith("cover.") else ("homeassistant", "turn_off")
             await self.hass.services.async_call(
-                "homeassistant", "turn_off", {"entity_id": entity_id}, blocking=False,
+                domain, service, {"entity_id": entity_id}, blocking=False,
                 context=Context(user_id=timer.get("user")),
             )
         await self._changed()
@@ -112,7 +119,7 @@ class Timers:
 
     @callback
     def _watch(self) -> None:
-        """Switched off by hand before the time: the timer is done."""
+        """Switched off, or a window closed, by hand before the time: the timer is done."""
         if self._unsub_state:
             self._unsub_state()
             self._unsub_state = None
@@ -123,7 +130,7 @@ class Timers:
         def changed(event: Event) -> None:
             new = event.data.get("new_state")
             entity_id = event.data.get("entity_id")
-            if new is not None and new.state == "off" and entity_id in self.timers:
+            if new is not None and new.state in ("off", "closed") and entity_id in self.timers:
                 self.hass.async_create_task(self.async_cancel(entity_id))
 
         self._unsub_state = async_track_state_change_event(self.hass, list(self.timers), changed)
@@ -133,9 +140,18 @@ def _timers(hass: HomeAssistant) -> Timers | None:
     return hass.data.get(DATA)
 
 
-def _check(connection: websocket_api.ActiveConnection, entity_id: str) -> None:
-    if entity_id.split(".")[0] not in DOMAINS:
+def _check(hass: HomeAssistant, connection: websocket_api.ActiveConnection, entity_id: str) -> None:
+    domain = entity_id.split(".")[0]
+    if domain not in DOMAINS:
         raise vol.Invalid(f"{entity_id} can't have a timer")
+    if domain == "cover":
+        # Only a motorized window. Closing a garage door or a gate on a timer is nothing to set by accident.
+        st = hass.states.get(entity_id)
+        attrs = st.attributes if st is not None else {}
+        if attrs.get("device_class") != "window":
+            raise vol.Invalid(f"{entity_id} is not a window")
+        if not int(attrs.get("supported_features") or 0) & CLOSE_FEATURE:
+            raise vol.Invalid(f"{entity_id} can't be closed")
     if not connection.user.permissions.check_entity(entity_id, POLICY_CONTROL):
         raise Unauthorized(entity_id=entity_id, permission=POLICY_CONTROL)
 
@@ -154,7 +170,7 @@ async def ws_timer_set(hass: HomeAssistant, connection: websocket_api.ActiveConn
         connection.send_error(msg["id"], "not_loaded", "HausPanel is not set up")
         return
     try:
-        _check(connection, msg["entity_id"])
+        _check(hass, connection, msg["entity_id"])
     except vol.Invalid as err:
         connection.send_error(msg["id"], "invalid", str(err))
         return

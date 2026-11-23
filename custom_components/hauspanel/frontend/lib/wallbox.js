@@ -5,7 +5,7 @@ import { h, icon, formatTime } from "./util.js";
 import { openMoreInfo, roundBtn } from "./domains.js";
 import { openSheet } from "./dialogs.js";
 import { watts, formatWatts } from "./usage.js";
-import { carDevices, carName } from "./car.js";
+import { carDevices, carName, carSlots } from "./car.js";
 import { t } from "./i18n.js";
 import { svgEl, num, live, slotsOf, stat, hint, btn, twoTap, fmt } from "./popkit.js";
 import { solarRates } from "./energy.js";
@@ -116,16 +116,24 @@ export function limitStep(hass, id, dir, from = null) {
   const next = Math.min(max, Math.max(min, v));
   return next === base ? null : next;
 }
-const CAR = [
-  ["battery", /^sensor\..*_(batteriestand|battery_level)$/],
-  ["range", /^sensor\.(?!.*(elektrische|fossile|electric|combustion|fuel)_(reichweite|range)$).*_(reichweite|range)$/],
-  ["erange", /^sensor\..*_(elektrische_reichweite|electric_range)$/],
-  ["left", /^sensor\..*_(verbleibende_ladezeit|remaining_charging_time)$/],
-  ["limit", /^sensor\..*_(ladegrenze_in_prozent|target_battery_percentage)$/],
-  ["cstate", /^sensor\..*_(ladestatus|charging_state)$/],
-  ["cpower", /^sensor\..*_(ladeleistung|charging_power)$/],
-  ["sw", /^switch\..*_(laden|charging)$/],
-];
+// Only the charging switch is looked up here; everything the ring shows comes from the car itself
+// (carSlots), so a car whose entity names we don't know — a Volkswagen, say — fills it too.
+const CAR = [["sw", /^switch\..*_(laden|charging)$/]];
+
+/** What the ring needs, under the names used here. */
+const carRing = (hass, dev) => {
+  const c = carSlots(hass, dev);
+  return {
+    ...slotsOf(hass, dev, CAR),
+    battery: c.battery,
+    range: c.range,
+    erange: c.erange,
+    left: c.chargeLeft,
+    limit: c.chargeLimit,
+    cstate: c.chargeState,
+    cpower: c.chargePower,
+  };
+};
 
 /**
  * Wallboxes: a device with a charging power and a session energy sensor. Integrations without devices (KEBA)
@@ -201,7 +209,7 @@ export function openWallbox(ctx, dev) {
   const s = wbSlots(hass, dev);
   const carDev = carDevices(hass)[0];
   // Without a car integration, evcc's own idea of the car fills the ring and the range.
-  const c = carDev ? slotsOf(hass, carDev, CAR) : { battery: s.vsoc, range: s.vrange };
+  const c = carDev ? carRing(hass, carDev) : { battery: s.vsoc, range: s.vrange };
   const prefs = ctx.energyPrefs || {};
   const sunRates = solarRates(prefs);
   const priceId = (prefs.energy_sources || []).find((x) => x.type === "grid")?.entity_energy_price;

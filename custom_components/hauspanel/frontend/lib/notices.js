@@ -3,6 +3,7 @@ import { h, icon, domainOf, bindTapHold, entityName, toggleSwitch, formatNumber 
 import { entityIcon, stateText, HAZARD, hazardInfo } from "./domains.js";
 import { candidateEntities, isOutdoorRoom, OUTSIDE } from "./model.js";
 import { warningInfo, warningLine, openWarnings } from "./warnings.js";
+import { haNotes, haNotesOn, notesLine, openHaNotes } from "./hanotes.js";
 import { openSheet } from "./dialogs.js";
 import { t } from "./i18n.js";
 
@@ -196,6 +197,22 @@ function airPill(ctx, room) {
 
 /** Whether Home asks to air rooms (on unless switched off in the settings). */
 export const airOn = (ctx) => ctx.settings.s.airHint !== false;
+
+/** Home Assistant's own notifications, as one pill that opens the list. */
+function haNotesPill(ctx) {
+  const name = h("b", {});
+  const sub = h("small", {});
+  const el = h("div", { class: "hp-onpill notice hanotes on", role: "button", tabindex: "0", dataset: { key: "hanotes" } },
+    h("span", { class: "hp-onpill-ic" }, icon("mdi:bell-outline")), h("div", { class: "hp-onpill-text" }, name, sub));
+  bindTapHold(el, { canStart: () => !ctx.editing, tap: () => openHaNotes(ctx), hold: () => openHaNotes(ctx) });
+  el.update = () => {
+    const list = haNotes(ctx).list;
+    name.textContent = t("ha_notes");
+    sub.textContent = notesLine(list);
+  };
+  el.update();
+  return el;
+}
 
 /**
  * Smoke, gas and leak sensors (binary sensors), without the ones hidden in Home Assistant.
@@ -400,6 +417,9 @@ export function noticesBlock(ctx) {
   let airPills = [];
   let hzPills = [];
   let hzbPills = [];
+  let hnPill = null;
+  // Notifications arrive on their own, not with a state change, so they ask for the redraw.
+  if (haNotesOn(ctx)) haNotes(ctx).onChange = () => el.update(ctx.hass);
   el.update = (hass) => {
     const now = activeNotices(hass, ctx.settings.s.notices).map((n) => n.id);
     // Notices of the same group that show at the same time become one pill.
@@ -409,7 +429,8 @@ export function noticesBlock(ctx) {
     const secIds = ctx.securityItems?.() || null;
     const hz = hazardOn(ctx) ? hazardAlarms(hass, secIds) : [];
     const hzb = hazardOn(ctx) ? hazardBatteries(hass, ctx.settings.s.maintIgnore || [], secIds) : [];
-    const next = `${hz}|${hzb.map((b) => b.id)}|${wh.map((r) => r.area)}|${air.map((r) => r.area)}|${groups.map((g) => (g.ids ? `${g.key}=${g.ids}` : g.id))}`;
+    const hn = haNotesOn(ctx) ? haNotes(ctx).list : [];
+    const next = `${hz}|${hzb.map((b) => b.id)}|${wh.map((r) => r.area)}|${air.map((r) => r.area)}|${groups.map((g) => (g.ids ? `${g.key}=${g.ids}` : g.id))}|${hn.map((n) => n.notification_id)}`;
     if (next !== sig) {
       sig = next;
       // An alarm comes first, then a weak battery, then the rest.
@@ -417,15 +438,17 @@ export function noticesBlock(ctx) {
       hzbPills = hzb.map((b) => hazardBattPill(ctx, b));
       whPills = wh.map((r) => windowHeatPill(ctx, r));
       airPills = air.map((r) => airPill(ctx, r));
+      hnPill = hn.length ? haNotesPill(ctx) : null;
       pills = groups.map((g) => (g.ids ? groupPill(ctx, g) : noticePill(ctx, g.id)));
-      box.replaceChildren(...hzPills, ...hzbPills, ...whPills, ...airPills, ...pills);
+      box.replaceChildren(...hzPills, ...hzbPills, ...whPills, ...airPills, ...(hnPill ? [hnPill] : []), ...pills);
     }
     hzPills.forEach((p) => p.update(hass));
     hzbPills.forEach((p, i) => p.update(hass, hzb[i]));
     whPills.forEach((p, i) => p.update(hass, wh[i]));
     airPills.forEach((p, i) => p.update(hass, air[i]));
     pills.forEach((p, i) => p.update(hass, groups[i]));
-    el.hidden = !now.length && !wh.length && !air.length && !hz.length && !hzb.length;
+    hnPill?.update();
+    el.hidden = !now.length && !wh.length && !air.length && !hz.length && !hzb.length && !hn.length;
   };
   el.update(ctx.hass);
   ctx.live.push(el);
@@ -503,6 +526,10 @@ export function noticesSection(ctx, S, draw, state, { section, row }) {
   const hzIsOn = S.s.hazardHint !== false;
   const hz = row(t("hz_setting"), toggleSwitch(hzIsOn, () => { S.update((x) => { x.hazardHint = !hzIsOn; }); draw(); }), t("hz_setting_hint"));
 
-  return section(t("notices"), h("p", { class: "hp-muted small" }, t("notices_hint")), hz, wh, air,
+  // Off until someone asks for it: Home Assistant also files system messages there.
+  const hnIsOn = S.s.haNotes === true;
+  const hn = row(t("ha_notes_setting"), toggleSwitch(hnIsOn, () => { S.update((x) => { x.haNotes = !hnIsOn; }); draw(); }), t("ha_notes_hint"));
+
+  return section(t("notices"), h("p", { class: "hp-muted small" }, t("notices_hint")), hz, wh, air, hn,
     ...(rows.length ? rows : [h("div", { class: "hp-muted small" }, t("notices_none"))]), search, results);
 }

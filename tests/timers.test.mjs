@@ -23,9 +23,38 @@ test("short texts: minutes, hours, both", async () => {
   assert.equal(leftText(120), "2 h");
 });
 
-test("lights, switches, fans and helpers can have a timer; locks and covers not", () => {
+test("lights, switches, fans and helpers can have a timer; locks and plain covers not", () => {
   for (const id of ["light.desk", "switch.plug", "fan.ceiling", "input_boolean.guest"]) assert.equal(canHaveTimer(id), true, id);
   for (const id of ["lock.front", "cover.garage", "climate.living", "media_player.tv"]) assert.equal(canHaveTimer(id), false, id);
+});
+
+test("only a motorized window may close on a timer", async () => {
+  const { isWindowCover, WINDOW_MINUTES, TIMER_MINUTES } = await import(LIB + "timers.js");
+  const cover = (device_class, supported_features) => ({ states: { "cover.x": { state: "open", attributes: { device_class, supported_features } } } });
+  // 2 is CoverEntityFeature.CLOSE; 11 is OPEN + CLOSE + SET_POSITION.
+  assert.equal(canHaveTimer("cover.x", cover("window", 11)), true, "a motorized window");
+  assert.equal(canHaveTimer("cover.x", cover("window", 2)), true, "close is enough");
+  assert.equal(canHaveTimer("cover.x", cover("garage", 11)), false, "a garage door never");
+  assert.equal(canHaveTimer("cover.x", cover("gate", 11)), false, "a gate never");
+  assert.equal(canHaveTimer("cover.x", cover("shade", 11)), false, "a shade never");
+  assert.equal(canHaveTimer("cover.x", cover("door", 11)), false, "a plain door never");
+  assert.equal(canHaveTimer("cover.x", cover("window", 1)), false, "it must be able to close");
+  assert.equal(canHaveTimer("cover.x", cover(undefined, 11)), false, "no device class, no timer");
+  assert.equal(canHaveTimer("cover.x", { states: {} }), false, "unknown entity");
+  assert.equal(canHaveTimer("cover.x"), false, "no hass at hand: never");
+  assert.equal(isWindowCover(cover("window", 11), "light.desk"), false, "only covers are windows");
+  // Airing is shorter than switching a lamp off.
+  assert.deepEqual(WINDOW_MINUTES, [10, 15, 30, 60]);
+  assert.deepEqual(TIMER_MINUTES, [15, 30, 60, 120]);
+});
+
+test("a window closes, everything else goes off", async () => {
+  const { withTimer } = await import(LIB + "timers.js");
+  const at = new Date(Date.now() + 12 * 60000 - 1000).toISOString();
+  const ctx = { timers: { at: () => at } };
+  assert.equal(withTimer(ctx, "cover.kitchen_window", "Open"), "Open · closes in 12 min");
+  assert.equal(withTimer(ctx, "light.desk", "On"), "On · off in 12 min");
+  assert.equal(withTimer({ timers: { at: () => null } }, "cover.kitchen_window", "Open"), "Open", "no timer, no text");
 });
 
 test("a group shows the timer that goes off first", async () => {

@@ -94,7 +94,7 @@ Installing the integration adds three entries to the Home Assistant sidebar. Eac
 - *My own settings* gives one person their own arrangement of a panel.
 - Any panel can be made visible to administrators only.
 - **Lock changes**: Edit and the settings only for admins, or only with a PIN, against changes by accident on a family tablet.
-- In English, German, French, Dutch, Spanish, Italian, Polish, Portuguese, Swedish and Turkish, following the language of Home Assistant.
+- In English, German, French, Dutch, Spanish, Italian, Polish, Portuguese, Russian, Swedish and Turkish, following the language of Home Assistant.
 
 ## Popups for your devices
 
@@ -212,7 +212,7 @@ Bugs and ideas are welcome as [issues](https://github.com/alpacalabs-de/hauspane
 
 ## Help with translations
 
-English and German are written by hand. French, Dutch, Spanish, Italian, Polish, Portuguese, Swedish and Turkish were translated by machine, so a native speaker's eye helps a lot.
+English and German are written by hand, and Russian was translated by @k-rts. French, Dutch, Spanish, Italian, Polish, Portuguese, Swedish and Turkish were translated by machine, so a native speaker's eye helps a lot.
 
 - **Just tell us:** open a [translation issue](https://github.com/alpacalabs-de/hauspanel/issues/new?template=translation.yml) with the text you saw and your better wording.
 - **Change it yourself:** each language is one file, `custom_components/hauspanel/frontend/lib/lang/<code>.js` (one line per text, `key: "text"`). Edit the text on GitHub (pencil icon) and propose the change. Keep words in `{braces}` as they are, they are filled in by HausPanel. The setup texts are in `custom_components/hauspanel/translations/<code>.json`.
@@ -274,7 +274,7 @@ Home Assistant kennt dein Haus schon: welche Räume auf welcher Etage liegen und
 
 **Schritt für Schritt:** kurze Anleitungen fürs Wandtablet, das Handy, das Tor, das tagsüber offen sein darf, Kameras, Ausblenden und mehr stehen in [docs/guides.de.md](docs/guides.de.md). Jeder Reiter in den Einstellungen verlinkt die passende.
 
-**Übersetzungen:** Englisch und Deutsch sind von Hand geschrieben, die anderen Sprachen maschinell. Verbesserungen sind sehr willkommen, als [Issue](https://github.com/alpacalabs-de/hauspanel/issues/new?template=translation.yml) oder direkt in der Datei der Sprache, siehe [Help with translations](#help-with-translations).
+**Übersetzungen:** Englisch und Deutsch sind von Hand geschrieben, Russisch hat k-rts übersetzt, die anderen Sprachen maschinell. Verbesserungen sind sehr willkommen, als [Issue](https://github.com/alpacalabs-de/hauspanel/issues/new?template=translation.yml) oder direkt in der Datei der Sprache, siehe [Help with translations](#help-with-translations).
 
 **Unterstützen:** HausPanel ist kostenlos und bleibt es. Wenn es dir Zeit spart, kannst du uns auf [Ko-fi einen Kaffee spendieren](https://ko-fi.com/alpacalabs). Ein Stern auf GitHub oder eine Idee als Issue hilft genauso.
 

@@ -38,15 +38,103 @@ const SLOTS = [
   ["bonnet", /^binary_sensor\..*_(motorhaube|bonnet|hood)$/],
 ];
 
-/** Cars: devices with a range sensor and a location. */
+// A Volkswagen read out by the volkswagen_connect integration has no device tracker, no lock and no
+// climate entity, and its entity ids follow the language Home Assistant ran in when it was set up.
+// So its slots go by translation_key, which never changes (the lesson from #6). Checked against the
+// source of rafaelhutter/ha-volkswagen-connect 0.5.40: there the primary engine's range carries the
+// petrol icon and the secondary one the EV icon, which is the only place that says which is which.
+const VW = "volkswagen_connect";
+const VW_SLOTS = [
+  ["battery", "sensor", ["soc", "state_of_charge", "battery_level_hv_value", "battery_state_report_soc"]],
+  ["fuel", "sensor", ["fuel_level_current_level"]],
+  ["range", "sensor", ["cruising_range_combined", "primary_range"]],
+  ["erange", "sensor", ["electric_range", "cruising_range_secondary_engine"]],
+  ["frange", "sensor", ["cruising_range_primary_engine"]],
+  ["chargeState", "sensor", ["charging_state", "charging_state_report_current_charge_state"]],
+  ["chargePower", "sensor", ["charge_power", "battery_state_report_charge_power"]],
+  ["chargeLeft", "sensor", ["charge_time_remaining", "battery_state_report_remaining_charging_time_complete"]],
+  ["chargeLimit", "sensor", ["target_soc", "settings_target_soc"]],
+  ["cable", "binary_sensor", ["plug_connection"]],
+  ["mileage", "sensor", ["odometer", "mileage", "mileage_value"]],
+  ["inspDays", "sensor", ["inspection_due_days"]],
+  ["inspKm", "sensor", ["inspection_due_km"]],
+  ["oilDays", "sensor", ["oil_service_due_days"]],
+  ["outside", "sensor", ["outside_temperature", "outdoor_temperature"]],
+  ["updated", "sensor", ["last_report", "car_captured_time"]],
+  ["image", "image", ["image", "image_view_front_left", "image_view_side_left"]],
+];
+/**
+ * Minutes until the battery is full, or null. Volkswagen sends 65535 when it does not know, other
+ * integrations send "invalid" or a negative number; none of those is a time to show.
+ */
+export function chargeMinutes(state) {
+  const n = Number(state);
+  return Number.isFinite(n) && n > 0 && n < 24 * 60 ? n : null;
+}
+
+/** Does this device come from that integration? */
+export const isVwCar = (hass, dev) => Object.values(hass.entities || {}).some((e) => e.device_id === dev && e.platform === VW);
+
+function vwSlots(hass, dev) {
+  const out = {};
+  for (const e of Object.values(hass.entities || {})) {
+    if (e.device_id !== dev || !e.translation_key) continue;
+    const domain = e.entity_id.split(".")[0];
+    for (const [slot, dom, keys] of VW_SLOTS) {
+      if (!out[slot] && domain === dom && keys.includes(e.translation_key)) out[slot] = e.entity_id;
+    }
+  }
+  return out;
+}
+
+/** The car's slots: by translation key for a Volkswagen, by entity name for everyone else. */
+export function carSlots(hass, dev) {
+  const base = slotsOf(hass, dev, SLOTS);
+  if (!isVwCar(hass, dev)) return base;
+  const out = vwSlots(hass, dev);
+  for (const [k, v] of Object.entries(base)) if (!out[k]) out[k] = v;
+  return out;
+}
+
+/**
+ * What stands open and what is unlocked, from the car's own contacts: a Volkswagen has no single
+ * "doors" sensor but one per door, window, tailgate and bonnet, and its locks are binary sensors
+ * (device class lock, so "on" means unlocked). Diagnostic copies are left out, otherwise the same
+ * door would be counted twice.
+ */
+export function carOpenings(hass, dev) {
+  const open = new Set();
+  let locks = 0;
+  let unlocked = 0;
+  for (const e of Object.values(hass.entities || {})) {
+    if (e.device_id !== dev || e.entity_category || !e.entity_id.startsWith("binary_sensor.")) continue;
+    const st = hass.states[e.entity_id];
+    const dc = st?.attributes?.device_class;
+    if (dc === "lock") {
+      locks += 1;
+      if (st.state === "on") unlocked += 1;
+    } else if (st?.state === "on") {
+      if (dc === "door") open.add("car_door");
+      else if (dc === "window") open.add("car_window");
+    }
+  }
+  return { open: [...open], locks, unlocked };
+}
+
+/** Cars: a device with a range sensor and a location, or a Volkswagen with its own sensors. */
 export function carDevices(hass) {
   const out = [];
   const seen = new Set();
   for (const e of Object.values(hass.entities || {})) {
-    if (!e.device_id || seen.has(e.device_id) || !/^sensor\..*_(reichweite|range)$/.test(e.entity_id)) continue;
+    if (!e.device_id || seen.has(e.device_id)) continue;
+    const vw = e.platform === VW;
+    if (!vw && !/^sensor\..*_(reichweite|range)$/.test(e.entity_id)) continue;
     seen.add(e.device_id);
-    const s = slotsOf(hass, e.device_id, SLOTS);
-    if (s.tracker && (s.battery || s.fuel)) out.push(e.device_id);
+    const s = carSlots(hass, e.device_id);
+    // Without a tracker there is no place on the map, but it is still a car.
+    if (vw ? (s.battery || s.fuel) && (s.range || s.erange || s.frange) : s.tracker && (s.battery || s.fuel)) {
+      out.push(e.device_id);
+    }
   }
   return out;
 }
@@ -60,16 +148,17 @@ export function carName(hass, dev) {
 }
 /** Short line for a tile: "82 % · 294 km" or "Lädt · 82 %". */
 export function carText(hass, dev) {
-  const s = slotsOf(hass, dev, SLOTS);
+  const s = carSlots(hass, dev);
   const b = num(hass, s.battery);
-  const r = num(hass, s.range);
+  const r = num(hass, s.range) ?? num(hass, s.erange) ?? num(hass, s.frange);
   const charging = /^charging$|^laden$/i.test(hass.states[s.chargeState]?.state || "");
   return [charging ? t("car_charging") : null, b != null ? `${Math.round(b)} %` : null, r != null ? `${Math.round(r)} km` : null].filter(Boolean).join(" · ");
 }
 
 export function openCar(ctx, dev) {
   const hass = ctx.hass;
-  const s = slotsOf(hass, dev, SLOTS);
+  const s = carSlots(hass, dev);
+  const vw = isVwCar(hass, dev);
   const name = carName(hass, dev);
   const area = ctx.model.areaById.get(hass.devices?.[dev]?.area_id)?.name;
 
@@ -137,7 +226,7 @@ export function openCar(ctx, dev) {
       h("div", { class: "total" }, h("b", {}, r != null ? fmt(hs, r) : "–"), h("small", {}, "km")),
       h("div", { class: "split" }, ...(er != null ? [h("span", { class: "e" }, icon("mdi:lightning-bolt"), `${fmt(hs, er)} km`)] : []), ...(fr != null ? [h("span", { class: "f" }, icon("mdi:gas-station"), `${fmt(hs, fr)} km`)] : [])));
     const lim = num(hs, s.chargeLimit);
-    const left = num(hs, s.chargeLeft);
+    const left = chargeMinutes(hs.states[s.chargeLeft]?.state);
     const pw = num(hs, s.chargePower);
     const cable = hs.states[s.cable]?.state === "on";
     let ctext = "";
@@ -146,10 +235,15 @@ export function openCar(ctx, dev) {
     else if (s.chargeState) ctext = t("car_not_plugged");
     charge.replaceChildren(...(ctext ? [icon(charging ? "mdi:ev-station" : cable ? "mdi:power-plug" : "mdi:power-plug-off-outline"), h("span", {}, ctext)] : []));
     charge.classList.toggle("on", charging);
-    const locked = hs.states[s.lock]?.state === "locked";
-    sLock.set(s.lock ? (locked ? t("car_yes") : t("car_no")) : "–");
-    sLock.classList.toggle("warn", !!s.lock && !locked);
-    const opens = [["doors", "car_door"], ["windows", "car_window"], ["trunk", "car_trunk"], ["bonnet", "car_bonnet"]].filter(([k]) => hs.states[s[k]]?.state === "on").map(([, l]) => t(l));
+    // A Volkswagen has no lock entity: its locks are contacts, and "all locked" means none is open.
+    const vwo = vw ? carOpenings(hs, dev) : null;
+    const hasLock = vwo ? vwo.locks > 0 : !!s.lock;
+    const locked = vwo ? vwo.unlocked === 0 : hs.states[s.lock]?.state === "locked";
+    sLock.set(hasLock ? (locked ? t("car_yes") : t("car_no")) : "–");
+    sLock.classList.toggle("warn", hasLock && !locked);
+    const opens = vwo
+      ? vwo.open.map((k) => t(k))
+      : [["doors", "car_door"], ["windows", "car_window"], ["trunk", "car_trunk"], ["bonnet", "car_bonnet"]].filter(([k]) => hs.states[s[k]]?.state === "on").map(([, l]) => t(l));
     sOpen.set(opens.length ? opens.join(", ") : t("car_all_closed"));
     sOpen.classList.toggle("warn", opens.length > 0);
     const km = num(hs, s.mileage);
@@ -164,7 +258,7 @@ export function openCar(ctx, dev) {
         ...(num(hs, s.tripFuel) != null ? [h("span", {}, icon("mdi:gas-station-outline"), `${fmt(hs, num(hs, s.tripFuel), 1)} l/100`)] : []))] : []));
     const list = [];
     if (opens.length) list.push(hint("mdi:car-door", t("car_open_hint", { what: opens.join(", ") }), true));
-    if (s.lock && !locked) list.push(hint("mdi:lock-open-variant-outline", t("car_unlocked_hint")));
+    if (hasLock && !locked) list.push(hint("mdi:lock-open-variant-outline", t("car_unlocked_hint")));
     if (days != null && days < 30) list.push(hint("mdi:wrench-outline", t("car_service_soon", { n: fmt(hs, days) })));
     const upd = hs.states[s.updated]?.state;
     if (upd && live(hs, s.updated)) list.push(h("div", { class: "hp-car-updated" }, icon("mdi:update"), t("car_updated", { when: ago(hs, upd) }), num(hs, s.outside) != null ? ` · ${fmt(hs, num(hs, s.outside), 0)}° ${t("car_outside")}` : ""));

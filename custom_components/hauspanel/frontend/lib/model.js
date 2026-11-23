@@ -294,6 +294,19 @@ export function buildModel(hass, hide) {
   // The house's own outdoor sensor (one without a room) stands in for gardens and driveways without one.
   const outdoorFallback = roomTemperature(hass, { name: "outdoor" }, model.unassigned._temps || []);
   for (const area of [...areas.values(), model.unassigned]) {
+    // A group helper usually stays out of its room, because its lamps are already there and would be
+    // counted twice. When none of them shows up here, though, nothing stands for the group and the room
+    // would look empty: that happens when the lamps sit in another room, have no room at all, or are
+    // hidden in this one. Then the group itself becomes the room's tile. It still stays out of
+    // model.lights, all, security and media, so the Light chip, All off, Leaving home, the floor
+    // buttons and the security page keep counting the real devices.
+    // Not under "Other": a group lands there when it has no room of its own, and its lamps are then
+    // usually sitting in real rooms already — showing it there would be the double count again.
+    const solo = area === model.unassigned ? []
+      : area.groups.filter((id) => !membersOf(hass, id).some((m) => area.tiles.includes(m)));
+    // It only becomes a tile. It stays in area.groups as well, so the add dialog still offers it by
+    // name after someone hides it, and it is listed there once (the dialog reads all + groups).
+    if (solo.length) area.tiles.push(...solo);
     area.tiles.sort(byName);
     area.scenes.sort(byName);
     area.groups.sort(byName);
