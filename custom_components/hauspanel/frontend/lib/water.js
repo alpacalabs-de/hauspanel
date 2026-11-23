@@ -6,7 +6,7 @@ import { t } from "./i18n.js";
 import { stat } from "./popkit.js";
 
 /** Litres in one unit of the meter. Unknown units count as litres. */
-const LITRES = { "m³": 1000, m3: 1000, L: 1, l: 1, gal: 3.78541, "ft³": 28.3168, ft3: 28.3168, CCF: 2831.68 };
+const LITRES = { "m³": 1000, m3: 1000, L: 1, l: 1, gal: 3.78541, "ft³": 28.3168, ft3: 28.3168, CCF: 2831.68, MCF: 28316.8 };
 export const toLitres = (v, unit) => v * (LITRES[unit] ?? 1);
 
 /** Water meters from the energy settings: [{ from, unit, priceEntity, priceNumber }]. */
@@ -19,11 +19,27 @@ export function waterSources(hass, prefs) {
   }));
 }
 
-/** Price per unit of the meter, or null. */
-export function waterPrice(hass, w) {
-  if (w.priceNumber != null) return Number(w.priceNumber);
+/** The price from the energy settings, in whatever unit it is given in, or null. */
+function priceOf(hass, w) {
+  if (w.priceNumber != null) {
+    const n = Number(w.priceNumber);
+    return Number.isFinite(n) ? n : null;
+  }
   const v = Number(hass.states[w.priceEntity]?.state);
   return Number.isFinite(v) ? v : null;
+}
+
+/**
+ * What one litre costs, or null. Home Assistant takes a fixed water price per m³ (per gallon with
+ * imperial units) and converts it to the meter's unit, so a meter in litres must not be multiplied
+ * by it directly. With a price entity the unit behind the "/" counts, as long as it is a volume we know.
+ */
+export function waterPricePerLitre(hass, w) {
+  const p = priceOf(hass, w);
+  if (p == null) return null;
+  const per = w.priceNumber == null ? hass.states?.[w.priceEntity]?.attributes?.unit_of_measurement?.split("/")[1]?.trim() : null;
+  const unit = per && LITRES[per] ? per : hass.config?.unit_system?.volume === "gal" ? "gal" : "m³";
+  return p / LITRES[unit];
 }
 
 /** "184 l" below 1000 litres, "1.3 m³" above. */
@@ -86,13 +102,13 @@ export function openWater(ctx, w) {
   };
   upd(hass);
   sheet.updaters.push(upd);
-  const price = waterPrice(hass, w);
+  const perLitre = waterPricePerLitre(hass, w);
   const cur = hass.config?.currency || "EUR";
   const money = (v) => { try { return new Intl.NumberFormat(hass.locale?.language || hass.language, { style: "currency", currency: cur }).format(v); } catch { return `${v.toFixed(2)} ${cur}`; } };
   for (const r of rows) {
     change(hass, w.from, r.p).then((v) => {
       r.l.textContent = v == null ? "–" : litresText(hass, toLitres(v, w.unit));
-      r.c.textContent = v == null || price == null ? "" : money(v * price);
+      r.c.textContent = v == null || perLitre == null ? "" : money(toLitres(v, w.unit) * perLitre);
     });
   }
 }

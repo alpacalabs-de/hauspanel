@@ -523,6 +523,7 @@ export default {
   wb_start: "Rozpocznij ładowanie",
   wb_stop: "Zatrzymaj ładowanie",
   wb_mode: "Tryb ładowania",
+  wb_limit: "Limit ładowania",
   sol_today: "Dziś",
   sol_saved_today: "Zaoszczędzono dziś",
   sol_year: "Ten rok",

@@ -266,6 +266,64 @@ test("the room's own name doesn't rule out its thermometer; a winter garden is i
   assert.equal(m.areaById.get("bad").temperature, null, "a floor heating sensor is still no air");
 });
 
+// A relay or an energy meter also measures how warm it is itself. In a fuse box that is around 45°,
+// which is plausible for an attic in summer, so only the registry tells them apart (#25).
+const meterHouse = () => {
+  const hass = house();
+  const dev = (id, area, name) => (hass.devices[id] = { id, area_id: area, name });
+  const ent = (id, device, extra = {}) => {
+    hass.entities[id] = { entity_id: id, device_id: device, platform: "shelly" };
+    hass.states[id] = { entity_id: id, state: extra.state ?? "45", attributes: { device_class: extra.dc || "temperature", unit_of_measurement: extra.unit || "°C" } };
+  };
+  hass.areas.cellar = { area_id: "cellar", name: "Cellar" };
+  hass.areas.hall = { area_id: "hall", name: "Hall" };
+  // Kitchen: a plug that measures power, next to the room's own thermometer.
+  dev("d_plug", "kitchen", "Kitchen plug");
+  ent("sensor.kitchen_plug_power", "d_plug", { dc: "power", state: "12", unit: "W" });
+  ent("sensor.kitchen_plug_temp", "d_plug");
+  // Cellar: nothing but the fuse box relay.
+  dev("d_fuse", "cellar", "Fuse box relay");
+  ent("sensor.fuse_power", "d_fuse", { dc: "power", state: "340", unit: "W" });
+  ent("sensor.fuse_temp", "d_fuse");
+  // Hall: the same relay, but a thermostat that knows better.
+  dev("d_fuse2", "hall", "Hall relay");
+  ent("sensor.hall_relay_power", "d_fuse2", { dc: "power", state: "80", unit: "W" });
+  ent("sensor.hall_relay_temp", "d_fuse2");
+  hass.entities["climate.hall"] = { entity_id: "climate.hall", area_id: "hall", platform: "tado" };
+  hass.states["climate.hall"] = { entity_id: "climate.hall", state: "heat", attributes: { current_temperature: 21, temperature: 22 } };
+  // Attic: a normal sensor on a device that measures nothing else.
+  dev("d_zig", "attic", "Attic sensor");
+  ent("sensor.attic_temp", "d_zig");
+  ent("sensor.attic_battery", "d_zig", { dc: "battery", state: "80", unit: "%" });
+  return hass;
+};
+
+test("a relay's own temperature is the room's only as a last resort (#25)", () => {
+  const m = buildModel(meterHouse(), {});
+  assert.equal(m.areaById.get("kitchen").temperature, "sensor.kitchen_temp", "the room's own sensor wins");
+  assert.equal(m.areaById.get("cellar").temperature, "sensor.fuse_temp", "nothing else, so better than no temperature");
+  assert.equal(m.areaById.get("hall").temperature, null, "a thermostat in the room knows better");
+  assert.equal(m.areaById.get("attic").temperature, "sensor.attic_temp", "a device that measures no power is no meter");
+});
+
+test("the temperature picked in Home Assistant's area settings always wins", () => {
+  const hass = meterHouse();
+  hass.areas.hall.temperature_entity_id = "sensor.hall_relay_temp";
+  hass.areas.kitchen.temperature_entity_id = "sensor.kitchen_plug_temp";
+  const m = buildModel(hass, {});
+  assert.equal(m.areaById.get("hall").temperature, "sensor.hall_relay_temp");
+  assert.equal(m.areaById.get("kitchen").temperature, "sensor.kitchen_plug_temp");
+});
+
+test("a room card falls back to the thermostat when it has no thermometer of its own", async () => {
+  const { roomTempNum } = await import(LIB + "layouts.js");
+  const hass = meterHouse();
+  const m = buildModel(hass, {});
+  assert.equal(roomTempNum(hass, m.areaById.get("kitchen")), 21.5, "its own sensor");
+  assert.equal(roomTempNum(hass, m.areaById.get("hall")), 21, "no sensor, so the thermostat");
+  assert.equal(roomTempNum(hass, m.areaById.get("bedroom")), null, "neither");
+});
+
 test("a light group stays out of the room, but is there to be added by hand (#13)", () => {
   const hass = house();
   hass.entities["light.kitchen_all"] = { entity_id: "light.kitchen_all", area_id: "kitchen", platform: "group" };

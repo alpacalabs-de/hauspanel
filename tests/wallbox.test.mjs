@@ -3,7 +3,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { LIB, fakeHass } from "./fake.mjs";
 
-const { wallboxes, wbSlots, wallboxText, runModeState, wallboxName, wallboxLabel, useModes } = await import(LIB + "wallbox.js");
+const { wallboxes, wbSlots, wallboxText, runModeState, wallboxName, wallboxLabel, useModes, chargeMinutes, limitStep } = await import(LIB + "wallbox.js");
 const { t } = await import(LIB + "i18n.js");
 
 const w = (v) => ({ state: String(v), attributes: { unit_of_measurement: "W", device_class: "power" } });
@@ -146,11 +146,14 @@ test("a wallbox with the usual names works as before", () => {
 const kW = (v) => ({ state: String(v), attributes: { unit_of_measurement: "kW", device_class: "power" } });
 const unit = (v, u) => ({ state: String(v), attributes: { unit_of_measurement: u } });
 
+/** The options evcc's mode select offers (older versions say pv and minpv, newer ones smart). */
+const EVCC_MODES = ["off", "pv", "minpv", "now"];
+
 /**
  * evcc as the ha-evcc integration builds it: one device per charge point, named after evcc's own
  * values, plus the site device that holds grid, pv and the house battery.
  */
-const evcc = ({ platform = "evcc_intg", lps = ["lp1"], power = 0, connected = "off", charging = "off" } = {}) => {
+const evcc = ({ platform = "evcc_intg", lps = ["lp1"], power = 0, connected = "off", charging = "off", mode = null, limit = null, left = null } = {}) => {
   const entities = { "sensor.evcc_pv_power": { device_id: "evcc", platform }, "sensor.evcc_grid_power": { device_id: "evcc", platform } };
   const states = { "sensor.evcc_pv_power": kW(3), "sensor.evcc_grid_power": kW(1) };
   for (const lp of lps) {
@@ -165,6 +168,16 @@ const evcc = ({ platform = "evcc_intg", lps = ["lp1"], power = 0, connected = "o
       [`binary_sensor.evcc_${lp}_connected`]: connected,
       [`binary_sensor.evcc_${lp}_charging`]: charging,
     };
+    if (mode) {
+      own[`select.evcc_${lp}_mode`] = { state: mode, attributes: { options: [...EVCC_MODES] } };
+      // The other selects a charge point carries. None of them is the charge mode.
+      own[`select.evcc_${lp}_always_charge`] = { state: "off", attributes: { options: ["off", "on", "once"] } };
+      own[`select.evcc_${lp}_phases_configured`] = { state: "0", attributes: { options: ["0", "1", "3"] } };
+      own[`select.evcc_${lp}_max_current`] = { state: "16", attributes: { options: ["6", "16"] } };
+      own[`select.evcc_${lp}_limit_soc`] = { state: "80", attributes: { options: ["70", "80"] } };
+    }
+    if (limit != null) own[`number.evcc_${lp}_limit_soc`] = { state: String(limit), attributes: { min: 20, max: 100, step: 5, unit_of_measurement: "%" } };
+    if (left) own[`sensor.evcc_${lp}_charge_remaining_duration`] = unit(left[0], left[1]);
     for (const id of Object.keys(own)) entities[id] = { device_id: lp, platform };
     Object.assign(states, own);
   }
@@ -255,4 +268,76 @@ test("tiles say just Wallbox with one, the device's name with several", () => {
   assert.equal(wallboxLabel(pfx, "pfx:keba_p30"), "KEBA P30");
   delete pfx.states["sensor.garage_charging_power"];
   assert.equal(wallboxLabel(pfx, "pfx:keba_p30"), t("wb_title"));
+});
+
+test("evcc's charge mode, charge limit and remaining time get their own slots", () => {
+  const hass = evcc({ mode: "pv", limit: 80, left: [42, "min"] });
+  const s = wbSlots(hass, "lp1");
+  // Of all the selects on a charge point, only the one ending in _mode is the charge mode.
+  assert.equal(s.usemode, "select.evcc_lp1_mode");
+  // The charge limit is the number, never the vehicle's limit_soc select of the same name.
+  assert.equal(s.vlimit, "number.evcc_lp1_limit_soc");
+  assert.equal(s.vleft, "sensor.evcc_lp1_charge_remaining_duration");
+  // The same names from another integration must not be picked up.
+  const other = evcc({ platform: "template", mode: "pv", limit: 80, left: [42, "min"] });
+  for (const k of ["usemode", "vlimit", "vleft"]) assert.equal(wbSlots(other, "lp1")[k], undefined);
+  // A charge point that has none of them stays as it was.
+  for (const k of ["usemode", "vlimit", "vleft"]) assert.equal(wbSlots(evcc({}), "lp1")[k], undefined);
+});
+
+test("evcc's charge modes come from its mode select, with the current one marked", () => {
+  assert.deepEqual(useModes(evcc({ mode: "pv" }), "select.evcc_lp1_mode"), [
+    { value: "off", label: "off", active: false },
+    { value: "pv", label: "pv", active: true },
+    { value: "minpv", label: "minpv", active: false },
+    { value: "now", label: "now", active: false },
+  ]);
+  for (const dead of ["unavailable", "unknown"]) assert.equal(useModes(evcc({ mode: dead }), "select.evcc_lp1_mode"), null);
+});
+
+test("how long a charge still needs, whatever unit it comes in", () => {
+  const id = "sensor.evcc_lp1_charge_remaining_duration";
+  const left = (v, u) => chargeMinutes(evcc({ left: [v, u] }), id);
+  assert.equal(left(42, "min"), 42);
+  assert.equal(left(1800, "s"), 30);
+  assert.equal(left(1.5, "h"), 90);
+  // evcc sends a huge placeholder when it has no idea what to say.
+  assert.equal(left(9.223372036854776e18, "s"), null);
+  // Nothing left, a negative value, or longer than a day: no time of day worth showing.
+  assert.equal(left(0, "min"), null);
+  assert.equal(left(-5, "min"), null);
+  assert.equal(left(1440, "min"), null);
+  assert.equal(left(1439, "min"), 1439);
+  // A unit we don't read, no value, no sensor at all.
+  assert.equal(left(42, "d"), null);
+  assert.equal(left("later", "min"), null);
+  assert.equal(chargeMinutes(evcc({}), id), null);
+  assert.equal(chargeMinutes(evcc({}), undefined), null);
+});
+
+test("minus and plus walk the charge limit along its own steps", () => {
+  const hass = evcc({ limit: 80 });
+  const id = "number.evcc_lp1_limit_soc";
+  assert.equal(limitStep(hass, id, 1), 85);
+  assert.equal(limitStep(hass, id, -1), 75);
+  // A tap that hasn't gone out yet is where the next one carries on from.
+  assert.equal(limitStep(hass, id, 1, 85), 90);
+  // Both ends hold.
+  hass.states[id].state = "100";
+  assert.equal(limitStep(hass, id, 1), null);
+  assert.equal(limitStep(hass, id, -1), 95);
+  hass.states[id].state = "20";
+  assert.equal(limitStep(hass, id, -1), null);
+  assert.equal(limitStep(hass, id, 1), 25);
+  // A value that sits between two steps snaps onto them.
+  hass.states[id].state = "83";
+  assert.equal(limitStep(hass, id, 1), 90);
+  assert.equal(limitStep(hass, id, -1), 80);
+  // Not reachable, not a number, not there at all.
+  for (const dead of ["unavailable", "unknown", "soon"]) {
+    hass.states[id].state = dead;
+    assert.equal(limitStep(hass, id, 1), null);
+  }
+  assert.equal(limitStep(hass, "number.nope", 1), null);
+  assert.equal(limitStep(hass, undefined, 1), null);
 });

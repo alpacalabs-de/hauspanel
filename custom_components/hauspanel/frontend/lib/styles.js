@@ -2446,6 +2446,8 @@ a.hp-parcel-row { color: inherit; text-decoration: none; }
 .hp-wb-line { font-size: 14px; color: var(--hp-sub); }
 .hp-wb-modes .hp-chip:disabled { opacity: .45; cursor: default; }
 .hp-wb-modes .hp-chip.armed { background: var(--hp-accent); color: #2b2125; border-color: transparent; }
+.hp-wb-limit { display: flex; align-items: center; justify-content: center; gap: 16px; padding: 10px 14px; border-radius: 18px; background: var(--hp-glass); border: 1px solid var(--hp-border); }
+.hp-wb-limit b { font-size: 20px; font-weight: 600; min-width: 88px; text-align: center; }
 /* ---- solar */
 .hp-sol-stage { position: relative; height: 200px; border-radius: 22px; overflow: hidden; background: linear-gradient(180deg, #3b6fb8, #7fb0e0 70%, #f1d6a1); border: 1px solid var(--hp-border); }
 .hp-sol-stage.night { background: linear-gradient(180deg, #121633, #26284d 70%, #463a5a); }

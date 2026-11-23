@@ -523,6 +523,7 @@ export default {
   wb_start: "Avvia ricarica",
   wb_stop: "Ferma ricarica",
   wb_mode: "Modalità di ricarica",
+  wb_limit: "Limite di ricarica",
   sol_today: "Oggi",
   sol_saved_today: "Risparmiato oggi",
   sol_year: "Quest'anno",

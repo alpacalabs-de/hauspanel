@@ -642,6 +642,7 @@ export default {
   wb_start: "Şarjı başlat",
   wb_stop: "Şarjı durdur",
   wb_mode: "Şarj modu",
+  wb_limit: "Şarj limiti",
   sol_today: "Bugün",
   sol_saved_today: "Bugün tasarruf",
   sol_year: "Bu yıl",

@@ -69,10 +69,23 @@ export function roomStats(ctx, area) {
   return { items, lights, counted, on: on.length, total: counted.length, onIds: on, shades, lightsOn, dotIds };
 }
 
+/**
+ * How warm a room is: its own sensor, or else a thermostat in the room, the way the climate overview
+ * and the room popup read it. The thermostat only stands in when there is no sensor, which is the
+ * case for a room whose only thermometer belongs to a relay or a meter (see isDeviceTemp).
+ */
+export function roomTempNum(hass, area) {
+  const v = Number(hass.states[area.temperature]?.state);
+  if (Number.isFinite(v)) return v;
+  const cl = (area.tiles || []).find((id) => domainOf(id) === "climate");
+  const c = cl && Number(hass.states[cl]?.attributes.current_temperature);
+  return Number.isFinite(c) ? c : null;
+}
+
 export function roomTemp(ctx, area) {
-  const st = area.temperature && ctx.hass.states[area.temperature];
-  if (!st || isNaN(Number(st.state))) return "";
-  return `${formatNumber(ctx.hass, st.state, ctx.settings?.s?.tempDecimal ? 1 : 0)}°`;
+  const v = roomTempNum(ctx.hass, area);
+  if (v == null) return "";
+  return `${formatNumber(ctx.hass, v, ctx.settings?.s?.tempDecimal ? 1 : 0)}°`;
 }
 
 /** Turn a room (or the whole home) on or off. */
@@ -197,7 +210,7 @@ export function homeCats(ctx) {
     }
     if (climate) {
       const heating = climates.filter((id) => ["heating", "preheating"].includes(hass.states[id]?.attributes.hvac_action)).length;
-      const temps = m.areas.map((a) => Number(hass.states[a.temperature]?.state)).filter((v) => Number.isFinite(v) && v > -25 && v < 60);
+      const temps = m.areas.map((a) => roomTempNum(hass, a)).filter((v) => v != null && v > -25 && v < 60);
       const range = temps.length ? `${formatNumber(hass, Math.min(...temps), 0)}–${formatNumber(hass, Math.max(...temps), 0)}°` : "";
       climate.val.textContent = heating ? t("n_heating", { n: heating }) : range;
       climate.classList.toggle("active", heating > 0);

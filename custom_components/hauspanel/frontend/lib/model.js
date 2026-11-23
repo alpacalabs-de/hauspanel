@@ -112,6 +112,22 @@ const PREFERRED = /heizung|thermostat|raum|room|zimmer|klima|wandthermostat|bwth
 export const isOutdoorRoom = (area) =>
   OUTDOOR_ROOM.test(`${area.name || ""} ${area.floor?.name || ""}`.replace(WINTER_GARDEN, " "));
 
+/** Sensors a device has about itself, not about the room. */
+const METER_CLASS = new Set(["power", "energy"]);
+
+/**
+ * A temperature of the device, not of the room: a relay, a socket or an energy meter reports how
+ * warm it is itself, and in a fuse box that is far above room temperature (#25). Told apart by the
+ * registry, never by the name: the same device also measures power or energy.
+ */
+export function isDeviceTemp(hass, id) {
+  const dev = hass.entities?.[id]?.device_id;
+  if (!dev) return false;
+  return Object.values(hass.entities).some((e) => e.device_id === dev
+    && e.entity_id.startsWith("sensor.")
+    && METER_CLASS.has(hass.states[e.entity_id]?.attributes.device_class));
+}
+
 function roomTemperature(hass, area, ids) {
   const outdoor = isOutdoorRoom(area);
   // The room's own name doesn't count: "Dachboden Temperatur" is no floor sensor, "Poolhaus" no pool water.
@@ -128,7 +144,13 @@ function roomTemperature(hass, area, ids) {
     // Outside only an outdoor sensor counts; inside an outdoor sensor (heat pump's) does not.
     && (outdoor ? OUTSIDE.test(full(id)) : !OUTSIDE.test(label(id))));
   const score = (id) => (PREFERRED.test(label(id)) ? 0 : 1) + (/\bac\b|klimaanlage/i.test(label(id)) ? 1 : 0);
-  return ok.sort((a, b) => score(a) - score(b))[0] || null;
+  const best = (list) => list.sort((a, b) => score(a) - score(b))[0] || null;
+  // A real room sensor always wins. A device's own temperature (relay, socket, meter) only stands in
+  // when the room has nothing else, and not at all when a thermostat in the room can tell it better.
+  const room = ok.filter((id) => !isDeviceTemp(hass, id));
+  if (room.length) return best(room);
+  if ((area.tiles || []).some((id) => domainOf(id) === "climate")) return null;
+  return best(ok);
 }
 
 /** Every entity HausPanel could show, before the global hide rules. */

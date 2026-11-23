@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.18.0
+
+- **evcc charge mode and limit** (*wallbox popup*): evcc charge points get the charge mode row (off, now, pv and so on) and their charge limit with minus and plus, and "Full at" shows evcc's remaining time while charging.
+- **Room temperature**: a temperature from a device that also measures power or energy, like a relay or an energy meter in the fuse box, is only used when the room has nothing better, and never when it has a thermostat.
+- **Water costs**: with a water meter in litres, costs are no longer 1000 times too high. The price counts per m³ (or gallon), as in Home Assistant's energy settings.
+
 ## 1.17.0
 
 - **Group light buttons** (floor, room, all lights off): lamps that didn't follow get a second try on their own, one at a time, and Home Assistant's own error messages no longer cover the "Try again" button.

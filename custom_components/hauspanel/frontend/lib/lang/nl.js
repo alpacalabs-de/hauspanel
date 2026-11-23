@@ -523,6 +523,7 @@ export default {
   wb_start: "Laden starten",
   wb_stop: "Laden stoppen",
   wb_mode: "Laadmodus",
+  wb_limit: "Laadlimiet",
   sol_today: "Vandaag",
   sol_saved_today: "Vandaag bespaard",
   sol_year: "Dit jaar",

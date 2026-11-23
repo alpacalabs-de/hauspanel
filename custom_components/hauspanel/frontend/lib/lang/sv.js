@@ -523,6 +523,7 @@ export default {
   wb_start: "Starta laddning",
   wb_stop: "Stoppa laddning",
   wb_mode: "Laddläge",
+  wb_limit: "Laddgräns",
   sol_today: "Idag",
   sol_saved_today: "Sparat idag",
   sol_year: "I år",

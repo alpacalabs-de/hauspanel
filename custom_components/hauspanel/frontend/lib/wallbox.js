@@ -1,7 +1,8 @@
 // Wallbox popup: power flowing from the wallbox into the car (green when the sun pays for it), this charge in kWh
-// and euros, the car's battery and when it will be full, and start/stop charging (two taps).
+// and euros, the car's battery and when it will be full, the charger's own charge mode and charge
+// limit where it has them, and start/stop charging (two taps).
 import { h, icon, formatTime } from "./util.js";
-import { openMoreInfo } from "./domains.js";
+import { openMoreInfo, roundBtn } from "./domains.js";
 import { openSheet } from "./dialogs.js";
 import { watts, formatWatts } from "./usage.js";
 import { carDevices, carName } from "./car.js";
@@ -36,8 +37,11 @@ const SOLAX_SLOTS = [
 const PLUGGED_MODES = new Set(["preparing", "finishing", "suspended ev", "suspended evse", "charge paused", "stopping", "occupied"]);
 // evcc over the ha-evcc integration gives every charge point its own device and names its entities
 // after evcc's own values, so none of the names above fit; session energy happens to be the same.
-// It also knows the car's charge level and range without a car integration. Same rule: this list
-// only ever sees entities of that integration, so it can't catch anyone else's sensors.
+// It also knows the car's charge level, range, charge limit and remaining time without a car
+// integration. Its charge mode select is the only select on a charge point whose name ends in
+// "_mode" (the others are always_charge, phases_configured, min/max_current, vehicle_name and
+// limit_soc; battery_mode sits on evcc's site device, which is never a wallbox). Same rule as
+// above: this list only ever sees entities of that integration, so it can't catch anyone else's.
 const EVCC = "evcc_intg";
 const EVCC_SLOTS = [
   ["power", /^sensor\..*_charge_power$/],
@@ -46,6 +50,9 @@ const EVCC_SLOTS = [
   ["charging", /^binary_sensor\..*_charging$/],
   ["vsoc", /^sensor\..*_vehicle_soc$/],
   ["vrange", /^sensor\..*_vehicle_range$/],
+  ["vlimit", /^number\..*_limit_soc$/],
+  ["vleft", /^sensor\..*_charge_remaining_duration$/],
+  ["usemode", /^select\..*_mode$/],
 ];
 /** Extra names an integration brings along, tried before the usual ones. */
 const EXTRA_SLOTS = { [SOLAX]: SOLAX_SLOTS, [EVCC]: EVCC_SLOTS };
@@ -71,6 +78,43 @@ export function useModes(hass, id) {
   if (!Array.isArray(list) || !list.length) return null;
   // The label follows Home Assistant's own translation of the option when it has one.
   return list.map((value) => ({ value, label: hass.formatEntityState?.({ ...st, state: value }) || String(value), active: value === st.state }));
+}
+
+/** Minutes per unit a duration sensor may report in. Anything else we don't read. */
+const PER_MIN = { s: 1 / 60, min: 1, h: 60 };
+/**
+ * How long a charge still has to run, in minutes. null when there is no such sensor, its unit is
+ * one we don't know, or the value isn't a sane duration: evcc sends a huge placeholder (Go's
+ * maximum, about 9.2e18) when it has no idea, and that would turn into a nonsense time of day.
+ */
+export function chargeMinutes(hass, id) {
+  const v = num(hass, id);
+  if (v == null) return null;
+  const f = PER_MIN[String(hass.states[id].attributes?.unit_of_measurement || "").trim().toLowerCase()];
+  if (!f) return null;
+  const m = v * f;
+  return m > 0 && m < 24 * 60 ? m : null;
+}
+
+/**
+ * Where minus (-1) or plus (1) takes a number entity, within its own min, max and step.
+ * null when it can't move: at the end of its range, not reachable, or not a number at all.
+ * `from` is the value a tap before this one has already picked but not sent yet.
+ */
+export function limitStep(hass, id, dir, from = null) {
+  const st = id ? hass.states[id] : null;
+  if (!st || ["unavailable", "unknown"].includes(st.state)) return null;
+  const a = st.attributes || {};
+  const step = Number(a.step) > 0 ? Number(a.step) : 1;
+  const min = Number.isFinite(Number(a.min)) ? Number(a.min) : 0;
+  const max = Number.isFinite(Number(a.max)) ? Number(a.max) : 100;
+  const base = from ?? Number(st.state);
+  if (!Number.isFinite(base) || min > max) return null;
+  const want = Math.min(max, Math.max(min, base + dir * step));
+  // Stay on the steps the entity offers, counted from its minimum.
+  const v = Math.round((min + Math.round((want - min) / step) * step) * 1000) / 1000;
+  const next = Math.min(max, Math.max(min, v));
+  return next === base ? null : next;
 }
 const CAR = [
   ["battery", /^sensor\..*_(batteriestand|battery_level)$/],
@@ -212,6 +256,40 @@ export function openWallbox(ctx, dev) {
     modeLabel.hidden = modeBox.hidden;
   };
 
+  // The charge limit for the car at this charge point (evcc). One tap per step is enough here:
+  // a limit a few per cent off does no harm, and the taps are gathered before anything goes out.
+  const limitLabel = h("div", { class: "hp-group-label" }, t("wb_limit"));
+  const limitVal = h("b");
+  let want = null; // picked here, not confirmed by the charger yet
+  let sendTimer = null;
+  let letGo = null;
+  const paintLimit = (hs) => {
+    const st = hs.states[s.vlimit];
+    const dead = !st || ["unavailable", "unknown"].includes(st.state);
+    const real = num(hs, s.vlimit);
+    if (want != null && !sendTimer && real === want) { want = null; clearTimeout(letGo); }
+    const v = want ?? real;
+    limitVal.textContent = v == null ? "–" : `${fmt(hs, v)} ${st?.attributes?.unit_of_measurement || "%"}`;
+    for (const b of [minusB, plusB]) b.disabled = dead;
+  };
+  const bumpLimit = (dir) => {
+    const next = limitStep(ctx.hass, s.vlimit, dir, want);
+    if (next == null) return; // at the end of its range, or not reachable
+    want = next;
+    paintLimit(ctx.hass);
+    clearTimeout(sendTimer);
+    sendTimer = setTimeout(() => {
+      sendTimer = null;
+      ctx.hass.callService("number", "set_value", { entity_id: s.vlimit, value: want });
+      // Let go of the local value once the charger has answered, after ten seconds at the latest.
+      clearTimeout(letGo);
+      letGo = setTimeout(() => { want = null; paintLimit(ctx.hass); }, 10000);
+    }, 700);
+  };
+  const minusB = roundBtn("mdi:minus", "−", () => bumpLimit(-1));
+  const plusB = roundBtn("mdi:plus", "+", () => bumpLimit(1));
+  const limitRow = h("div", { class: "hp-wb-limit" }, minusB, limitVal, plusB);
+
   const sheet = openSheet(ctx, { title: t("wb_title"), subtitle: area, cls: "appliance wallbox" });
   const chargeB = c.sw ? twoTap(btn("mdi:power", t("wb_start"), "primary"), () => {
     const on = ctx.hass.states[c.sw]?.state === "on";
@@ -221,6 +299,7 @@ export function openWallbox(ctx, dev) {
   more.addEventListener("click", () => { sheet.close(); openMoreInfo(ctx.root, s.power || s.session); });
   sheet.body.append(stage, h("div", { class: "hp-wb-head" }, status, line), stats, hints,
     ...(s.usemode ? [modeLabel, modeBox] : []),
+    ...(s.vlimit ? [limitLabel, limitRow] : []),
     h("div", { class: "hp-sheet-actions hp-app-foot" }, ...(chargeB ? [chargeB] : []), more));
 
   const update = (hs) => {
@@ -247,14 +326,16 @@ export function openWallbox(ctx, dev) {
     const er = num(hs, c.erange);
     sRange.set(er != null ? `${fmt(hs, er)} km` : num(hs, c.range) != null ? `${fmt(hs, num(hs, c.range))} km` : "–");
     sRange.querySelector("small").textContent = er != null ? `${t("wb_range")} · ${t("wb_electric")}` : t("wb_range");
-    const left = num(hs, c.left);
-    const lim = num(hs, c.limit);
+    // A car integration knows best; without one, evcc's own numbers fill in.
+    const left = num(hs, c.left) ?? chargeMinutes(hs, s.vleft);
+    const lim = num(hs, c.limit) ?? num(hs, s.vlimit);
     sFull.set(charging && left ? formatTime(hs, new Date(Date.now() + left * 60000)) : lim != null ? t("wb_to", { n: lim }) : "–");
     const list = [];
     if (offline) list.push(hint("mdi:lan-disconnect", t("wb_offline_hint"), true));
     hints.replaceChildren(...list);
     hints.hidden = !list.length;
     if (s.usemode) paintModes(hs);
+    if (s.vlimit) paintLimit(hs);
     if (chargeB) {
       const on = hs.states[c.sw]?.state === "on";
       chargeB.querySelector("span").textContent = on ? t("wb_stop") : t("wb_start");

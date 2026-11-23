@@ -2,7 +2,7 @@
 // Everything comes from Home Assistant's own energy settings and long-term statistics.
 import { h, icon, formatNumber, formatDate, startOfDay, addDays } from "./util.js";
 import { t } from "./i18n.js";
-import { waterSources, waterPrice, toLitres, litresText, openWater } from "./water.js";
+import { waterSources, waterPricePerLitre, toLitres, litresText, openWater } from "./water.js";
 import { meterReadings, readingText, readingLabel, openMeters } from "./meters.js";
 import { batteryKey, batterySoc, socText } from "./battery.js";
 
@@ -225,8 +225,8 @@ async function loadData(ctx, range, offset) {
     const native = water.map((w) => series(r, w.from, buckets));
     return {
       litres: buckets.map((_, i) => sum(water.map((w, k) => toLitres(native[k][i], w.unit)))),
-      cost: sum(water.map((w, k) => (waterPrice(ctx.hass, w) ?? 0) * sum(native[k]))),
-      priced: water.some((w) => waterPrice(ctx.hass, w) != null),
+      cost: sum(water.map((w, k) => (waterPricePerLitre(ctx.hass, w) ?? 0) * toLitres(sum(native[k]), w.unit))),
+      priced: water.some((w) => waterPricePerLitre(ctx.hass, w) != null),
     };
   };
   const waterCur = water.length ? waterOf(waterRaw, sp.buckets) : null;
