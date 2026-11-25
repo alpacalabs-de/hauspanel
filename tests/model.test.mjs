@@ -453,3 +453,48 @@ test("outdoor rooms: a winter garden stays indoors, a garden in winter does not"
   assert.equal(room("Sitzecke", "Garten"), true, "a corner on the garden floor");
   assert.equal(room("Sitzecke", "Wintergarten"), false, "a corner in the winter garden");
 });
+
+test("a room's folder in the favourites picker lists its groups and what was added by hand (#40)", async () => {
+  const { favRoomDevices } = await import(LIB + "layouts.js");
+  const { Settings } = await import(LIB + "store.js");
+  const hass = house();
+  hass.entities["light.kitchen_all"] = { entity_id: "light.kitchen_all", area_id: "kitchen", platform: "group" };
+  hass.states["light.kitchen_all"] = { entity_id: "light.kitchen_all", state: "on", attributes: { friendly_name: "Kitchen lights", entity_id: ["light.ceiling"] } };
+  const model = buildModel(hass, {});
+  const settings = new Settings(() => {});
+  const ctx = { hass, model, settings };
+  const kitchen = model.areaById.get("kitchen");
+  // The group's own lamp is in the room, so the group is no tile; the picker still offers it, once.
+  const devs = favRoomDevices(ctx, kitchen);
+  assert.equal(devs.includes("light.ceiling"), true);
+  assert.equal(devs.filter((k) => k === "light.kitchen_all").length, 1, "the group is there, once");
+  assert.equal(new Set(devs).size, devs.length, "nothing twice");
+  // A device added to the room by hand comes along; the room's separators don't.
+  settings.s.containers["room:kitchen"] = { order: [], hidden: [], added: ["light.loose", "light.kitchen_all"], seps: { "sep:1": "" } };
+  const more = favRoomDevices(ctx, kitchen);
+  assert.equal(more.includes("light.loose"), true, "added by hand");
+  assert.equal(more.filter((k) => k === "light.kitchen_all").length, 1, "added by hand and a group: still once");
+  assert.equal(more.some((k) => k.startsWith("sep:")), false);
+  // Hidden in the room: out of the picker too, the group as well.
+  settings.s.containers["room:kitchen"] = { order: [], hidden: ["light.ceiling", "light.kitchen_all"], added: [], seps: {} };
+  assert.deepEqual(favRoomDevices(ctx, kitchen).filter((k) => k.startsWith("light.")), []);
+});
+
+test("Rooms tab follows the room order on Home until it has its own (A61)", async () => {
+  const { byHomeOrder } = await import(LIB + "layouts.js");
+  const { Settings } = await import(LIB + "store.js");
+  const auto = ["hall", "kitchen", "living", "office", "garden"];
+  const home = ["card:today", "room:living", "sep:1", "room:hall", "card:security", "room:kitchen", "room:gone"];
+  // Home order taken; rooms without a place on Home go to the end in their own order.
+  assert.deepEqual(byHomeOrder(auto, home), ["living", "hall", "kitchen", "office", "garden"]);
+  // No Home order: unchanged.
+  assert.deepEqual(byHomeOrder(auto, []), auto);
+  assert.deepEqual(byHomeOrder(auto, undefined), auto);
+  // Through arrange: an own Rooms order beats it.
+  const settings = new Settings(() => {});
+  settings.s.containers.home = { order: home, hidden: [], added: [], seps: {} };
+  const sort = (ids) => byHomeOrder(ids, settings.cont("home").order);
+  assert.deepEqual(settings.arrange("rooms", auto, undefined, sort).items, ["living", "hall", "kitchen", "office", "garden"]);
+  settings.s.containers.rooms = { order: ["office", "kitchen"], hidden: ["garden"], added: [], seps: {} };
+  assert.deepEqual(settings.arrange("rooms", auto, undefined, sort).items, ["office", "kitchen", "hall", "living"]);
+});

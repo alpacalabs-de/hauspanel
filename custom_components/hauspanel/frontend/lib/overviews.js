@@ -7,7 +7,7 @@ import { openSheet } from "./dialogs.js";
 import { hazardInfo, entityIcon } from "./domains.js";
 import { snapshotUrl } from "./camera.js";
 import { statusItems, isAlert, isAllowedOpen, allowRule, pillName, secLabel, secLine, cameraList, HOME_SEC_CONTAINER, secIcon, secShown } from "./securityview.js";
-import { openThermostat } from "./thermostat.js";
+import { openThermostat } from "./climate.js";
 import { heatPumps, openHeatPump } from "./heatpump.js";
 import { loadVisits } from "./visitors.js";
 import { openLeave } from "./leave.js";
@@ -448,11 +448,12 @@ function openSmoke(ctx, ids) {
 
 // ---------------------------------------------------------------- light
 
-export function openLightOverview(ctx, lights, openClassic) {
+export function openLightOverview(ctx, lights, openClassic, byRoom) {
   const sheet = openSheet(ctx, { title: t("cat_light"), subtitle: "", cls: "appliance ov-light", actions: listButton(() => { sheet.close(); openClassic(); }) });
   const all = lights();
   const pct = (st) => (isOn(st) ? (st.attributes.brightness != null ? Math.round((st.attributes.brightness / 255) * 100) : 100) : 0);
-  const rooms = ctx.model.areas.map((a) => ({ a, ids: all.filter((id) => ctx.model.areaOf[id] === a.id) })).filter((r) => r.ids.length)
+  // Room by room as Home counts them (byRoom), else by each light's own room.
+  const rooms = (byRoom ? byRoom() : ctx.model.areas.map((a) => ({ a, ids: all.filter((id) => ctx.model.areaOf[id] === a.id) }))).filter((r) => r.ids.length)
     .sort((x, y) => (y.ids.some((id) => isOn(ctx.hass.states[id])) - x.ids.some((id) => isOn(ctx.hass.states[id]))));
   let onlyOn = rooms.some((r) => r.ids.some((id) => isOn(ctx.hass.states[id])));
 

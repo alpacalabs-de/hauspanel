@@ -111,6 +111,16 @@ const GUIDE_OF = { home: "edit", rooms: "areas", security: "security", look: "lo
 /** Icon colour per settings tab. */
 const TAB_COLORS = { security: "#ef5f67", home: "#6cc7b2", rooms: "#f6c945", look: "#f06fa5", device: "#4ea5f5", navigation: "#a985f5", agenda: "#f39c3c", hide: "#8f9bab", system: "#7f8ea3" };
 
+/** Icons to pick from for an own page; a new page takes the first one no page has yet. */
+export const PAGE_ICONS = ["mdi:star-outline", "mdi:sofa-outline", "mdi:baby-face-outline", "mdi:tree-outline", "mdi:car", "mdi:flower-outline",
+  "mdi:gamepad-variant-outline", "mdi:briefcase-outline", "mdi:home-outline", "mdi:bed-outline", "mdi:silverware-fork-knife", "mdi:washing-machine",
+  "mdi:garage", "mdi:pool", "mdi:dog", "mdi:cat", "mdi:lightbulb-outline", "mdi:flash-outline", "mdi:solar-power", "mdi:shield-home-outline",
+  "mdi:television", "mdi:music", "mdi:chart-line", "mdi:tools"];
+
+export function nextPageIcon(pages) {
+  return PAGE_ICONS.find((ic) => !pages.some((p) => p.icon === ic)) || PAGE_ICONS[pages.length % PAGE_ICONS.length];
+}
+
 export function openSettings(ctx) {
   const sheet = openSheet(ctx, { title: t("settings"), subtitle: t("settings_sub"), cls: "settings" });
   let tab = "home";
@@ -125,6 +135,17 @@ export function openSettings(ctx) {
     defaultPanel.system = sys;
     draw();
   });
+
+  // A small sheet with a grid of icons for one of the own pages.
+  const pickPageIcon = (p) => {
+    const pick = openSheet(ctx, { title: t("page_icon"), subtitle: p.title });
+    pick.body.append(h("div", { class: "hp-iconpick" }, ...PAGE_ICONS.map((ic) =>
+      h("button", { class: `hp-iconpick-opt ${ic === p.icon ? "active" : ""}`, "aria-label": ic.slice(4), onclick: () => {
+        S.renamePage(p.id, p.title, ic);
+        pick.close();
+        draw();
+      } }, icon(ic)))));
+  };
 
   const hideState = { query: "" };
   const noticeState = { noticeQuery: "" };
@@ -635,6 +656,7 @@ export function openSettings(ctx) {
       pages.append(h("div", { class: "hp-set-row" },
         h("div", { class: "hp-set-label" }, h("span", {}, icon(p.icon), " ", p.title)),
         h("div", { class: "hp-row-btns" },
+          h("button", { class: "hp-round ghost", "aria-label": t("page_icon"), onclick: () => pickPageIcon(p) }, icon(p.icon)),
           h("button", { class: "hp-round ghost", "aria-label": t("rename"), onclick: async () => {
             const v = await ctx.prompt(t("page_name"), p.title);
             if (v) { S.renamePage(p.id, v); draw(); }
@@ -644,11 +666,10 @@ export function openSettings(ctx) {
             onOk: () => { S.removePage(p.id); draw(); },
           }) }, icon("mdi:delete-outline")))));
     }
-    const iconPick = ["mdi:star-outline", "mdi:sofa-outline", "mdi:baby-face-outline", "mdi:tree-outline", "mdi:car", "mdi:flower-outline", "mdi:gamepad-variant-outline", "mdi:briefcase-outline"];
     pages.append(h("button", { class: "hp-chip", onclick: async () => {
       const v = await ctx.prompt(t("page_name"), "");
       if (v) {
-        S.addPage(v, iconPick[s.pages.length % iconPick.length]);
+        S.addPage(v, nextPageIcon(s.pages));
         draw();
       }
     } }, icon("mdi:plus"), t("new_page")));
@@ -866,6 +887,11 @@ const platformName = (state, p) => state.names?.[p] || p;
 const nEntities = (n) => t(n === 1 ? "one_entity" : "n_entities", { n });
 const nameOf = (hass, id) => hass.states[id]?.attributes.friendly_name || id;
 
+/** Rows whose key is in `top` first, the rest after, each in their own order. */
+export function onTop(rows, keys, top) {
+  return [...rows.filter((r, i) => top.has(keys[i])), ...rows.filter((r, i) => !top.has(keys[i]))];
+}
+
 function hidePane(ctx, S, draw, state) {
   const hass = ctx.hass;
   const hide = S.s.hide || { entities: [], domains: [], platforms: [], patterns: [] };
@@ -899,9 +925,11 @@ function hidePane(ctx, S, draw, state) {
     const name = domainName(hass, d);
     return row(nameCount[name] > 1 ? `${name} (${d})` : name, toggleSwitch(hide.domains.includes(d), () => change(toggleIn("domains", d))), nEntities(n));
   });
-  // Kinds and integrations that hide something stay on top, so they are never folded away.
-  const onTop = (rows, isOn) => [...rows.filter((r, i) => isOn(i)), ...rows.filter((r, i) => !isOn(i))];
-  domBox.append(...foldRows(onTop(domRows, (i) => hide.domains.includes(domains[i])), "domains"));
+  // Kinds and integrations that hide something stay on top, so they are never folded away. Which
+  // ones is taken when the settings open: a row switched on stays where it is under the finger.
+  state.topDom ||= new Set(hide.domains);
+  state.topPlat ||= new Set(hide.platforms);
+  domBox.append(...foldRows(onTop(domRows, domains, state.topDom), "domains"));
 
   // Integrations
   const plats = {};
@@ -920,7 +948,7 @@ function hidePane(ctx, S, draw, state) {
   const platBox = h("div", {});
   const platList = Object.entries(plats).sort((a, b) => platformName(state, a[0]).localeCompare(platformName(state, b[0])));
   const platRows = platList.map(([p, n]) => row(platformName(state, p), toggleSwitch(hide.platforms.includes(p), () => change(toggleIn("platforms", p))), nEntities(n)));
-  platBox.append(...foldRows(onTop(platRows, (i) => hide.platforms.includes(platList[i][0])), "platforms"));
+  platBox.append(...foldRows(onTop(platRows, platList.map(([p]) => p), state.topPlat), "platforms"));
 
   // Text rules
   const patBox = h("div", {});

@@ -10,8 +10,7 @@ import { ring, btn, twoTap } from "./popkit.js";
 import { codePad } from "./overviews.js";
 import { weatherWarningRow } from "./weather.js";
 import { switchLights } from "./switching.js";
-
-const NOT_SHADE = new Set(["garage", "gate", "door", "damper"]);
+import { isShade } from "./domains.js";
 
 export function openGoodNight(ctx, sceneId) {
   const hass = ctx.hass;
@@ -33,7 +32,7 @@ export function openGoodNight(ctx, sceneId) {
     { key: "locks", ic: "mdi:lock-open-variant-outline", okIc: "mdi:lock", label: "gn_locks", okLabel: "gn_locks_ok",
       ids: () => s.locks.filter(shown).filter((id) => domainOf(id) === "lock" && isAlert(ctx.hass, id)), fix: (ids) => ctx.hass.callService("lock", "lock", { entity_id: ids }), fixLabel: "gn_lock" },
     { key: "shades", ic: "mdi:blinds-horizontal", okIc: "mdi:blinds-horizontal-closed", label: "gn_shades", okLabel: "gn_shades_ok",
-      ids: () => m.all.filter((id) => domainOf(id) === "cover" && !NOT_SHADE.has(ctx.hass.states[id]?.attributes.device_class)
+      ids: () => m.all.filter((id) => isShade(ctx.hass, id)
         && !["unknown", "unavailable"].includes(ctx.hass.states[id]?.state) && (ctx.hass.states[id]?.attributes.current_position ?? (ctx.hass.states[id]?.state === "closed" ? 0 : 100)) > 5),
       fix: (ids) => ctx.hass.callService("cover", "close_cover", { entity_id: ids }), fixLabel: "gn_close" },
   ];

@@ -91,3 +91,43 @@ test("every light of a room not counted: no lights left to switch", () => {
   assert.equal(s.total, 0);
   assert.equal(s.lightsOn, 0);
 });
+
+// Mail (Fabrizio): the Light chip on Home did not always count every light that was on, while the
+// room cards did. Home now counts what the room cards count, room by room, Other included.
+const { homeLights, homeLightRooms } = await import(LIB + "layouts.js");
+
+/** Rooms as HausPanel lists them, with roomList like the panel's. */
+const homeCtx = (hass, rooms, s = {}) => ({ ...ctx(hass, s), roomList: () => rooms });
+const group = (members, state = "on") => ({ state, attributes: { entity_id: members } });
+
+test("Home counts a group that stands in for hidden lamps, and a light without a room", () => {
+  const hass = fakeHass({
+    states: { "light.attic_all": group(["light.attic_a", "light.attic_b"]), "light.attic_a": "on", "light.attic_b": "on", "light.loose": "on", "light.ceiling": "off" },
+    entities: { "light.attic_all": { platform: "group" } },
+  });
+  // The attic's lamps are hidden, so its group is the tile (see model.test.mjs); the loose lamp sits under Other.
+  const rooms = [area("attic", ["light.attic_all"]), area("kitchen", ["light.ceiling"]), area("_other", ["light.loose"])];
+  const c = homeCtx(hass, rooms);
+  assert.deepEqual(homeLights(c), ["light.attic_all", "light.ceiling", "light.loose"]);
+  assert.equal(homeLights(c).filter((id) => hass.states[id].state === "on").length, 2, "what the room cards add up to");
+  assert.deepEqual(homeLightRooms(c).map((r) => [r.a.id, r.ids]), [["attic", ["light.attic_all"]], ["kitchen", ["light.ceiling"]], ["_other", ["light.loose"]]]);
+});
+
+test("a group next to one of its lamps elsewhere in the house counts once, through the lamp", () => {
+  const hass = fakeHass({
+    states: { "light.all_down": group(["light.ceiling", "light.desk"]), "light.ceiling": "on", "light.desk": "off" },
+    entities: { "light.all_down": { platform: "group" } },
+  });
+  const c = homeCtx(hass, [area("hall", ["light.all_down"]), area("kitchen", ["light.ceiling"])]);
+  assert.deepEqual(homeLights(c), ["light.ceiling"], "the group would switch and count the lamp twice");
+  assert.deepEqual(homeLightRooms(c).map((r) => r.a.id), ["kitchen"]);
+  // The same lamp added to two rooms by hand counts once too.
+  const twice = homeCtx(hass, [area("kitchen", ["light.ceiling"]), area("office", ["light.ceiling", "light.desk"])]);
+  assert.deepEqual(homeLights(twice), ["light.ceiling", "light.desk"]);
+});
+
+test("a light marked not counted stays out of Home's count", () => {
+  const hass = fakeHass({ states: { "light.word_clock": "on", "light.ceiling": "on" } });
+  const c = homeCtx(hass, [area("living", ["light.word_clock", "light.ceiling"])], { uncounted: { "light.word_clock": true } });
+  assert.deepEqual(homeLights(c), ["light.ceiling"]);
+});

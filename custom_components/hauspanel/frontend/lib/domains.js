@@ -4,7 +4,22 @@ import { isOn } from "./model.js";
 import { t } from "./i18n.js";
 import { positionChips } from "./shades.js";
 
-const COVER = { OPEN: 1, CLOSE: 2, SET_POSITION: 4, STOP: 8 };
+const COVER = { OPEN: 1, CLOSE: 2, SET_POSITION: 4, STOP: 8, OPEN_TILT: 16, CLOSE_TILT: 32, STOP_TILT: 64, SET_TILT_POSITION: 128 };
+
+/** The slat controls of a cover (Venetian blinds, a pergola roof): a slider when the slats can be set to a
+ *  position, otherwise buttons to open, close (and stop) them. All false for a cover without slats. */
+export function tiltControls(st) {
+  const slider = supports(st, COVER.SET_TILT_POSITION);
+  return {
+    slider,
+    open: !slider && supports(st, COVER.OPEN_TILT),
+    close: !slider && supports(st, COVER.CLOSE_TILT),
+    stop: !slider && supports(st, COVER.STOP_TILT),
+  };
+}
+
+/** Whether a cover has slats to work in its popup (a pergola roof may have nothing else). */
+export const hasTilt = (st) => Object.values(tiltControls(st)).some(Boolean);
 const FAN = { SET_SPEED: 1, OSCILLATE: 2 };
 export const MEDIA = {
   PAUSE: 1, SEEK: 2, VOLUME_SET: 4, VOLUME_MUTE: 8, PREVIOUS: 16, NEXT: 32, TURN_ON: 128, TURN_OFF: 256,
@@ -12,6 +27,13 @@ export const MEDIA = {
   BROWSE: 131072, REPEAT: 262144,
 };
 const CLIMATE_TARGET = 1;
+/** Covers that are no window shades: garage doors, gates, doors, dampers and motorized windows. */
+const NOT_SHADE = new Set(["garage", "gate", "door", "damper", "window"]);
+/**
+ * A window shade (shade, blind, curtain, awning, a cover without a device class): what the shades chip,
+ * the room's shade buttons, floor buttons and the Good night check move. A motorized window is none.
+ */
+export const isShade = (hass, id) => domainOf(id) === "cover" && !NOT_SHADE.has(hass.states[id]?.attributes.device_class);
 
 const BINARY_ICONS = {
   door: ["mdi:door-open", "mdi:door-closed"],
@@ -399,12 +421,30 @@ export function buildControls(ctx, entityId, mode = "card") {
       wrap.append(s);
       updaters.push((st) => s.update(st.attributes.current_position));
     }
+    // Slats, in the popup only: a second slider next to the position, or buttons when that is all they can do.
+    const tilt = mode === "sheet" ? tiltControls(st0) : {};
+    if (tilt.slider) {
+      const s = slider({
+        value: st0.attributes.current_tilt_position ?? 0, vertical: true, cls: "tilt", label: t("tilt"),
+        onChange: (v) => call("cover", "set_cover_tilt_position", { tilt_position: v }),
+      });
+      // Two sliders side by side need a word each to tell them apart.
+      if (wrap.firstChild) wrap.replaceChildren(h("div", { class: "hp-cover-col" }, wrap.firstChild, h("small", {}, t("position"))));
+      wrap.append(h("div", { class: "hp-cover-col" }, s, h("small", {}, t("tilt"))));
+      updaters.push((st) => s.update(st.attributes.current_tilt_position));
+    }
     const btns = h("div", { class: "hp-btn-col" },
       supports(st0, COVER.OPEN) && roundBtn("mdi:arrow-up", t("open"), () => call("cover", "open_cover")),
       supports(st0, COVER.STOP) && roundBtn("mdi:stop", t("stop"), () => call("cover", "stop_cover")),
       supports(st0, COVER.CLOSE) && roundBtn("mdi:arrow-down", t("close"), () => call("cover", "close_cover")),
     );
-    wrap.append(btns);
+    if (btns.childElementCount) wrap.append(btns);
+    if (tilt.open || tilt.close) {
+      wrap.append(h("div", { class: "hp-btn-col tilt" },
+        tilt.open && roundBtn("mdi:arrow-top-right", t("tilt_open"), () => call("cover", "open_cover_tilt")),
+        tilt.stop && roundBtn("mdi:stop", t("stop"), () => call("cover", "stop_cover_tilt")),
+        tilt.close && roundBtn("mdi:arrow-bottom-left", t("tilt_close"), () => call("cover", "close_cover_tilt"))));
+    }
     root.append(wrap);
     if (mode === "sheet" && supports(st0, COVER.SET_POSITION)) {
       const chips = positionChips((v) => call("cover", "set_cover_position", { position: v }));

@@ -7,6 +7,17 @@ const HOUR = 3600e3;
 const dismissed = (v) => { try { return sessionStorage.getItem("hauspanel.update.dismissed") === v; } catch { return false; } };
 const dismiss = (v) => { try { sessionStorage.setItem("hauspanel.update.dismissed", v); } catch { /* private mode */ } };
 
+/** The version of the code this screen really runs, from the address it was loaded from
+ *  (`/hauspanel_static/<version>-<hash>/hauspanel.js`). The panel's config carries the version Home Assistant runs now,
+ *  which is newer when a page (like the Companion app) lived through the update with the old code still defined.
+ *  For the `dev` build or an address we don't know, the config's version stands. Exported for the tests. */
+export function codeVersion(url, fallback = "") {
+  const m = /\/hauspanel_static\/([^/?#]+)\//.exec(String(url || ""));
+  const build = m ? decodeURIComponent(m[1]) : "";
+  const v = /^(\d+\.\d+\.\d+[^-]*)-[0-9a-f]+$/.exec(build);
+  return v ? v[1] : fallback;
+}
+
 /** What to say, from the versions: "reload", "restart" or nothing. Exported for the tests. */
 export function updateState(shown, { running, installed } = {}, isAdmin = false) {
   if (!running) return null;

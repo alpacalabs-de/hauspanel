@@ -2,7 +2,7 @@
 import { h, icon, formatNumber, formatTime, formatDate, bindTapHold, domainOf, entityName, isUnavailable } from "./util.js";
 import { isOn, roomPresence, roomHasContent, dedupeGroups, countedLights } from "./model.js";
 import { createTile, createSeparator, createScenePill } from "./tile.js";
-import { MEDIA, entityIcon, stateText } from "./domains.js";
+import { MEDIA, entityIcon, stateText, isShade } from "./domains.js";
 import { sortable } from "./drag.js";
 import { t, currentLang } from "./i18n.js";
 import { sideWidgets, SIDE_DEFAULTS } from "./sidepanel.js";
@@ -45,8 +45,6 @@ export const LAYOUTS = [
 ];
 
 const exists = (ctx) => (k) => k.startsWith("sep:") || !!ctx.hass.states[k] || (k.startsWith("bby:") ? !!babyCamera(ctx) : k.startsWith("wbx:") ? wallboxes(ctx.hass).includes(k.slice(4)) : /^(app|prn|car|pol|bel|hpu|net):/.test(k) && !!ctx.hass.devices?.[k.slice(4)]);
-/** Covers that are not window shades (gates, garage doors) stay out of the shade button. */
-const NOT_SHADE = new Set(["garage", "gate", "door", "damper"]);
 
 /** Lights and switches of a room, for counts, dots and the power button. */
 export function roomStats(ctx, area) {
@@ -61,12 +59,30 @@ export function roomStats(ctx, area) {
   // The power buttons and "1 of 3 on" are about lights only, never sockets, heating or anything else.
   const counted = lights;
   const on = counted.filter((id) => isOn(hass.states[id]));
-  const shades = once.filter((id) => domainOf(id) === "cover" && !NOT_SHADE.has(hass.states[id]?.attributes.device_class));
+  const shades = once.filter((id) => isShade(hass, id));
   // Only lights make a room card glow; sockets show as a dot of their own.
   const lightsOn = lights.filter((id) => isOn(hass.states[id])).length;
   // Meter-only sockets (fridge, network cabinet) are always on; they get no dot.
   const dotIds = [...lights, ...once.filter((id) => domainOf(id) === "switch" && !ctx.settings.s.meters?.[id])];
   return { items, lights, counted, on: on.length, total: counted.length, onIds: on, shades, lightsOn, dotIds };
+}
+
+/**
+ * The lights Home counts and switches (Light chip, status line, both light popups, "All lights off"):
+ * exactly what the room cards count, room by room (Other included), so a group helper that stands in for
+ * hidden lamps and a light without a room are in, a light marked "not counted" is out, and a group
+ * whose own lamps are counted somewhere else in the house counts (and switches) once, through its lamps.
+ */
+export function homeLights(ctx) {
+  return homeLightRooms(ctx).flatMap((r) => r.ids);
+}
+
+/** The same lights room by room, as the light overview lists them: [{ a: room, ids }]. */
+export function homeLightRooms(ctx) {
+  const rooms = ctx.roomList().map((a) => ({ a, ids: roomStats(ctx, a).lights }));
+  const keep = new Set(dedupeGroups(ctx.hass, [...new Set(rooms.flatMap((r) => r.ids))]));
+  const seen = new Set();
+  return rooms.map((r) => ({ a: r.a, ids: r.ids.filter((id) => keep.has(id) && !seen.has(id) && seen.add(id)) })).filter((r) => r.ids.length);
 }
 
 /**
@@ -117,7 +133,7 @@ export function onText(stats) {
 export function statusBlock(ctx, { compact = false } = {}) {
   const big = h("div", { class: "hp-status-big" });
   const allOff = h("button", { class: "hp-btn solid" }, icon("mdi:power"), t("turn_all_off"));
-  const lights = () => countedLights(ctx.settings.s, ctx.model.lights.filter((id) => ctx.model.areaOf[id] && ctx.model.areaOf[id] !== "_other"));
+  const lights = () => homeLights(ctx);
   allOff.addEventListener("click", () => switchLights(ctx, lights(), false));
   const el = h("div", { class: `hp-status ${compact ? "compact" : ""}` },
     h("div", { class: "hp-status-text" }, h("div", { class: "hp-label" }, t("home_status")), big),
@@ -162,10 +178,10 @@ export function homeCats(ctx) {
     return el;
   };
   const m = ctx.model;
-  const lights = () => countedLights(ctx.settings.s, m.lights.filter((id) => m.areaOf[id] && m.areaOf[id] !== "_other"));
+  const lights = () => homeLights(ctx);
   const climates = m.all.filter((id) => id.startsWith("climate."));
   // Each chip can be switched off per panel (Settings → Home, or − in edit mode); a tap always opens a popup.
-  const light = chip("light", "mdi:lightbulb-outline", t("cat_light"), () => (classicPopups(ctx) ? openLightSheet(ctx, lights) : openLightOverview(ctx, lights, () => openLightSheet(ctx, lights))));
+  const light = chip("light", "mdi:lightbulb-outline", t("cat_light"), () => (classicPopups(ctx) ? openLightSheet(ctx, lights) : openLightOverview(ctx, lights, () => openLightSheet(ctx, lights), () => homeLightRooms(ctx))));
   const climate = climates.length ? chip("climate", "mdi:thermometer", t("climate"), () => (classicPopups(ctx) ? openClimateSheet(ctx, climates) : openClimateOverview(ctx, climates, () => openClimateSheet(ctx, climates)))) : null;
   const sec = m.security.length ? chip("security", "mdi:shield-outline", t("security"), () => (classicPopups(ctx) ? openSecuritySheet(ctx) : openSecurityOverview(ctx, () => openSecuritySheet(ctx)))) : null;
   const grid = ctx.energyPrefs?.energy_sources?.find((x) => x.type === "grid");
@@ -185,7 +201,7 @@ export function homeCats(ctx) {
   const xmas = xmasEnabled(ctx.settings.s) ? chip("xmas", "mdi:pine-tree", t("xm_title"), () => openChristmas(ctx)) : null;
   const leave = chip("leave", "mdi:home-export-outline", t("leave_chip"), () => openLeave(ctx));
   // Every window shade in the house: how many are open; the popup moves all or each.
-  const allShades = m.all.filter((id) => domainOf(id) === "cover" && !NOT_SHADE.has(ctx.hass.states[id]?.attributes.device_class));
+  const allShades = m.all.filter((id) => isShade(ctx.hass, id));
   const shades = allShades.length ? chip("shades", "mdi:blinds-horizontal", t("shades"), () => ctx.openShades({ title: t("whole_house"), ids: allShades })) : null;
   // Modes: switches and helpers picked by hand (a guest or party mode). No chip while none of them is picked.
   const modeList = modeIds(ctx.settings.s);
@@ -646,6 +662,29 @@ function availableCards(ctx) {
 const CARD_INFO = { "card:media": ["mdi:music", "fav_card_media", "fav_card_media_sub"], "card:security": ["mdi:shield-outline", "security", "fav_card_security_sub"],
   "card:climate": ["mdi:thermometer", "climate", "fav_card_climate_sub"], "card:today": ["mdi:calendar-today", "card_today", "fav_card_today_sub"] };
 
+const DEVICE_KEY = /^(app|prn|car|pol|bel|hpu|net|bby|wbx):/;
+
+/** A room's devices for the favourites picker: the room as arranged in HausPanel (hidden ones stay out,
+ *  added ones come in, as in the room popup), then its group helpers that aren't there yet, unless hidden.
+ *  Machines, the car, pool and door count as one device each (as in the room). */
+export function favRoomDevices(ctx, area) {
+  const hass = ctx.hass;
+  const exists = (k) => !!hass.states[k] || DEVICE_KEY.test(k);
+  if (area.id === "_other") return area.tiles.filter(exists);
+  const key = `room:${area.id}`;
+  const c = ctx.settings.cont(key);
+  const added = new Set(c.added || []);
+  const hidden = new Set(c.hidden || []);
+  const parts = machineParts(ctx);
+  // exists() also drops the separators arrange() hands back.
+  const out = ctx.settings.arrange(key, roomItems(ctx, area), exists).items.filter((k) => exists(k) && (!parts.has(k) || added.has(k)));
+  const have = new Set(out);
+  for (const g of area.groups || []) {
+    if (hass.states[g] && !have.has(g) && !hidden.has(g)) { out.push(g); have.add(g); }
+  }
+  return out;
+}
+
 /** Picker for the Favourites home: a room as a whole, or any device from it (also when the room is already there). */
 function openFavPicker(ctx, container) {
   const sheet = openSheet(ctx, { title: t("fav_add"), subtitle: t("fav_add_hint"), cls: "fav-picker tall" });
@@ -675,8 +714,7 @@ function openFavPicker(ctx, container) {
       if (g.floor) out.push(h("div", { class: "hp-group-label" }, g.floor.name));
       for (const a of g.rooms) {
         const isOpen = open.has(a.id);
-        // Machines, the car, pool and door count as one device each (as in the room).
-        const devs = (a.id === "_other" ? a.tiles : roomItems(ctx, a)).filter((id) => ctx.hass.states[id] || /^(app|prn|car|pol|bel|hpu|net|bby|wbx):/.test(id));
+        const devs = favRoomDevices(ctx, a);
         const toggle = h("button", { class: "hp-round ghost small", "aria-label": t("fav_devices_of", { room: a.name || t("other") }) },
           icon(isOpen ? "mdi:chevron-up" : "mdi:chevron-down"));
         toggle.addEventListener("click", () => { if (isOpen) open.delete(a.id); else open.add(a.id); draw(); });
@@ -750,7 +788,7 @@ function appliancePill(ctx, a) {
 
 /** Sockets of machines and printers' chamber lights: the machine tile covers them. */
 export function machineParts(ctx) {
-  const out = linkedPlugEntities(ctx.hass);
+  const out = linkedPlugEntities(ctx.hass, ctx.settings.s.plugPick);
   for (const p of runningPrinters(ctx.hass, { all: true })) if (p.light) out.add(p.light);
   return out;
 }
@@ -1026,7 +1064,7 @@ export function onNowBlock(ctx) {
     return `${ctx.hass.states[id]?.attributes.friendly_name || ""} ${id} ${dev?.model || ""} ${dev?.name || ""}`;
   };
   let plugs = new Set();
-  const ids = () => (plugs = linkedPlugEntities(ctx.hass), ctx.model.all).filter((id) => {
+  const ids = () => (plugs = linkedPlugEntities(ctx.hass, ctx.settings.s.plugPick), ctx.model.all).filter((id) => {
     const d = domainOf(id);
     const st = ctx.hass.states[id];
     if (!isOn(st)) return false;
@@ -1093,7 +1131,7 @@ function tileRank(ctx, id) {
   const st = ctx.hass.states[id];
   const d = domainOf(id);
   if (d === "water_heater" || (d === "climate" && HEAT_ONLY(st))) return 0;
-  if (d === "cover" && !NOT_SHADE.has(st?.attributes.device_class)) return 1;
+  if (isShade(ctx.hass, id)) return 1;
   if (d === "climate") return 2;
   if (d === "light") return 3;
   if (d === "switch" || ctx.settings.s.meters?.[id] || st?.attributes.device_class === "power") return 4;
@@ -1110,8 +1148,9 @@ export const roomSort = (ctx) => (keys) => keys
 export function itemsBox(ctx, g, variant) {
   const arranged = ctx.settings.arrange(g.container, g.items, exists(ctx), g.sort || null);
   const hidden = arranged.hidden;
-  // Sockets that belong to a machine tile, even when added by hand.
-  let items = g.exclude ? arranged.items.filter((k) => !g.exclude.has(k)) : arranged.items;
+  // Sockets that belong to a machine tile stay inside it, unless added to this container by hand.
+  const added = new Set(ctx.settings.cont(g.container).added || []);
+  let items = g.exclude ? arranged.items.filter((k) => !g.exclude.has(k) || added.has(k)) : arranged.items;
   // Shades of a room as one tile (setting): it takes the place of the first shade.
   const gkey = g.shadeGroup ? shadeGroupKey(g.shadeGroup.areaId) : null;
   const grouped = gkey ? items.filter((k) => g.shadeGroup.ids.includes(k)) : [];
@@ -1160,7 +1199,7 @@ export function roomView(ctx, area, variant = "grid", { big = false, hideName = 
   const label = h("div", { class: "hp-label" });
   const g = { container: `room:${area.id}`, title: area.name, items: roomItems(ctx, area), areaName: area.name, sort: roomSort(ctx), exclude: machineParts(ctx) };
   if (ctx.settings.s.groupShades) {
-    const ids = area.tiles.filter((id) => domainOf(id) === "cover" && !NOT_SHADE.has(ctx.hass.states[id]?.attributes.device_class));
+    const ids = area.tiles.filter((id) => isShade(ctx.hass, id));
     if (ids.length > 1) g.shadeGroup = { areaId: area.id, ids };
   }
   const on = h("button", { class: "hp-btn" }, icon("mdi:lightbulb-outline"), t("turn_on"));
@@ -1198,6 +1237,17 @@ export function roomView(ctx, area, variant = "grid", { big = false, hideName = 
 }
 
 /** Rooms grouped by floor, in Home Assistant's floor order; inside a floor the rooms keep their own order. */
+/**
+ * Room ids in the order of their cards on Home (`room:<id>` in the Home order); rooms without a
+ * place there keep their own order after them. No Home order: unchanged.
+ */
+export function byHomeOrder(ids, homeOrder) {
+  const pos = new Map();
+  for (const k of homeOrder || []) if (k.startsWith("room:") && !pos.has(k.slice(5))) pos.set(k.slice(5), pos.size);
+  if (!pos.size) return ids;
+  return [...ids.filter((id) => pos.has(id)).sort((a, b) => pos.get(a) - pos.get(b)), ...ids.filter((id) => !pos.has(id))];
+}
+
 export function roomsByFloor(ctx) {
   const groups = new Map(Object.values(ctx.hass.floors || {}).map((f) => [f.floor_id, { floor: f, rooms: [] }]));
   const rest = { floor: null, rooms: [] };
@@ -1361,7 +1411,7 @@ function focusHome(ctx) {
     clock.textContent = formatTime(hass, now);
     date.textContent = formatDate(hass, now, { weekday: "long", month: "long", day: "numeric" });
     const w = ctx.weather.current();
-    const n = countedLights(ctx.settings.s, ctx.model.lights.filter((id) => ctx.model.areaOf[id])).filter((id) => isOn(hass.states[id])).length;
+    const n = homeLights(ctx).filter((id) => isOn(hass.states[id])).length;
     const parts = [w ? `${formatNumber(hass, w.temperature, 0)}° · ${w.label}` : null, n ? t(n === 1 ? "one_light_home" : "lights_home", { n }) : t("all_lights_off")].filter(Boolean);
     const sig = parts.join("|");
     if (line.dataset.sig !== sig) {

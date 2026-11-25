@@ -2,9 +2,9 @@
 // the room's own devices, scenes, and closed sections with every lamp, shade, switch and player.
 import { h, icon, domainOf, slider, toggleSwitch, lightColor, entityName } from "./util.js";
 import { isOn, roomPresence, dedupeGroups, countedLights } from "./model.js";
-import { entityIcon, tapAction } from "./domains.js";
+import { entityIcon, tapAction, isShade } from "./domains.js";
 import { openSheet } from "./dialogs.js";
-import { openThermostat } from "./thermostat.js";
+import { openThermostat } from "./climate.js";
 import { t } from "./i18n.js";
 import { num, fmt, svgEl, since } from "./popkit.js";
 import { openGate, isGate } from "./gate.js";
@@ -13,7 +13,6 @@ import { createTile, editToggle, editChip } from "./tile.js";
 import { withTimer, groupTimerText } from "./timers.js";
 import { switchLights } from "./switching.js";
 
-const NOT_SHADE = new Set(["garage", "gate", "door", "damper"]);
 /** Which sections were opened, per room, while the panel is open. */
 const OPEN = new Map();
 /** A shade's position in percent; without a position closed is 0 and anything else 100. */
@@ -34,14 +33,29 @@ export function shadeCalls(hass, ids, v) {
 const pctOf = (st) => (isOn(st) ? (st.attributes.brightness != null ? Math.round((st.attributes.brightness / 255) * 100) : 100) : 0);
 const dimmable = (st) => (st?.attributes.supported_color_modes || []).some((m) => m !== "onoff");
 
+/** A thermostat that only heats (a radiator valve, a floor heating), not an air conditioner. */
+const heatOnly = (hass, id) => !(hass.states[id]?.attributes.hvac_modes || []).some((m) => ["cool", "heat_cool", "dry", "fan_only"].includes(m));
+
+/**
+ * The room's thermostats: one goes into the ring (heating first), each other one gets a tile.
+ * A heating thermostat or one of several gets its own name; a single air conditioner is "Air conditioning".
+ */
+export function climateTiles(hass, climates) {
+  const ring = climates.find((id) => heatOnly(hass, id)) || climates[0];
+  const rest = climates.filter((id) => id !== ring);
+  return { ring, tiles: rest.map((id) => ({ id, heat: heatOnly(hass, id), named: rest.length > 1 || heatOnly(hass, id) })) };
+}
+
 export function openRoomPopup(ctx, areaId) {
   const hass = ctx.hass;
   const area = ctx.model.areaById.get(areaId);
   if (!area) return;
   // The room's devices as arranged in HausPanel (hidden ones stay out, added ones come in).
   // Same list as the room page: machine sockets, car and heat pump parts stay inside their own tiles.
+  // A part added to the room by hand (one outlet of a machine's power strip) stays.
   const parts = machineParts(ctx);
-  const arranged = ctx.settings.arrange(`room:${areaId}`, roomItems(ctx, area), (k) => !!hass.states[k] || /^(app|prn|car|pol|bel|hpu|net|bby|wbx):/.test(k)).items.filter((k) => !parts.has(k));
+  const added = new Set(ctx.settings.cont(`room:${areaId}`).added || []);
+  const arranged = ctx.settings.arrange(`room:${areaId}`, roomItems(ctx, area), (k) => !!hass.states[k] || /^(app|prn|car|pol|bel|hpu|net|bby|wbx):/.test(k)).items.filter((k) => !parts.has(k) || added.has(k));
   const tiles = arranged.filter((id) => hass.states[id]);
   // The light, shade and switch groups of the popup take every device once: a group helper added by hand
   // stands for one device, but not while its own members are in the room. A group next to its members is
@@ -50,13 +64,11 @@ export function openRoomPopup(ctx, areaId) {
   // A light marked "not counted" (word clock, aquarium) is no light of the room: it keeps its own
   // tile under "More in this room" and switches there, but it stays out of the count and the all switch.
   const lights = countedLights(ctx.settings.s, once.filter((id) => domainOf(id) === "light"));
-  const shades = once.filter((id) => domainOf(id) === "cover" && !NOT_SHADE.has(hass.states[id]?.attributes.device_class));
-  const covers = tiles.filter((id) => domainOf(id) === "cover" && NOT_SHADE.has(hass.states[id]?.attributes.device_class));
-  // Heating goes into the ring; an air conditioner next to it gets its own tile.
+  const shades = once.filter((id) => isShade(hass, id));
+  const covers = tiles.filter((id) => domainOf(id) === "cover" && !isShade(hass, id));
+  // Heating goes into the ring; every other thermostat or air conditioner gets its own tile.
   const climates = tiles.filter((id) => domainOf(id) === "climate");
-  const heatOnly = (id) => !(hass.states[id]?.attributes.hvac_modes || []).some((m) => ["cool", "heat_cool", "dry", "fan_only"].includes(m));
-  const climate = climates.find(heatOnly) || climates[0];
-  const acs = climates.filter((id) => id !== climate);
+  const { ring: climate, tiles: acs } = climateTiles(hass, climates);
   const players = tiles.filter((id) => domainOf(id) === "media_player");
   const switches = once.filter((id) => ["switch", "fan", "input_boolean"].includes(domainOf(id)) && !ctx.settings.s.meters?.[id]);
   const locks = tiles.filter((id) => domainOf(id) === "lock");
@@ -121,7 +133,7 @@ export function openRoomPopup(ctx, areaId) {
     hero.classList.toggle("cool", cst?.attributes.hvac_action === "cooling");
     tsub.textContent = target != null ? `${t("rp_target")} ${fmt(hs, target, 1)}°` : cst ? t("off") : "";
     state.replaceChildren(icon(heating ? "mdi:fire" : cst?.state === "off" ? "mdi:power" : "mdi:thermostat"),
-      h("div", {}, h("b", {}, heating ? t("heating_now") : cst ? (cst.state === "off" ? t("off") : t("th_idle")) : t("rp_no_heating")), h("small", {}, cst ? t("rp_tap_ring") : "")));
+      h("div", {}, h("b", {}, heating ? t("heating_now") : cst ? (cst.state === "off" ? t("off") : t("th_idle")) : t("rp_no_heating")), h("small", {}, cst ? (climates.length > 1 ? name(climate) : t("rp_tap_ring")) : "")));
   });
   const body = h("div", { class: "hp-rp-body" });
 
@@ -452,10 +464,13 @@ export function openRoomPopup(ctx, areaId) {
       c.val.textContent = on ? (timer ? `${on}/${others.length} · ${timer}` : t("rp_n_on", { n: on, m: others.length })) : t("off");
     });
   }
-  // Gates and garage doors: the door moves in the tile, a tap opens the gate popup (camera, two-tap open).
+  // Gates, garage doors and motorized windows: the door (or pane) moves in the tile, a tap opens the gate
+  // popup (camera, two-tap open), or the cover's own controls for a window.
   for (const id of covers) {
+    const win = hass.states[id]?.attributes.device_class === "window";
     const garage = hass.states[id]?.attributes.device_class === "garage" && !/gate|tor\b|einfahrt|entry/i.test(`${id} ${hass.states[id]?.attributes.friendly_name}`);
-    const c = ctlTile(`gate ${garage ? "garage" : "fence"}`, garage ? "mdi:garage-variant" : "mdi:gate", name(id).replace(/^(hörmann|hormann)\s+/i, ""), { open: () => (isGate(ctx.hass, id) ? openGate(ctx, id) : ctx.openDetails(id)) });
+    const [shut, opened] = win ? ["mdi:window-closed-variant", "mdi:window-open-variant"] : garage ? ["mdi:garage-variant", "mdi:garage-open-variant"] : ["mdi:gate", "mdi:gate-open"];
+    const c = ctlTile(`gate ${win ? "window" : garage ? "garage" : "fence"}`, shut, name(id).replace(/^(hörmann|hormann)\s+/i, ""), { open: () => (isGate(ctx.hass, id) ? openGate(ctx, id) : ctx.openDetails(id)) });
     const door = h("i", { class: "door" });
     c.el.prepend(door);
     updaters.push((hs) => {
@@ -465,8 +480,10 @@ export function openRoomPopup(ctx, areaId) {
       c.el.style.setProperty("--open", String(p / 100));
       c.el.classList.toggle("on", st?.state !== "closed");
       c.el.classList.toggle("moving", moving);
-      c.val.textContent = moving ? (hs.formatEntityState?.(st) || st.state) : st ? `${hs.formatEntityState?.(st) || st.state} · ${since(st.last_changed)}` : "–";
-      c.icEl.icon = garage ? (st?.state === "closed" ? "mdi:garage-variant" : "mdi:garage-open-variant") : st?.state === "closed" ? "mdi:gate" : "mdi:gate-open";
+      // A window that closes on a timer says so ("Open · closes in 2 h"), as its tile did before it got this one.
+      c.val.textContent = moving ? (hs.formatEntityState?.(st) || st.state)
+        : st ? (win && ctx.timers?.at(id) ? withTimer(ctx, id, hs.formatEntityState?.(st) || st.state) : `${hs.formatEntityState?.(st) || st.state} · ${since(st.last_changed)}`) : "–";
+      c.icEl.icon = st?.state === "closed" ? shut : opened;
     });
   }
   // Locks: green when locked, red when not; a tap asks before it changes anything.
@@ -481,8 +498,8 @@ export function openRoomPopup(ctx, areaId) {
       c.icEl.icon = locked ? "mdi:lock" : st?.state === "jammed" ? "mdi:lock-alert" : "mdi:lock-open-variant";
     });
   }
-  for (const id of acs) {
-    const c = ctlTile("ac", "mdi:air-conditioner", acs.length > 1 ? name(id) : t("rp_ac"), { quickIc: "mdi:power", quick: () => tapAction(ctx, id), open: () => openThermostat(ctx, id) });
+  for (const { id, heat, named } of acs) {
+    const c = ctlTile("ac", heat ? "mdi:radiator" : "mdi:air-conditioner", named ? name(id) : t("rp_ac"), { quickIc: "mdi:power", quick: () => tapAction(ctx, id), open: () => openThermostat(ctx, id) });
     updaters.push((hs) => {
       const st = hs.states[id];
       const a = st?.attributes || {};
@@ -490,7 +507,8 @@ export function openRoomPopup(ctx, areaId) {
       c.el.classList.toggle("on", !!on);
       c.el.dataset.mode = on ? st.state : "";
       c.val.textContent = !st || st.state === "unavailable" ? t("unavailable") : on ? `${hs.formatEntityState?.(st) || st.state}${a.temperature != null ? ` · ${fmt(hs, a.temperature, 1)}°` : ""}` : t("off");
-      c.icEl.icon = st?.state === "cool" ? "mdi:snowflake" : st?.state === "heat" ? "mdi:fire" : st?.state === "dry" ? "mdi:water-percent" : st?.state === "fan_only" ? "mdi:fan" : "mdi:air-conditioner";
+      c.icEl.icon = heat ? (on ? "mdi:radiator" : "mdi:radiator-off")
+        : st?.state === "cool" ? "mdi:snowflake" : st?.state === "heat" ? "mdi:fire" : st?.state === "dry" ? "mdi:water-percent" : st?.state === "fan_only" ? "mdi:fan" : "mdi:air-conditioner";
     });
   }
   ctlGrid.hidden = !ctlGrid.childElementCount;
@@ -565,7 +583,8 @@ function openRoomEdit(ctx, areaId, cats, onDone) {
     return { ic: entityIcon(hass, st), name: entityName(hass, key, area.name), sub: hass.formatEntityState?.(st) || st?.state || "" };
   };
   const draw = () => {
-    const parts = machineParts(ctx);
+    const added = new Set(ctx.settings.cont(C).added || []);
+    const parts = new Set([...machineParts(ctx)].filter((k) => !added.has(k)));
     const exists = (k) => !!hass.states[k] || SPECIAL.test(k);
     const { items, hidden } = ctx.settings.arrange(C, roomItems(ctx, area), exists);
     const row = (key, shown) => {
@@ -588,7 +607,7 @@ function openRoomEdit(ctx, areaId, cats, onDone) {
       ...(hidden.length ? [h("div", { class: "hp-label hp-ov-label" }, t("rp_hidden"), h("span", { class: "hp-count" }, String(hidden.length))), ...hidden.map((k) => row(k, false))] : []));
   };
   const add = h("button", { class: "hp-btn primary" }, icon("mdi:plus"), h("span", {}, t("add_devices")));
-  add.addEventListener("click", () => { changed = true; ctx.openAdd(C, area.tiles); });
+  add.addEventListener("click", () => { changed = true; ctx.openAdd(C, roomItems(ctx, area)); });
   const done = h("button", { class: "hp-btn ghost" }, icon("mdi:check"), h("span", {}, t("done")));
   done.addEventListener("click", () => sheet.close());
   // Which areas this room opens by default.

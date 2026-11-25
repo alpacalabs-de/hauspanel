@@ -2,7 +2,7 @@
 // layers, temperatures, filament, chamber light, pause/resume/stop with a second tap.
 import { h, icon, formatTime } from "./util.js";
 import { openMoreInfo } from "./domains.js";
-import { openSheet } from "./dialogs.js";
+import { openSheet, plugPickDialog } from "./dialogs.js";
 import { liveVideo } from "./camera.js";
 import { t } from "./i18n.js";
 import { usageBlock, plugEntityFor } from "./usage.js";
@@ -180,17 +180,47 @@ export function openPrinter(ctx, p) {
   const resumeBtn = p.resume ? confirmBtn("resume", "mdi:play", t("printer_resume"), () => press(p.resume)) : null;
   const stopBtn = p.stop ? confirmBtn("stop", "mdi:stop", t("printer_stop"), () => press(p.stop)) : null;
   const more = h("button", { class: "hp-btn ghost" }, icon("mdi:home-assistant"), t("more_short"));
-  const actions = h("div", { class: "hp-sheet-actions hp-app-foot hp-pr-foot" }, ...[lightBtn, pauseBtn, resumeBtn, stopBtn, more].filter(Boolean));
+  // The printer's socket switches right here, also while the printer is off (unavailable). Switching it
+  // off while it prints takes a second tap.
+  const plug = plugEntityFor(hass, p.dev, ctx.settings.s.plugPick);
+  const plugSw = plug?.startsWith("switch.") ? plug : null;
+  const plugBtn = plugSw ? h("button", { class: "hp-btn ghost" }, icon("mdi:power-socket-de"), h("span", {}, t("app_socket"))) : null;
+  let plugArmed = null;
+  const disarm = () => {
+    clearTimeout(plugArmed);
+    plugArmed = null;
+    plugBtn.classList.remove("armed");
+    plugBtn.querySelector("span").textContent = t("app_socket");
+  };
+  plugBtn?.addEventListener("click", () => {
+    const hs = ctx.hass;
+    const on = hs.states[plugSw]?.state === "on";
+    if (on && ACTIVE.has(hs.states[p.status]?.state) && !plugArmed) {
+      plugBtn.classList.add("armed");
+      plugBtn.querySelector("span").textContent = t("pk_tap_again");
+      plugArmed = setTimeout(disarm, 4000);
+      return;
+    }
+    if (plugArmed) disarm();
+    hs.callService("switch", on ? "turn_off" : "turn_on", { entity_id: plugSw });
+  });
+  const actions = h("div", { class: "hp-sheet-actions hp-app-foot hp-pr-foot" }, ...[plugBtn, lightBtn, pauseBtn, resumeBtn, stopBtn, more].filter(Boolean));
+  // Another socket (one outlet of a power strip) by hand.
+  const pickBtn = h("button", { class: "hp-chip small" }, icon("mdi:power-plug-outline"), t("app_socket_pick"));
+  const pickRow = h("div", { class: "hp-plug-pick" }, pickBtn);
 
   const sheet = openSheet(ctx, { title: printerName(hass, p), subtitle: area, cls: "appliance printer", onClose: () => live?.stop() });
   more.addEventListener("click", () => {
     sheet.close();
     openMoreInfo(ctx.root, p.status);
   });
+  pickBtn.addEventListener("click", () => {
+    sheet.close();
+    plugPickDialog(ctx, p.dev, plugSw, () => openPrinter(ctx, printerOf(ctx.hass, p.dev)));
+  });
   // The printer's socket: its usage below the filament, when the socket is online.
-  const plug = plugEntityFor(hass, p.dev);
   const usage = plug && !["unavailable", "unknown"].includes(hass.states[plug]?.state) ? usageBlock(ctx, plug) : null;
-  sheet.body.append(...[media, hero, stats, fil, usage, hints, actions].filter(Boolean));
+  sheet.body.append(...[media, hero, stats, fil, usage, hints, actions, pickRow].filter(Boolean));
   if (usage) sheet.updaters.push((hs) => usage.update(hs));
 
   let liveOn = null;
@@ -269,6 +299,10 @@ export function openPrinter(ctx, p) {
       const on = hs.states[p.light]?.state === "on";
       lightBtn.replaceChildren(icon(on ? "mdi:lightbulb-on" : "mdi:lightbulb-outline"), t(on ? "printer_light_off" : "printer_light_on"));
       lightBtn.classList.toggle("lit", on);
+    }
+    if (plugBtn) {
+      plugBtn.classList.toggle("lit", hs.states[plugSw]?.state === "on");
+      plugBtn.disabled = ["unavailable", "unknown"].includes(hs.states[plugSw]?.state);
     }
     const usable = (id) => id && !["unavailable"].includes(hs.states[id]?.state);
     if (pauseBtn) pauseBtn.hidden = !(s === "running" && usable(p.pause));

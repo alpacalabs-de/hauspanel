@@ -3,7 +3,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { LIB } from "./fake.mjs";
 
-const { minutesLeft, leftText, canHaveTimer } = await import(LIB + "timers.js");
+const { minutesLeft, leftText, canHaveTimer, customStep, customStart, CUSTOM_MAX } = await import(LIB + "timers.js");
 const i18n = await import(LIB + "i18n.js");
 
 test("minutes left round up, never below one", () => {
@@ -65,4 +65,25 @@ test("a group shows the timer that goes off first", async () => {
   assert.equal(groupTimerText(ctx, ["light.a", "light.b", "light.c"]), "off in 12 min");
   assert.equal(groupTimerText(ctx, ["light.c"]), "");
   assert.equal(groupTimerText({}, ["light.a"]), "");
+});
+
+test("other time: quarter-hour steps between 15 minutes and 12 hours (#31)", () => {
+  assert.equal(customStep(120, 1), 135);
+  assert.equal(customStep(120, -1), 105);
+  // Off the quarter hour (a window's 10 minutes), the next step lands on it.
+  assert.equal(customStep(10, 1), 15);
+  assert.equal(customStep(70, -1), 60);
+  assert.equal(customStep(70, 1), 75);
+  // Never below 15 minutes or above what Home Assistant takes.
+  assert.equal(customStep(15, -1), 15);
+  assert.equal(customStep(CUSTOM_MAX, 1), 720);
+  assert.equal(customStep(705, 1), 720);
+  assert.equal(CUSTOM_MAX, 12 * 60);
+});
+
+test("other time starts at the longest fixed time and reads in hours and minutes (#31)", () => {
+  assert.equal(customStart(false), 120);
+  assert.equal(customStart(true), 60);
+  assert.equal(leftText(customStep(customStart(true), 1)), "1 h 15 min");
+  assert.equal(leftText(720), "12 h");
 });

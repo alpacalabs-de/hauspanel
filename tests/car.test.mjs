@@ -109,3 +109,86 @@ test("cars with a tracker are found exactly as before", () => {
   // No platform of ours, so no translation keys are consulted.
   assert.equal(isVwCar(hass, "id3"), false);
 });
+
+// #42: a Stellantis car (Opel Corsa Electric) from stellantis_vehicles, entity ids in German, slots by translation_key.
+const { carPlatform, isKnownCar, carCharging } = await import(LIB + "car.js");
+const { chargeLeftMin } = await import(LIB + "popkit.js");
+const stellantis = ({ platform = "stellantis_vehicles", doors = "off", trunk = "off", driver = "off", charging = "off", end = null, extra = {} } = {}) => {
+  const ents = {
+    "sensor.corsa_batterie": ["battery", pct(81)],
+    "sensor.corsa_reichweite": ["autonomy", km(287)],
+    "sensor.corsa_kilometer": ["mileage", km(18450)],
+    "sensor.corsa_tage_bis_zur_nachsten_wartung": ["days_before_maintenance", { state: "120", attributes: { unit_of_measurement: "d", device_class: "duration" } }],
+    "sensor.corsa_kilometer_bis_zur_nachsten_wartung": ["mileage_before_maintenance", km(11550)],
+    "sensor.corsa_temperatur": ["temperature", { state: "7", attributes: { unit_of_measurement: "°C" } }],
+    "sensor.corsa_ladeende": ["battery_charging_end", { state: end ?? "unknown", attributes: { device_class: "timestamp" } }],
+    "sensor.corsa_ladegeschwindigkeit": ["battery_charging_rate", { state: "30", attributes: { unit_of_measurement: "km/h" } }],
+    "binary_sensor.corsa_ladekabel_angeschlossen": ["battery_plugged", bin("on", "plug")],
+    "binary_sensor.corsa_laden": ["battery_charging", bin(charging, "battery_charging")],
+    "binary_sensor.corsa_ladelimit": ["battery_charging_limit", bin("off")],
+    "number.corsa_ladelimit": ["battery_charging_limit", { state: "80", attributes: {} }],
+    "binary_sensor.corsa_doors": ["doors", bin(doors, "lock")],
+    "binary_sensor.corsa_kofferraum": ["door_trunk", bin(trunk, "door")],
+    "binary_sensor.corsa_fahrertur": ["door_driver", bin(driver, "door")],
+    "device_tracker.corsa_fahrzeug": ["vehicle", { state: "home", attributes: { entity_picture: "https://example.invalid/corsa.png" } }],
+    ...extra,
+  };
+  return fakeHass({
+    devices: { corsa: { name: "Corsa" } },
+    entities: Object.fromEntries(Object.entries(ents).map(([id, [key]]) => [id, { device_id: "corsa", platform, translation_key: key }])),
+    states: Object.fromEntries(Object.entries(ents).map(([id, [, st]]) => [id, st])),
+  });
+};
+
+test("a Stellantis car is found by translation_key, whatever language its ids are in", () => {
+  const hass = stellantis();
+  assert.deepEqual(carDevices(hass), ["corsa"]);
+  assert.equal(carPlatform(hass, "corsa"), "stellantis_vehicles");
+  assert.equal(isKnownCar(hass, "corsa"), true);
+  assert.equal(isVwCar(hass, "corsa"), false);
+  const s = carSlots(hass, "corsa");
+  assert.equal(s.battery, "sensor.corsa_batterie");
+  assert.equal(s.erange, "sensor.corsa_reichweite");
+  assert.equal(s.range, "sensor.corsa_reichweite", "an electric car: its only range");
+  assert.equal(s.mileage, "sensor.corsa_kilometer");
+  assert.equal(s.inspDays, "sensor.corsa_tage_bis_zur_nachsten_wartung");
+  assert.equal(s.inspKm, "sensor.corsa_kilometer_bis_zur_nachsten_wartung");
+  assert.equal(s.outside, "sensor.corsa_temperatur");
+  assert.equal(s.chargeLeft, "sensor.corsa_ladeende");
+  assert.equal(s.chargeLimit, "number.corsa_ladelimit", "the number, not the binary_sensor with the same key");
+  assert.equal(s.cable, "binary_sensor.corsa_ladekabel_angeschlossen");
+  assert.equal(s.charging, "binary_sensor.corsa_laden");
+  assert.equal(s.trunk, "binary_sensor.corsa_kofferraum");
+  assert.equal(s.tracker, "device_tracker.corsa_fahrzeug");
+  assert.equal(s.chargePower, undefined, "km/h of range is no charging power");
+  assert.equal(carText(hass, "corsa"), "81 % · 287 km");
+  assert.equal(carText(stellantis({ charging: "on" }), "corsa"), "Charging · 81 % · 287 km");
+  assert.equal(carCharging(stellantis({ charging: "on" }), carSlots(stellantis({ charging: "on" }), "corsa")), true);
+});
+
+test("the same entities from another integration are not read by translation_key", () => {
+  const hass = stellantis({ platform: "some_other" });
+  assert.equal(isKnownCar(hass, "corsa"), false);
+  assert.equal(carSlots(hass, "corsa").battery, undefined, "…_batterie matches no name");
+  assert.deepEqual(carDevices(hass), [], "without a battery or fuel level it is no car");
+});
+
+test("Stellantis 'doors' is the lock: unlocked, not an open door; the trunk is the trunk", () => {
+  assert.deepEqual(carOpenings(stellantis(), "corsa"), { open: [], locks: 1, unlocked: 0 });
+  assert.deepEqual(carOpenings(stellantis({ doors: "on" }), "corsa"), { open: [], locks: 1, unlocked: 1 });
+  assert.deepEqual(carOpenings(stellantis({ trunk: "on" }), "corsa").open, ["car_trunk"]);
+  assert.deepEqual(carOpenings(stellantis({ driver: "on" }), "corsa").open, ["car_door"]);
+});
+
+test("the end of charging as a moment gives minutes; durations and placeholders as before", () => {
+  const at = (min) => new Date(Date.now() + min * 60000).toISOString();
+  const hass = stellantis({ charging: "on", end: at(95) });
+  assert.equal(Math.round(chargeLeftMin(hass, carSlots(hass, "corsa").chargeLeft)), 95);
+  const st = (state, attributes = {}) => fakeHass({ states: { "sensor.x": { state, attributes } } });
+  assert.equal(chargeLeftMin(st(at(-5), { device_class: "timestamp" }), "sensor.x"), null, "already past");
+  assert.equal(chargeLeftMin(st(at(25 * 60), { device_class: "timestamp" }), "sensor.x"), null, "more than a day");
+  assert.equal(chargeLeftMin(st("unknown", { device_class: "timestamp" }), "sensor.x"), null);
+  assert.equal(chargeLeftMin(st("45"), "sensor.x"), 45, "no unit: minutes, like before");
+  assert.equal(chargeLeftMin(st("2", { unit_of_measurement: "h" }), "sensor.x"), 120);
+  assert.equal(chargeLeftMin(st("65535", { unit_of_measurement: "min" }), "sensor.x"), null);
+});

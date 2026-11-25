@@ -1,8 +1,9 @@
 // A device tile (grid, focus) or row (list). Each one updates itself when its state changes.
 import { h, icon, domainOf, bindTapHold, toggleSwitch, lightColor, isUnavailable, entityName, slider } from "./util.js";
 import { isOn } from "./model.js";
-import { entityIcon, stateText, tapAction, buildControls, hasControls } from "./domains.js";
+import { entityIcon, stateText, tapAction, buildControls, hasControls, isShade } from "./domains.js";
 import { meterSensors, watts, formatWatts, deviceName, applianceFor, applianceText } from "./usage.js";
+import { isPowerSensor, powerDeviceOf, powerDeviceState, powerDeviceIcon } from "./powerdevice.js";
 
 /** These open their controls on tap; lights, sockets and speakers switch or play with the small icon instead. */
 const OPEN_ON_TAP = new Set(["climate", "water_heater", "cover", "light", "switch", "media_player", "vacuum", "valve"]);
@@ -16,7 +17,8 @@ export const isUncounted = (ctx, entityId) => !!ctx.settings.s.uncounted?.[entit
 
 /**
  * Which extra edit button a row gets in the room popup's Customise sheet:
- * "count" for a light, "meter" for a socket that measures power, null for anything else.
+ * "count" for a light, "meter" for a socket that measures power, "power" for a power sensor
+ * (shown as a device or not), null for anything else.
  * Bundle keys like "wbx:garden" and separators carry a colon and never get one.
  */
 export function editToggle(ctx, key) {
@@ -24,11 +26,13 @@ export function editToggle(ctx, key) {
   const d = domainOf(key);
   if (d === "light") return "count";
   if (d === "switch" && (isMeter(ctx, key) || meterSensors(ctx.hass, key).power)) return "meter";
+  if (isPowerSensor(ctx.hass, key)) return "power";
   return null;
 }
 
 /** The same toggle as in edit mode, as a chip for a sheet row. Calls `after` once the setting is stored. */
 export function editChip(ctx, key, kind, areaName, after) {
+  if (kind === "power") return powerChip(ctx, key, areaName, after);
   const on = kind === "count" ? isUncounted(ctx, key) : isMeter(ctx, key);
   const text = kind === "count" ? (on ? t("not_counted") : t("counts_short")) : on ? t("meter_short") : t("switch_short");
   const ic = kind === "count" ? (on ? "mdi:minus-circle-outline" : "mdi:counter") : on ? "mdi:flash" : "mdi:power";
@@ -45,9 +49,24 @@ export function editChip(ctx, key, kind, areaName, after) {
   return btn;
 }
 
+/** The "Device" button of a power sensor: shown as a device that is on above a threshold, or as a sensor. */
+function powerChip(ctx, key, areaName, after, cls = "hp-chip small") {
+  const on = !!powerDeviceOf(ctx, key);
+  const btn = h("button", { class: `${cls} ${on ? "active" : ""}`, "aria-label": t("power_device"), title: t("power_device") },
+    icon(on ? "mdi:power-plug" : "mdi:power-plug-outline"), h("span", {}, t("power_device")));
+  btn.addEventListener("pointerdown", (e) => e.stopPropagation());
+  btn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    ctx.settings.togglePowerDevice(key);
+    ctx.toast(`${deviceName(ctx.hass, key) || entityName(ctx.hass, key, areaName)}: ${on ? t("now_power_sensor") : t("now_power_device")}`);
+    after?.();
+  });
+  return btn;
+}
+
 function tapOrOpen(ctx, entityId) {
   if (entityId.startsWith("camera.")) return ctx.openCamera(entityId);
-  if (isMeter(ctx, entityId)) return ctx.openDetails(entityId);
+  if (isMeter(ctx, entityId) || powerDeviceOf(ctx, entityId)) return ctx.openDetails(entityId);
   if (OPEN_ON_TAP.has(entityId.split(".")[0]) || !tapAction(ctx, entityId)) ctx.openDetails(entityId);
 }
 import { t } from "./i18n.js";
@@ -60,10 +79,12 @@ export function createTile(ctx, entityId, { size = 1, areaName, variant = "tile"
   const d = domainOf(entityId);
   const st0 = ctx.hass.states[entityId];
   const big = size === 2 && variant !== "row";
-  const meter = isMeter(ctx, entityId) ? meterSensors(ctx.hass, entityId) : null;
+  // A power sensor shown as a device (#44): on above its threshold, no switching.
+  const pdev = d === "sensor" && !!powerDeviceOf(ctx, entityId);
+  const meter = !pdev && isMeter(ctx, entityId) ? meterSensors(ctx.hass, entityId) : null;
   const wide = size === "w" && variant !== "row";
   const el = h("div", {
-    class: `hp-tile hp-${variant} ${big ? "size2" : ""} ${wide ? "wide" : ""} ${meter ? "hp-meter" : ""}`,
+    class: `hp-tile hp-${variant} ${big ? "size2" : ""} ${wide ? "wide" : ""} ${meter ? "hp-meter" : ""} ${pdev ? "hp-powerdev" : ""}`,
     dataset: { key: entityId, domain: d },
     tabindex: "0",
     role: "button",
@@ -118,8 +139,7 @@ export function createTile(ctx, entityId, { size = 1, areaName, variant = "tile"
       });
     }
     // Shades: a thin bar shows how far they are open (gates only know open and closed, so no bar).
-    const isShade = d === "cover" && !["garage", "gate", "door"].includes(st0?.attributes.device_class);
-    if (isShade && !(big && hasControls(st0))) {
+    if (isShade(ctx.hass, entityId) && !(big && hasControls(st0))) {
       const fill = h("i", {});
       el._coverBar = fill;
       el.append(h("div", { class: "hp-cover-bar" }, fill));
@@ -170,6 +190,9 @@ export function createTile(ctx, entityId, { size = 1, areaName, variant = "tile"
     el.append(mb);
   }
 
+  // Edit mode: a power sensor (an oven on a metering relay) can show as a device that is on above a threshold.
+  if (ctx.editing && variant !== "row" && isPowerSensor(ctx.hass, entityId)) el.append(powerChip(ctx, entityId, areaName, null, "hp-edit-meter"));
+
   // Edit mode: a light that is on almost always (word clock, aquarium) can be left out of the counts.
   if (ctx.editing && variant !== "row" && d === "light") {
     const off = isUncounted(ctx, entityId);
@@ -200,8 +223,27 @@ export function createTile(ctx, entityId, { size = 1, areaName, variant = "tile"
   let last = null;
   let appliance = null;
   let applianceAt = 0;
+  let offTimer = null;
+  // History and today's energy load later; then the tile draws again.
+  const again = () => { last = null; if (el.isConnected) el.update(ctx.hass); };
   el.update = (hass) => {
     const st = hass.states[entityId];
+    if (pdev && st) {
+      const p = powerDeviceState(ctx, entityId, again);
+      const key = [st, p.text, p.status.on];
+      if (last && key.every((x, i) => x === last[i])) return;
+      last = key;
+      el.classList.toggle("on", p.status.on);
+      el.classList.toggle("unavail", isUnavailable(st));
+      ic.icon = powerDeviceIcon(hass, entityId);
+      nameEl.textContent = deviceName(hass, entityId);
+      stateEl.textContent = isUnavailable(st) ? t("unavailable") : p.text;
+      // Off after a long enough pause, also when no new reading comes; "for 35 min" moves on too.
+      clearTimeout(offTimer);
+      const wait = p.status.offAt ? p.status.offAt - Date.now() + 500 : p.status.on ? 60000 : 0;
+      if (wait > 0) offTimer = setTimeout(() => { if (el.isConnected) { last = null; el.update(ctx.hass); } }, Math.min(wait, 60000));
+      return;
+    }
     // A meter tile also follows its power sensor and the appliance it powers.
     if (meter && !appliance && Date.now() - applianceAt > 30000) {
       appliance = applianceFor(hass, entityId, meter.power);

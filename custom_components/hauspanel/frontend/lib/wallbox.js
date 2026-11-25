@@ -7,7 +7,7 @@ import { openSheet } from "./dialogs.js";
 import { watts, formatWatts } from "./usage.js";
 import { carDevices, carName, carSlots } from "./car.js";
 import { t } from "./i18n.js";
-import { svgEl, num, live, slotsOf, stat, hint, btn, twoTap, fmt } from "./popkit.js";
+import { svgEl, num, live, slotsOf, stat, hint, btn, twoTap, fmt, chargeLeftMin } from "./popkit.js";
 import { solarRates } from "./energy.js";
 
 const SLOTS = [
@@ -80,21 +80,8 @@ export function useModes(hass, id) {
   return list.map((value) => ({ value, label: hass.formatEntityState?.({ ...st, state: value }) || String(value), active: value === st.state }));
 }
 
-/** Minutes per unit a duration sensor may report in. Anything else we don't read. */
-const PER_MIN = { s: 1 / 60, min: 1, h: 60 };
-/**
- * How long a charge still has to run, in minutes. null when there is no such sensor, its unit is
- * one we don't know, or the value isn't a sane duration: evcc sends a huge placeholder (Go's
- * maximum, about 9.2e18) when it has no idea, and that would turn into a nonsense time of day.
- */
-export function chargeMinutes(hass, id) {
-  const v = num(hass, id);
-  if (v == null) return null;
-  const f = PER_MIN[String(hass.states[id].attributes?.unit_of_measurement || "").trim().toLowerCase()];
-  if (!f) return null;
-  const m = v * f;
-  return m > 0 && m < 24 * 60 ? m : null;
-}
+/** How long a charge still has to run, in minutes (see chargeLeftMin), or null. */
+export const chargeMinutes = (hass, id) => chargeLeftMin(hass, id);
 
 /**
  * Where minus (-1) or plus (1) takes a number entity, within its own min, max and step.
@@ -132,6 +119,8 @@ const carRing = (hass, dev) => {
     limit: c.chargeLimit,
     cstate: c.chargeState,
     cpower: c.chargePower,
+    ccharging: c.charging,
+    ccable: c.cable,
   };
 };
 
@@ -313,8 +302,8 @@ export function openWallbox(ctx, dev) {
   const update = (hs) => {
     const p = kw(hs, s.power) ?? kw(hs, c.cpower);
     const rm = runModeState(hs.states[s.runmode]?.state);
-    const charging = hs.states[s.charging]?.state === "on" || rm === "charging" || p > 0.1 || /^charging$/i.test(hs.states[c.cstate]?.state || "");
-    const plugged = hs.states[s.plug]?.state === "on" || rm === "plugged" || /connect|plug/i.test(hs.states[c.cstate]?.state || "") && !/connect_cable/i.test(hs.states[c.cstate]?.state || "");
+    const charging = hs.states[s.charging]?.state === "on" || rm === "charging" || p > 0.1 || /^charging$/i.test(hs.states[c.cstate]?.state || "") || hs.states[c.ccharging]?.state === "on";
+    const plugged = hs.states[s.plug]?.state === "on" || rm === "plugged" || /connect|plug/i.test(hs.states[c.cstate]?.state || "") && !/connect_cable/i.test(hs.states[c.cstate]?.state || "") || hs.states[c.ccable]?.state === "on";
     const offline = !live(hs, s.power) && !live(hs, s.session) && !live(hs, s.plug) && !live(hs, s.runmode);
     // Sun that could pay for the charge: all inverters together.
     const sun = sunRates.reduce((a, id) => a + Math.max(0, watts(hs, id) ?? 0), 0) / 1000;
@@ -335,7 +324,7 @@ export function openWallbox(ctx, dev) {
     sRange.set(er != null ? `${fmt(hs, er)} km` : num(hs, c.range) != null ? `${fmt(hs, num(hs, c.range))} km` : "–");
     sRange.querySelector("small").textContent = er != null ? `${t("wb_range")} · ${t("wb_electric")}` : t("wb_range");
     // A car integration knows best; without one, evcc's own numbers fill in.
-    const left = num(hs, c.left) ?? chargeMinutes(hs, s.vleft);
+    const left = chargeMinutes(hs, c.left) ?? chargeMinutes(hs, s.vleft);
     const lim = num(hs, c.limit) ?? num(hs, s.vlimit);
     sFull.set(charging && left ? formatTime(hs, new Date(Date.now() + left * 60000)) : lim != null ? t("wb_to", { n: lim }) : "–");
     const list = [];

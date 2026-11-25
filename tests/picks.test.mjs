@@ -50,3 +50,32 @@ test("second streams and still pictures are extra, a camera of its own is not", 
   const extra = extraCameras(hass, Object.keys(hass.states));
   assert.deepEqual([...extra].sort(), ["camera.drive_fluent", "camera.garden_person", "camera.yard_low"]);
 });
+
+// Tuya Local (make-all) files a socket's power under Diagnostic: used when the device has no other.
+test("a power sensor under Diagnostic counts when the device has no other; config and hidden never", () => {
+  const w = (v) => ({ state: String(v), attributes: { device_class: "power", unit_of_measurement: "W" } });
+  const kwh = (v) => ({ state: String(v), attributes: { device_class: "energy", unit_of_measurement: "kWh" } });
+  const house = (extra = {}, extraStates = {}) => fakeHass({
+    states: { "switch.plug": "on", "sensor.plug_power": w(42), "sensor.plug_energy": kwh(3.1), ...extraStates },
+    entities: {
+      "switch.plug": { device_id: "plug" },
+      "sensor.plug_power": { device_id: "plug", entity_category: "diagnostic" },
+      "sensor.plug_energy": { device_id: "plug" },
+      ...extra,
+    },
+  });
+  // Only the diagnostic one: it is taken.
+  assert.deepEqual(meterSensors(house(), "switch.plug"), { power: "sensor.plug_power", energy: "sensor.plug_energy" });
+  // One without a category as well: that one wins, whatever the order.
+  const both = house({ "sensor.plug_current_power": { device_id: "plug" } }, { "sensor.plug_current_power": w(40) });
+  assert.equal(meterSensors(both, "switch.plug").power, "sensor.plug_current_power");
+  // Configuration never counts.
+  const cfg = house({ "sensor.plug_power": { device_id: "plug", entity_category: "config" } });
+  assert.equal(meterSensors(cfg, "switch.plug").power, null);
+  // Hidden never counts, under Diagnostic either.
+  const hid = house({ "sensor.plug_power": { device_id: "plug", entity_category: "diagnostic", hidden: true } });
+  assert.equal(meterSensors(hid, "switch.plug").power, null);
+  // An energy sensor under Diagnostic too.
+  const en = house({ "sensor.plug_energy": { device_id: "plug", entity_category: "diagnostic" } });
+  assert.equal(meterSensors(en, "switch.plug").energy, "sensor.plug_energy");
+});

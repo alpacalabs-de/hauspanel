@@ -120,8 +120,9 @@ export function openParcels(ctx) {
     const done = deliveredParcels(hass);
     sheet.body.replaceChildren(
       coming.length ? h("div", { class: "hp-qlist" }, ...coming.map((p) => parcelRow(hass, p))) : h("div", { class: "hp-qempty" }, t("parcels_none")),
-      done.length ? h("div", { class: "hp-label hp-parcels-label" }, t("parcels_recent")) : null,
-      done.length ? h("div", { class: "hp-qlist" }, ...done.map((p) => parcelRow(hass, p, true))) : null);
+      // replaceChildren turns null into the text "null", so the delivered part is only spread in when there is one
+      ...(done.length ? [h("div", { class: "hp-label hp-parcels-label" }, t("parcels_recent")),
+        h("div", { class: "hp-qlist" }, ...done.map((p) => parcelRow(hass, p, true)))] : []));
   };
   draw();
 }

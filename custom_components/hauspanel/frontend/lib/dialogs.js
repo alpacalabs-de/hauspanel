@@ -1,10 +1,11 @@
 // Sheets and dialogs: details, confirm, text input, add device, hidden items.
 import { h, icon, domainOf, entityName } from "./util.js";
-import { entityIcon, stateText, buildControls, hasControls, openMoreInfo, HAZARD, hazardInfo } from "./domains.js";
+import { entityIcon, stateText, buildControls, hasControls, hasTilt, openMoreInfo, HAZARD, hazardInfo } from "./domains.js";
 import { usageBlock, meterSensors, deviceName, watts, applianceFor, applianceText } from "./usage.js";
 import { t } from "./i18n.js";
 import { timerBlock, canHaveTimer } from "./timers.js";
 import { openAppliance } from "./appliance.js";
+import { powerDeviceOf, powerDeviceState, powerDeviceIcon, thresholdRow } from "./powerdevice.js";
 
 /** Open a sheet inside the panel. Returns { el, body, close, update }. */
 /** Eat the rest of a tap (up, click) for a moment, everywhere. */
@@ -146,6 +147,8 @@ export function detailsDialog(ctx, entityId, { plain = false } = {}) {
   if (!st) return;
   const d = domainOf(entityId);
   if (d === "media_player") return ctx.openPlayer(entityId);
+  // A power sensor shown as a device (#44): on or off, since when, the threshold and the usage.
+  if (!plain && powerDeviceOf(ctx, entityId)) return powerDeviceDialog(ctx, entityId);
   // Sockets set to "meter only" show their usage instead of a power button.
   const meter = !!ctx.settings.s.meters?.[entityId];
   // A socket that powers a washer, dryer or dishwasher opens the appliance.
@@ -153,7 +156,8 @@ export function detailsDialog(ctx, entityId, { plain = false } = {}) {
     const app = applianceFor(hass, entityId, meterSensors(hass, entityId).power);
     if (app) return openAppliance(ctx, app.dev, { plug: entityId });
   }
-  if (!meter && !hasControls(st) && !["light", "switch", "input_boolean", "lock"].includes(d)) {
+  // A cover that only moves its slats has no position or open button, but its slats are worth a popup.
+  if (!meter && !hasControls(st) && !(d === "cover" && hasTilt(st)) && !["light", "switch", "input_boolean", "lock"].includes(d)) {
     openMoreInfo(ctx.root, entityId);
     return;
   }
@@ -198,8 +202,35 @@ export function detailsDialog(ctx, entityId, { plain = false } = {}) {
   });
 }
 
+/** The popup of a power sensor shown as a device: on since …, off with today's energy, the threshold, the usage. */
+function powerDeviceDialog(ctx, entityId) {
+  const hass = ctx.hass;
+  const areaName = ctx.model.areaById.get(ctx.model.areaOf[entityId])?.name;
+  const iconBox = h("div", { class: "hp-tile-icon big" }, icon(powerDeviceIcon(hass, entityId)));
+  const stateEl = h("div", { class: "hp-details-state" });
+  const head = h("div", { class: "hp-details-head hp-powerdev-head" }, iconBox, stateEl);
+  const draw = () => {
+    const p = powerDeviceState(ctx, entityId, draw);
+    stateEl.textContent = hass.states[entityId]?.state === "unavailable" ? t("unavailable") : p.text;
+    head.classList.toggle("on", p.status.on);
+  };
+  const usage = usageBlock(ctx, entityId);
+  const more = h("button", { class: "hp-btn ghost" }, icon("mdi:dots-horizontal"), t("more_in_ha"));
+  const sheet = openSheet(ctx, { title: deviceName(hass, entityId), subtitle: areaName, cls: "details details-sensor" });
+  more.addEventListener("click", () => {
+    sheet.close();
+    openMoreInfo(ctx.root, entityId);
+  });
+  sheet.body.append(head, thresholdRow(ctx, entityId, draw), usage, h("div", { class: "hp-sheet-actions" }, more));
+  draw();
+  sheet.updaters.push((hs) => {
+    usage.update(hs);
+    draw();
+  });
+}
+
 /** Add any device from any room to the current room or page. */
-export function addDialog(ctx, { container, autoItems, onPick, domains }) {
+export function addDialog(ctx, { container, autoItems, onPick, domains, title }) {
   const hass = ctx.hass;
   const search = h("input", { class: "hp-input", type: "search", placeholder: t("search") });
   const list = h("div", { class: "hp-add-list" });
@@ -283,9 +314,24 @@ export function addDialog(ctx, { container, autoItems, onPick, domains }) {
     timer = setTimeout(render, 120);
   });
   render();
-  const sheet = openSheet(ctx, { title: t("add_devices"), cls: "tall" });
+  const sheet = openSheet(ctx, { title: title || t("add_devices"), cls: "tall" });
   sheet.body.append(search, list);
   setTimeout(() => search.focus(), 80);
+  return sheet;
+}
+
+/**
+ * Pick the switch that powers a machine (printer, washer …) by hand, for one outlet of a power strip
+ * or a socket the name did not give away. Kept per machine device in the house setting plugPick.
+ */
+export function plugPickDialog(ctx, dev, current, done) {
+  const sheet = addDialog(ctx, { container: `_plug:${dev}`, autoItems: current ? [current] : [], domains: ["switch"], title: t("app_socket_pick"),
+    onPick: (id) => {
+      ctx.settings.update((x) => { x.plugPick = { ...(x.plugPick || {}), [dev]: id }; });
+      sheet.close();
+      done?.();
+    } });
+  return sheet;
 }
 
 /** What was hidden in a container, ready to come back with a tap. */

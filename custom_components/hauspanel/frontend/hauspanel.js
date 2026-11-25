@@ -2,7 +2,7 @@
 import { h, icon, formatTime, formatDate, fireHass, debounce, formatNumber } from "./lib/util.js";
 import { buildModel, registrySignature, isOn, roomHasContent, visiblePersons, countedLights } from "./lib/model.js";
 import { Settings } from "./lib/store.js";
-import { renderHome, renderRooms, renderPage, specialTiles } from "./lib/layouts.js";
+import { renderHome, renderRooms, renderPage, specialTiles, byHomeOrder } from "./lib/layouts.js";
 import { SIDE_DEFAULTS } from "./lib/sidepanel.js";
 import { sortable } from "./lib/drag.js";
 import { confirmDialog, promptDialog, detailsDialog, addDialog, hiddenDialog, toast } from "./lib/dialogs.js";
@@ -16,7 +16,7 @@ import { openShades } from "./lib/shades.js";
 import { classicPopups, openShadesOverview, openSecurityOverview } from "./lib/overviews.js";
 import { openPrinter, printerForEntity } from "./lib/printer.js";
 import { openVacuum, vacuumFor } from "./lib/vacuum.js";
-import { openThermostat } from "./lib/thermostat.js";
+import { openThermostat } from "./lib/climate.js";
 import { openGarden, isIrrigationValve } from "./lib/garden.js";
 import { openPool, poolOf } from "./lib/pool.js";
 import { openCar, carOf } from "./lib/car.js";
@@ -31,7 +31,7 @@ import { loadPlugLinks } from "./lib/usage.js";
 import { securityView, cameraEditor, openSecuritySheet, setSecAllowSource, openSecurity } from "./lib/securityview.js";
 import { fitToScreen } from "./lib/fit.js";
 import { loadEnergyPrefs, hasEnergy, energyView, withEnergyPicks } from "./lib/energy.js";
-import { startUpdateCheck } from "./lib/update.js";
+import { startUpdateCheck, codeVersion } from "./lib/update.js";
 import { screensaver } from "./lib/screensaver.js";
 import { nightView } from "./lib/nightview.js";
 import { TimerClient } from "./lib/timers.js";
@@ -100,7 +100,8 @@ class HausPanelElement extends HTMLElement {
   }
 
   set panel(p) {
-    this.version = p?.config?.version || "";
+    // The version of the loaded code, not of the config: they differ when this page outlived an update.
+    this.version = codeVersion(import.meta.url, p?.config?.version || "");
     this._panelId = p?.url_path || "hauspanel";
     // The MobilePanel and SecurityPanel entries in the sidebar always show their own layout.
     this._forceLayout = p?.config?.layout || (p?.config?.phone ? "phone" : null);
@@ -432,12 +433,15 @@ class HausPanelElement extends HTMLElement {
     return this._today;
   }
 
-  /** Rooms in the order chosen in edit mode; rooms with nothing to switch or read are left out. */
+  /**
+   * Rooms in the order chosen in edit mode; rooms with nothing to switch or read are left out.
+   * Until the Rooms tab has an order of its own, it follows the room cards on Home.
+   */
   roomList() {
     const m = this.model;
     const has = (a) => (a === m.unassigned ? a.tiles.length : roomHasContent(a)) || this.settings.cont(`room:${a.id}`).added?.length;
     const auto = m.areas.filter(has).map((a) => a.id);
-    const { items } = this.settings.arrange("rooms", auto);
+    const { items } = this.settings.arrange("rooms", auto, undefined, (ids) => byHomeOrder(ids, this.settings.cont("home").order));
     const out = items.map((id) => m.areaById.get(id)).filter(Boolean);
     if (has(m.unassigned) && !this.settings.cont("rooms").hidden?.includes("_other")) out.push({ ...m.unassigned, name: t("other") });
     return out;

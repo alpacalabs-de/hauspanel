@@ -1,5 +1,25 @@
 # Changelog
 
+## 1.20.0
+
+- **Ad blockers**: a panel file was named like a known tracking script, so ad blockers using EasyPrivacy (uBlock Origin, for example) could keep the panel from loading. It has a new name now.
+- **Motorized windows** are no longer treated as shades: the shades chip, the room's shade buttons, floor buttons and the Good night check leave them alone. They keep their own tile in the room.
+- **Machine sockets** (*printer popup → Socket*): the printer popup has a button for its socket, also while the printer is off. On a power strip only the machine's outlet is folded into its popup, the other outlets stay in the room, and the socket can be picked by hand.
+- **Parcels popup**: no longer shows "nullnull" below the list when nothing was delivered in the last two days.
+- **Update note**: a screen that still runs the old HausPanel after an update, like the Companion app kept in the background, now offers "Reload", and the bug report info shows the version that really runs.
+- **Favourites** (*Home → Add favourite*): a room's folder in the picker lists its group helpers and the devices added to the room by hand, so a light group can be picked there too.
+- **Tilt for blinds** (*long press a cover*): covers with adjustable slats, like Venetian blinds, get a slat slider in their popup, or buttons to open and close the slats when that is all they can do.
+- **Timer** (*long press a light, switch or window*): besides the fixed times there is "Other time", in steps of 15 minutes up to 12 hours.
+- **Home Connect appliances** (*appliance popup*): state and program come from the right sensors, a delayed start shows as starting later, remaining time, finish time and an open door show up, also with the renaudallard integration.
+- **Stellantis cars** (Opel, Peugeot and others via stellantis-vehicles): the car popup finds them in any language, with charge level, range, charging end, mileage, service, doors and whether the car is locked, and shows the picture from the tracker when there is no other.
+- **Socket power**: a power or energy sensor that the integration files under Diagnostic, like with Tuya Local, is used when the device has no other one.
+- **Light chip**: counts the same lights as the room cards, also a light group that stands in for hidden lamps and lights without a room.
+- **Hidden** (*Settings → Hiding*): a device type or integration you switch on no longer jumps to the top while the settings are open.
+- **Room popup with several thermostats**: each one shows with its own name and icon, and the ring says which one it shows.
+- **Own pages** (*Settings → Navigation*): pick an icon for each page.
+- **Rooms tab**: follows the order of the rooms on Home until you sort it yourself.
+- **Devices with a power meter only** (*edit mode → power sensor tile → Device*): a power sensor without a switch, like an oven on a metering relay, can show as a device that is on above a threshold, with how long it has been on and what it used today.
+
 ## 1.19.0
 
 - **Russian** texts, following Home Assistant's language. Thanks to @k-rts.

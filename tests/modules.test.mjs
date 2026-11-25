@@ -29,6 +29,29 @@ const sources = [
     .map((f) => [`lib/${f}`, new URL(f, dir)]),
 ];
 
+// Ad blockers do not only block other people's domains: EasyPrivacy and friends carry generic
+// rules like "/thermostat.js" that match any site, the user's own Home Assistant included. A
+// panel file with such a name never arrives, and every module importing it goes down with it —
+// the panel stays blank. That is why the thermostat popup lives in climate.js (#37, 1.19.1).
+// The list below is the plain, everyday names out of those rules, the kind a panel module could
+// really be called. To refresh it, pull easyprivacy_general.txt, easyprivacy_trackingservers.txt,
+// easylist_general_block.txt and uBlock's filters.txt and privacy.txt, then:
+//   grep -hv '^!' *.txt | grep -oE '^/[a-z0-9_-]+\.js' | sed 's#^/##' | sort -u
+const BLOCKED_NAMES = `
+analyse analytics beacon cnt counter fingerprint ga gpt hawk hawkeye ht impression infinity
+instantpage invoke jquery keypress log logview magpie matomo metrika pageview pixels pixeltag
+plausible pop popup px quant referrer rollbar sbar sdc stat statistics stats sw tags thermostat
+track tracker tracking ut utrack visitor webstat webstats
+`
+  .split(/\s+/)
+  .filter(Boolean)
+  .map((n) => `${n}.js`);
+
+test("no frontend file is named like a script ad blockers block", () => {
+  const bad = sources.map(([name]) => name).filter((name) => BLOCKED_NAMES.includes(name.replace(/^lib\//, "")));
+  assert.deepEqual(bad, [], `ad blockers drop these files on every site, so the panel would not load: ${bad.join(", ")}`);
+});
+
 for (const [name, url] of sources) {
   test(`${name} parses on Safari 15`, () => {
     const src = readFileSync(url, "utf8");

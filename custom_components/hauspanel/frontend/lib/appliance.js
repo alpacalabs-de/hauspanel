@@ -2,26 +2,9 @@
 // when it is done, live power, maintenance hints and the last runs (WashData and Home Connect).
 import { h, icon, formatTime } from "./util.js";
 import { openMoreInfo } from "./domains.js";
-import { openSheet } from "./dialogs.js";
-import { watts, formatWatts, usageBlock, plugEntityFor } from "./usage.js";
+import { openSheet, plugPickDialog } from "./dialogs.js";
+import { watts, formatWatts, usageBlock, plugEntityFor, applianceSlots, applianceState, applianceLeft } from "./usage.js";
 import { t } from "./i18n.js";
-
-const SLOTS = [
-  ["state", /_(zustand|betriebszustand|state|status|operation_state)$/],
-  ["program", /_(programm|program|aktives_programm|active_program)$/],
-  ["phase", /_(aktuelle_phase|current_phase|programmphase|program_phase)$/],
-  ["progress", /_(fortschritt|progress)$/],
-  ["remaining", /_(verbleibende_zeit|remaining_time|time_remaining|remaining_program_time)$/],
-  ["end", /_(endzeit|finish_time|program_finish_time)$/],
-  ["elapsed", /_(verstrichene_zeit|elapsed_time|elapsed_program_time)$/],
-  ["total", /_(gesamtdauer|total_duration)$/],
-  ["count", /_(zyklusanzahl|cycle_count)$/],
-  ["power", /_(aktuelle_leistung|current_power)$/],
-  ["unload", /_(als_entladen_markieren|mark_unloaded)$/],
-  ["salt", /_(salz_fast_leer|salt_nearly_empty)$/],
-  ["rinse", /_(klarspuler_fast_leer|rinse_aid_nearly_empty)$/],
-  ["door", /_(tur|door)$/],
-];
 
 const RUN = new Set(["running", "run", "starting", "ending", "läuft", "active", "washing", "drying", "spinning", "rinsing"]);
 const PAUSE = new Set(["paused", "user_paused", "pause", "interrupted"]);
@@ -35,7 +18,7 @@ export function applianceKind(text) {
 }
 
 /** Every entity that tells something about the appliance: its own device and a twin of the same name in the room. */
-function sensorsOf(hass, dev) {
+export function sensorsOf(hass, dev) {
   const d = hass.devices?.[dev];
   const name = (d?.name_by_user || d?.name || "").toLowerCase();
   const devs = new Set([dev]);
@@ -44,17 +27,8 @@ function sensorsOf(hass, dev) {
       if (o.area_id === d.area_id && (o.name_by_user || o.name || "").toLowerCase() === name) devs.add(o.id);
     }
   }
-  const out = {};
   // The device that ran the cycle first, so its sensors win over the twin's.
-  for (const dv of [dev, ...[...devs].filter((x) => x !== dev)]) {
-    for (const e of Object.values(hass.entities)) {
-      if (e.device_id !== dv) continue;
-      for (const [slot, re] of SLOTS) {
-        if (!out[slot] && re.test(e.entity_id)) out[slot] = e.entity_id;
-      }
-    }
-  }
-  return out;
+  return applianceSlots(hass, [dev, ...[...devs].filter((x) => x !== dev)]);
 }
 
 const num = (hass, id) => {
@@ -75,18 +49,14 @@ const pretty = (s) => {
 const clock = (hass, d) => formatTime(hass, d);
 const MAINT = { lint_filter: "maint_lint", condenser_clean: "maint_condenser", descale: "maint_descale", drum_clean: "maint_drum", filter_clean: "maint_filter" };
 
-function read(hass, s) {
-  const raw = String(hass.states[s.state]?.state || "").toLowerCase();
+export function readAppliance(hass, s) {
+  const raw = applianceState(hass.states[s.state]);
   const phase = raw === "running" || raw === "run" || RUN.has(raw) ? "run" : PAUSE.has(raw) ? "pause" : DONE.has(raw) ? "done" : LATER.has(raw) ? "later" : "off";
   const prog = hass.states[s.program]?.state;
   const program = prog === "detecting..." ? t("app_detecting") : NONE.has(String(prog || "").toLowerCase()) ? null : pretty(prog);
   const ph = hass.states[s.phase]?.state;
   const step = NONE.has(String(ph || "").toLowerCase()) ? null : pretty(ph);
-  let left = minutes(hass, s.remaining);
-  if ((left == null || left <= 0) && s.end) {
-    const e = (Date.parse(hass.states[s.end]?.state) - Date.now()) / 60000;
-    if (Number.isFinite(e) && e > 0) left = e;
-  }
+  const left = applianceLeft(hass, s);
   const elapsed = minutes(hass, s.elapsed);
   const total = minutes(hass, s.total);
   let progress = num(hass, s.progress);
@@ -109,6 +79,13 @@ function stateLabel(r) {
   if (r.phase === "done") return r.raw === "anti_wrinkle" ? t("app_anti_wrinkle") : r.raw === "clean" ? t("app_clean") : t("app_finished");
   if (r.phase === "later") return t("starts_later");
   return r.raw === "ready" || r.raw === "idle" ? t("app_ready") : t("off");
+}
+
+/** An open door: a binary_sensor that is on, or a sensor saying open. */
+export function doorOpen(hass, id) {
+  const st = id && hass.states[id];
+  if (!st) return false;
+  return id.startsWith("binary_sensor.") ? st.state === "on" : /open|offen/i.test(st.state || "");
 }
 
 /** The drum: porthole and water for the washer, tumbling laundry for the dryer, rising bubbles for the dishwasher. */
@@ -254,10 +231,13 @@ export function openAppliance(ctx, dev, { plug } = {}) {
   });
   const more = h("button", { class: "hp-btn ghost" }, icon("mdi:home-assistant"), t("more_short"));
   // Opened from its socket: the socket's own usage popup is one tap away.
-  plug ||= plugEntityFor(hass, dev);
+  plug ||= plugEntityFor(hass, dev, ctx.settings.s.plugPick);
   const usage = plug && !["unavailable", "unknown"].includes(hass.states[plug]?.state) ? usageBlock(ctx, plug) : null;
   const plugBtn = plug && plug.startsWith("switch.") ? h("button", { class: "hp-btn ghost" }, icon("mdi:power-socket-de"), t("app_socket")) : null;
   actions.append(...[unloadBtn, plugBtn, more].filter(Boolean));
+  // Another socket (one outlet of a power strip) by hand.
+  const pickBtn = h("button", { class: "hp-chip small" }, icon("mdi:power-plug-outline"), t("app_socket_pick"));
+  const pickRow = h("div", { class: "hp-plug-pick" }, pickBtn);
 
   const sheet = openSheet(ctx, { title: name, subtitle: area, cls: "appliance" });
   more.addEventListener("click", () => {
@@ -268,12 +248,16 @@ export function openAppliance(ctx, dev, { plug } = {}) {
     sheet.close();
     ctx.openDetailsPlain?.(plug);
   });
-  sheet.body.append(...[hero, stats, chart, usage, hints, runs, actions].filter(Boolean));
+  pickBtn.addEventListener("click", () => {
+    sheet.close();
+    plugPickDialog(ctx, dev, plug?.startsWith("switch.") ? plug : null, () => openAppliance(ctx, dev));
+  });
+  sheet.body.append(...[hero, stats, chart, usage, hints, runs, actions, pickRow].filter(Boolean));
   if (usage) sheet.updaters.push((hs) => usage.update(hs));
 
   let wasActive = null;
   const update = (hs) => {
-    const r = read(hs, s);
+    const r = readAppliance(hs, s);
     hero.classList.toggle("active", r.active);
     hero.classList.toggle("paused", r.phase === "pause");
     hero.classList.toggle("done", r.phase === "done");
@@ -314,7 +298,7 @@ export function openAppliance(ctx, dev, { plug } = {}) {
     const low = (id) => id && !["off", "unavailable", "unknown", "false"].includes(String(hs.states[id]?.state).toLowerCase());
     if (low(s.salt)) list.push(["mdi:shaker-outline", t("app_salt")]);
     if (low(s.rinse)) list.push(["mdi:water-outline", t("app_rinse")]);
-    if (s.door && /open|offen/i.test(hs.states[s.door]?.state || "")) list.push(["mdi:door-open", t("app_door_open")]);
+    if (doorOpen(hs, s.door)) list.push(["mdi:door-open", t("app_door_open")]);
     hints.replaceChildren(...list.map(([ic, txt]) => h("div", { class: "hp-app-hint" }, icon(ic), h("span", {}, txt))));
     hints.hidden = !list.length;
     if (unloadBtn) unloadBtn.hidden = ["unavailable", "unknown"].includes(hs.states[s.unload]?.state) || r.active;

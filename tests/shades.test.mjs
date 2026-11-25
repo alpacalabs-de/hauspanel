@@ -39,3 +39,49 @@ test("in between: a position for those that can, up or down for the others", () 
   ], "50 % opens a shade without a position");
   assert.deepEqual(shadeCalls(hass, ["cover.simple"], 80), [["open_cover", ["cover.simple"]]]);
 });
+
+// #31: a motorized window is a cover, but no shade. Chips, room buttons and Good night leave it alone.
+const { isShade } = await import(LIB + "domains.js");
+const { roomStats } = await import(LIB + "layouts.js");
+
+test("isShade: shades, blinds and covers without a class are shades; windows, garages, gates, doors, dampers are not", () => {
+  const dc = { shade: "shade", blind: "blind", plain: undefined, window: "window", garage: "garage", gate: "gate", door: "door", damper: "damper" };
+  const hs = fakeHass({ states: Object.fromEntries(Object.entries(dc).map(([k, c]) => [`cover.${k}`, { state: "open", attributes: c ? { device_class: c } : {} }])) });
+  const yes = Object.keys(dc).filter((k) => isShade(hs, `cover.${k}`));
+  assert.deepEqual(yes, ["shade", "blind", "plain"]);
+  assert.equal(isShade(hs, "light.shade"), false, "only covers");
+  assert.equal(isShade(hs, "cover.gone"), true, "a cover without a state yet counts like one without a class");
+});
+
+test("a room with a shade and a motorized window counts only the shade", () => {
+  const hs = fakeHass({ states: {
+    "cover.blind": { state: "open", attributes: { device_class: "blind", current_position: 60 } },
+    "cover.skylight": { state: "open", attributes: { device_class: "window", current_position: 30 } },
+  } });
+  const ctx = { hass: hs, settings: { s: {}, arrange: (_id, items, exists) => ({ items: items.filter(exists), hidden: [] }) } };
+  const st = roomStats(ctx, { id: "attic", name: "Attic", tiles: ["cover.blind", "cover.skylight"] });
+  assert.deepEqual(st.shades, ["cover.blind"]);
+});
+
+const { tiltControls, hasTilt } = await import(LIB + "domains.js");
+const cover = (features) => ({ state: "open", attributes: { supported_features: features } });
+
+test("slats that can be set get a slider, no buttons (#39)", () => {
+  // The demo's Living Room Window: position, stop and every slat feature.
+  assert.deepEqual(tiltControls(cover(511)), { slider: true, open: false, close: false, stop: false });
+  // A pergola roof that only moves its slats.
+  assert.deepEqual(tiltControls(cover(16 | 32 | 64 | 128)), { slider: true, open: false, close: false, stop: false });
+});
+
+test("slats that only open and close get buttons, stop when they can (#39)", () => {
+  assert.deepEqual(tiltControls(cover(1 | 2 | 4 | 16 | 32)), { slider: false, open: true, close: true, stop: false });
+  assert.deepEqual(tiltControls(cover(16 | 32 | 64)), { slider: false, open: true, close: true, stop: true });
+});
+
+test("a cover without slats gets no slat controls (#39)", () => {
+  assert.deepEqual(tiltControls(cover(15)), { slider: false, open: false, close: false, stop: false });
+  assert.deepEqual(tiltControls(cover(undefined)), { slider: false, open: false, close: false, stop: false });
+  assert.deepEqual(tiltControls(undefined), { slider: false, open: false, close: false, stop: false });
+  assert.equal(hasTilt(cover(15)), false);
+  assert.equal(hasTilt(cover(240)), true, "a pergola roof with nothing but slats still gets its popup");
+});

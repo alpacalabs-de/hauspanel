@@ -14,6 +14,28 @@ export const num = (hass, id) => {
   const v = Number(hass.states[id]?.state);
   return Number.isFinite(v) ? v : null;
 };
+/** Minutes per unit a duration sensor may report in (none given: minutes). Anything else we don't read. */
+const PER_MIN = { "": 1, s: 1 / 60, min: 1, h: 60 };
+/**
+ * How long a charge still has to run, in minutes, for a car and a wallbox alike: a duration in a unit we
+ * know, or the moment it will be done (a timestamp, as Stellantis sends it). null when there is no such
+ * sensor or the value isn't a sane time: nothing left, more than a day, or a placeholder like
+ * Volkswagen's 65535 or evcc's huge number.
+ */
+export function chargeLeftMin(hass, id) {
+  const st = id && hass.states[id];
+  if (!st || ["unavailable", "unknown", ""].includes(st.state)) return null;
+  let m = null;
+  const v = Number(st.state);
+  if (Number.isFinite(v)) {
+    const f = PER_MIN[String(st.attributes?.unit_of_measurement || "").trim().toLowerCase()];
+    if (f) m = v * f;
+  } else if (st.attributes?.device_class === "timestamp" || /^\d{4}-\d\d-\d\d[T ]\d/.test(st.state)) {
+    const at = Date.parse(st.state);
+    if (Number.isFinite(at)) m = (at - Date.now()) / 60000;
+  }
+  return m != null && m > 0 && m < 24 * 60 ? m : null;
+}
 export const live = (hass, id) => !!id && !!hass.states[id] && !["unavailable", "unknown"].includes(hass.states[id].state);
 /** A time in the user's own format (24 h or 12 h, as set in their Home Assistant profile). */
 export const clock = (hass, d) => formatTime(hass, d);

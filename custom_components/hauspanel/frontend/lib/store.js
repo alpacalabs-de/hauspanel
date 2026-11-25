@@ -29,7 +29,7 @@ export const DEFAULT_SETTINGS = {
  * the Security page shows, doorbell, baby monitor, calendars and weather … Copying "the house" from
  * another panel takes these; looks, order and the Home screen stay as they are.
  */
-export const HOUSE_KEYS = ["hide", "secAllow", "doorbell", "baby", "calendars", "todos", "weather", "meters", "maintIgnore", "nightCheck", "sceneConfirm", "energyPick", "notices", "modes", "leaveSkip", "leaveAdd", "uncounted", "windowHeat", "airHint", "hazardHint", "haNotes", "editLock", "editPin", "xmas"];
+export const HOUSE_KEYS = ["hide", "secAllow", "doorbell", "baby", "calendars", "todos", "weather", "meters", "maintIgnore", "nightCheck", "sceneConfirm", "energyPick", "notices", "modes", "leaveSkip", "leaveAdd", "uncounted", "windowHeat", "airHint", "hazardHint", "haNotes", "editLock", "editPin", "xmas", "plugPick", "powerDevices"];
 const houseContainer = (k) => k.startsWith("security:");
 
 /** The settings after taking `from` (another panel's) into `to`: "house" or "all". Neither is changed. */
@@ -375,6 +375,22 @@ export class Settings {
       s.meters = { ...(s.meters || {}) };
       if (s.meters[key]) delete s.meters[key];
       else s.meters[key] = true;
+    });
+  }
+
+  /** A power sensor shown as a device that is on above a threshold (#44), or as a plain sensor again. */
+  togglePowerDevice(key) {
+    this.update((s) => {
+      s.powerDevices = { ...(s.powerDevices || {}) };
+      if (s.powerDevices[key]) delete s.powerDevices[key];
+      else s.powerDevices[key] = {};
+    });
+  }
+
+  /** The watts above which such a device counts as on. */
+  setPowerThreshold(key, w) {
+    this.update((s) => {
+      s.powerDevices = { ...(s.powerDevices || {}), [key]: { ...(s.powerDevices?.[key] || {}), on: w } };
     });
   }
 

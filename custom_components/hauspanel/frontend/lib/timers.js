@@ -8,6 +8,18 @@ export const TIMER_MINUTES = [15, 30, 60, 120];
 // Airing rarely takes an hour, so a window starts shorter and stops at one.
 export const WINDOW_MINUTES = [10, 15, 30, 60];
 const CLOSE_FEATURE = 2; // CoverEntityFeature.CLOSE
+// "Other time": quarter-hour steps up to the 12 hours Home Assistant takes (MAX_MINUTES in timers.py).
+export const CUSTOM_STEP = 15;
+export const CUSTOM_MAX = 12 * 60;
+
+/** Where "Other time" starts: the longest of the fixed times. */
+export const customStart = (window) => (window ? WINDOW_MINUTES : TIMER_MINUTES).at(-1);
+
+/** One step shorter (dir -1) or longer (+1), on the quarter hour, between 15 minutes and 12 hours. */
+export function customStep(minutes, dir) {
+  const q = dir > 0 ? Math.floor(minutes / CUSTOM_STEP) + 1 : Math.ceil(minutes / CUSTOM_STEP) - 1;
+  return Math.min(CUSTOM_MAX, Math.max(CUSTOM_STEP, q * CUSTOM_STEP));
+}
 
 /**
  * Only a motorized window may close on a timer. A garage door, a gate, a plain door or a shade
@@ -91,10 +103,12 @@ export function groupTimerText(ctx, ids) {
   return ats.length ? t("timer_off_in", { left: leftText(minutesLeft(Math.min(...ats))) }) : "";
 }
 
-/** In the device popup: "Off in 15 / 30 / 60 min / 2 h" while it is on, or the running timer with Cancel. */
+/** In the device popup: "Off in 15 / 30 / 60 min / 2 h" or "Other time" while it is on, or the running timer with Cancel. */
 export function timerBlock(ctx, entityId) {
   const el = h("div", { class: "hp-timer" });
   const window = domainOf(entityId) === "cover";
+  let custom = null; // minutes while the "Other time" row is open
+  const set = (n) => ctx.timers.set(entityId, n).catch(() => ctx.toast(t("timer_failed")));
   const draw = (hass) => {
     const st = hass.states[entityId];
     const at = ctx.timers?.at(entityId);
@@ -105,18 +119,33 @@ export function timerBlock(ctx, entityId) {
     const label = h("div", { class: "hp-timer-label" }, icon("mdi:timer-outline"),
       h("span", {}, at ? t(running, { time: formatTime(hass, new Date(at)), left: leftText(minutesLeft(at)) }) : t(window ? "timer_close_label" : "timer_label")));
     const btns = h("div", { class: "hp-timer-btns" });
+    let row = null;
     if (at) {
+      custom = null;
       const cancel = h("button", { class: "hp-chip" }, icon("mdi:close"), t("timer_cancel"));
       cancel.addEventListener("click", () => ctx.timers.cancel(entityId).catch(() => ctx.toast(t("timer_failed"))));
       btns.append(cancel);
     } else {
       for (const n of (window ? WINDOW_MINUTES : TIMER_MINUTES)) {
         const b = h("button", { class: "hp-chip" }, leftText(n));
-        b.addEventListener("click", () => ctx.timers.set(entityId, n).catch(() => ctx.toast(t("timer_failed"))));
+        b.addEventListener("click", () => set(n));
         btns.append(b);
       }
+      const other = h("button", { class: `hp-chip ${custom ? "active" : ""}`, "aria-expanded": String(!!custom) }, t("timer_custom"));
+      other.addEventListener("click", () => { custom = custom ? null : customStart(window); draw(ctx.hass); });
+      btns.append(other);
+      if (custom) {
+        const step = (dir) => () => { custom = customStep(custom, dir); draw(ctx.hass); };
+        const less = h("button", { class: "hp-round small", "aria-label": t("timer_less"), disabled: custom <= CUSTOM_STEP }, icon("mdi:minus"));
+        const more = h("button", { class: "hp-round small", "aria-label": t("timer_more"), disabled: custom >= CUSTOM_MAX }, icon("mdi:plus"));
+        less.addEventListener("click", step(-1));
+        more.addEventListener("click", step(1));
+        const go = h("button", { class: "hp-chip active" }, t("timer_set"));
+        go.addEventListener("click", () => { const n = custom; custom = null; set(n); draw(ctx.hass); });
+        row = h("div", { class: "hp-timer-custom" }, less, h("b", { class: "hp-timer-value", "aria-live": "polite" }, leftText(custom)), more, go);
+      }
     }
-    el.replaceChildren(label, btns);
+    el.replaceChildren(label, btns, ...(row ? [row] : []));
     return el;
   };
   el.update = (hass) => draw(hass);

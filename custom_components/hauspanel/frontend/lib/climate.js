@@ -1,5 +1,7 @@
 // Thermostat popup: a big dial from cool blue to warm orange you can drag, the room now, humidity,
 // open windows in the room, modes and the last 24 hours.
+// Named climate.js, not thermostat.js: EasyPrivacy blocks /thermostat.js for every site, so ad
+// blockers kept this file — and with it the whole panel — from loading. See modules.test.mjs.
 import { h, icon, domainOf } from "./util.js";
 import { openMoreInfo } from "./domains.js";
 import { openSheet } from "./dialogs.js";
