@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.20.1
+
+- **3D printers** with English entity names no longer show up a second time in their room as a washing machine.
+- **Devices with a power meter only** also show under *On now* while they are on.
+
 ## 1.20.0
 
 - **Ad blockers**: a panel file was named like a known tracking script, so ad blockers using EasyPrivacy (uBlock Origin, for example) could keep the panel from loading. It has a new name now.

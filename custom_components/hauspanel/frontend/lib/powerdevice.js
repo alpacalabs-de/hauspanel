@@ -160,6 +160,20 @@ export function powerDeviceState(ctx, id, again) {
   return { status, kwh, text: powerDeviceText(hass, status, kwh) };
 }
 
+/**
+ * Power devices that are on right now, for "On now": the same state as their tiles (powerStatus, with the
+ * hysteresis), so a short dip keeps them listed. `conf` is the setting powerDevices. [{ id, name, icon, status }]
+ */
+export function runningPowerDevices(hass, conf, again) {
+  const out = [];
+  for (const [id, c] of Object.entries(conf || {})) {
+    if (!isPowerSensor(hass, id)) continue;
+    const status = powerStatus(hass, id, powerThreshold(c), again);
+    if (status.on) out.push({ id, name: deviceName(hass, id), icon: powerDeviceIcon(hass, id), status });
+  }
+  return out;
+}
+
 /** Steps for the threshold: fine at low power, coarse at high. */
 const stepAt = (v) => (v < 50 ? 5 : v < 200 ? 10 : v < 1000 ? 50 : 100);
 

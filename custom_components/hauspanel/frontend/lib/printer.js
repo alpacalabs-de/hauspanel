@@ -5,7 +5,7 @@ import { openMoreInfo } from "./domains.js";
 import { openSheet, plugPickDialog } from "./dialogs.js";
 import { liveVideo } from "./camera.js";
 import { t } from "./i18n.js";
-import { usageBlock, plugEntityFor } from "./usage.js";
+import { usageBlock, plugEntityFor, printerDevices } from "./usage.js";
 
 const SLOTS = [
   ["status", "sensor", /_(druckstatus|print_status)$/],
@@ -61,8 +61,7 @@ export function printerForEntity(hass, entityId) {
 
 /** Every printer in the house that prints right now. */
 export function runningPrinters(hass, { all = false } = {}) {
-  const devs = new Set(Object.values(hass.entities || {}).filter((e) => /_(druckstatus|print_status)$/.test(e.entity_id) && e.device_id).map((e) => e.device_id));
-  return [...devs].map((d) => printerOf(hass, d)).filter((p) => p && (all || ACTIVE.has(hass.states[p.status]?.state)));
+  return [...printerDevices(hass)].map((d) => printerOf(hass, d)).filter((p) => p && (all || ACTIVE.has(hass.states[p.status]?.state)));
 }
 
 const num = (hass, id) => {

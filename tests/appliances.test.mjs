@@ -321,3 +321,61 @@ test("WashData as before: zustand, fortschritt, verbleibende_zeit in minutes", (
   assert.equal(applianceText(hass, a), "Running · 25 % · 75 min left");
   assert.equal(readAppliance(hass, sensorsOf(hass, "wd")).power, 800);
 });
+
+// ---- a 3D printer is no appliance (#43): Bambu Lab with English entity ids has "…_print_status"
+const { runningAppliances } = await import(LIB + "usage.js");
+const { printerOf, runningPrinters } = await import(LIB + "printer.js");
+
+function printerAndWasher(prefix, ids) {
+  const entities = Object.fromEntries(ids.map((s) => [`${s.split(".")[0]}.${prefix}_${s.split(".")[1]}`, { device_id: "prn", platform: "bambu_lab" }]));
+  Object.assign(entities, Object.fromEntries(["sensor.wm_zustand", "sensor.wm_fortschritt", "sensor.wm_verbleibende_zeit"].map((id) => [id, { device_id: "wm" }])));
+  const states = Object.fromEntries(Object.keys(entities).map((id) => [id, "unknown"]));
+  return fakeHass({
+    areas: { office: { area_id: "office", name: "Office" } },
+    devices: { prn: { id: "prn", area_id: "office", name: "H2D", model: "H2D", manufacturer: "Bambu Lab" }, wm: { id: "wm", area_id: "office", name: "Washer" } },
+    entities,
+    states: { ...states, "sensor.wm_zustand": "running", "sensor.wm_fortschritt": "40", "sensor.wm_verbleibende_zeit": "30" },
+  });
+}
+const EN_IDS = ["sensor.print_status", "sensor.print_progress", "sensor.remaining_time", "sensor.end_time", "sensor.start_time", "sensor.current_stage", "sensor.current_layer", "sensor.task_name", "light.chamber_light", "button.pause"];
+const DE_IDS = ["sensor.druckstatus", "sensor.druckfortschritt", "sensor.verbleibende_zeit", "sensor.endzeit", "sensor.startzeit", "sensor.aktueller_arbeitsschritt", "sensor.aktuelle_schicht", "sensor.name_der_aufgabe", "light.druckraumbeleuchtung", "button.druckvorgang_anhalten"];
+
+test("a 3D printer with English entity ids is a printer, not also an appliance (#43)", () => {
+  const hass = printerAndWasher("h2d", EN_IDS);
+  hass.states["sensor.h2d_print_status"].state = "running";
+  hass.states["sensor.h2d_print_progress"].state = "15";
+  hass.states["sensor.h2d_remaining_time"].state = "85";
+  assert.deepEqual(appliancesIn(hass, "office").map((a) => a.dev), ["wm"], "only the washer is an appliance");
+  assert.deepEqual(runningAppliances(hass).map((a) => a.dev), ["wm"]);
+  assert.equal(printerOf(hass, "prn").status, "sensor.h2d_print_status");
+  assert.deepEqual(runningPrinters(hass).map((p) => p.dev), ["prn"]);
+  // A print status never fills an appliance's state slot.
+  assert.equal(applianceSlots(hass, ["prn"]).state, undefined);
+});
+
+test("a 3D printer with German entity ids is no appliance either; the washer stays (#43)", () => {
+  const hass = printerAndWasher("h2d", DE_IDS);
+  hass.states["sensor.h2d_druckstatus"].state = "running";
+  hass.states["sensor.h2d_druckfortschritt"].state = "15";
+  assert.deepEqual(appliancesIn(hass, "office").map((a) => a.dev), ["wm"]);
+  assert.equal(applianceText(hass, appliancesIn(hass, "office")[0]), "Running · 40 % · 30 min left");
+  assert.deepEqual(runningPrinters(hass).map((p) => p.dev), ["prn"]);
+});
+
+test("a washer and a dishwasher with English '…_status' ids are still appliances (#43)", () => {
+  const hass = fakeHass({
+    areas: { bath: { area_id: "bath", name: "Bath" }, kitchen: { area_id: "kitchen", name: "Kitchen" } },
+    devices: { wm: { id: "wm", area_id: "bath", name: "Washing machine" }, dw: { id: "dw", area_id: "kitchen", name: "Dishwasher" } },
+    entities: {
+      "sensor.washer_status": { device_id: "wm" }, "sensor.washer_progress": { device_id: "wm" }, "sensor.washer_remaining_time": { device_id: "wm" },
+      "sensor.dishwasher_operation_state": { device_id: "dw" }, "sensor.dishwasher_program_progress": { device_id: "dw" },
+    },
+    states: {
+      "sensor.washer_status": "running", "sensor.washer_progress": "50", "sensor.washer_remaining_time": "20",
+      "sensor.dishwasher_operation_state": "run", "sensor.dishwasher_program_progress": "10",
+    },
+  });
+  assert.equal(appliancesIn(hass, "bath")[0].state, "sensor.washer_status");
+  assert.equal(appliancesIn(hass, "kitchen")[0].state, "sensor.dishwasher_operation_state");
+  assert.deepEqual(runningAppliances(hass).map((a) => a.dev).sort(), ["dw", "wm"]);
+});

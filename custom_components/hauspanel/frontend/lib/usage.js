@@ -91,8 +91,13 @@ export const APPLIANCE_SLOTS = [
   ["rinse", null, /_(klarspuler_fast_leer|rinse_aid_nearly_empty)$/, []],
   ["door", ["binary_sensor", "sensor"], /_(tur|door|door_state)$/, []],
 ];
-// A door, a power switch or the link is no operating state; a quiet mode's countdown is no time left.
-const NOT_SLOT = { state: /_(door|tur|power|connection)_state$/, remaining: /silence/ };
+// A door, a power switch, the link or a 3D printer's print status is no operating state; a quiet mode's countdown is no time left.
+const NOT_SLOT = { state: /_(door|tur|power|connection)_state$|_(druckstatus|print_status)$/, remaining: /silence/ };
+
+/** A 3D printer's print status sensor (Bambu Lab in German or English); its device is a printer, never an appliance. */
+export const PRINT_STATUS = /_(druckstatus|print_status)$/;
+/** Devices that are 3D printers: they have a print status sensor. */
+export const printerDevices = (hass) => new Set(Object.values(hass.entities || {}).filter((e) => e.device_id && PRINT_STATUS.test(e.entity_id)).map((e) => e.device_id));
 
 /**
  * The appliance's entities per slot, from its devices in order (the first wins over its twins), the same
@@ -163,10 +168,12 @@ export function applianceLeft(hass, a) {
 /** Appliance devices with a "state" sensor in a room: { dev, state, progress, remaining, end, … } (see APPLIANCE_SLOTS). */
 export function appliancesIn(hass, area) {
   const stateRe = APPLIANCE_SLOTS[0][2];
+  // A 3D printer has a state, progress and time left too, but it has its own tile and popup (printer.js).
+  const printers = printerDevices(hass);
   const devs = new Set();
   for (const e of Object.values(hass.entities)) {
     if (e.device_id && e.entity_id.startsWith("sensor.") && !e.disabled_by && (stateRe.test(e.entity_id) || e.translation_key === "operation_state")
-      && areaOf(hass, e.entity_id) === area) devs.add(e.device_id);
+      && !NOT_SLOT.state.test(e.entity_id) && !printers.has(e.device_id) && areaOf(hass, e.entity_id) === area) devs.add(e.device_id);
   }
   const byDev = new Map();
   for (const dev of devs) byDev.set(dev, { dev, ...applianceSlots(hass, [dev], (e) => areaOf(hass, e.entity_id) === area) });
@@ -393,8 +400,7 @@ export function plugLinks(hass, pick = {}) {
       if (d.id !== plugDev && d.config_entries?.includes(entry)) out.set(d.id, plugLink(hass, plugDev, null, byName(d.id)));
     }
   }
-  const printers = new Set(Object.values(hass.entities || {}).filter((e) => e.device_id && /_(druckstatus|print_status)$/.test(e.entity_id)).map((e) => e.device_id));
-  for (const pd of printers) {
+  for (const pd of printerDevices(hass)) {
     const model = hass.devices?.[pd]?.model || "";
     const area = hass.devices?.[pd]?.area_id;
     const found = Object.values(hass.devices || {}).filter((d) => d.id !== pd && d.via_device_id !== pd

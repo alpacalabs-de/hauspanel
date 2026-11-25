@@ -14,6 +14,7 @@ import { openSheet } from "./dialogs.js";
 import { openAppliance, applianceKind } from "./appliance.js";
 import { openPrinter, printerForEntity, runningPrinters, printerText, printerName, printerOf } from "./printer.js";
 import { runningAppliances, appliancesIn, linkedPlugEntities } from "./usage.js";
+import { runningPowerDevices, powerDeviceText } from "./powerdevice.js";
 import { carDevices, carName, carText, openCar } from "./car.js";
 import { poolDevices, openPool } from "./pool.js";
 import { openEnergyFlow, livePower } from "./energyflow.js";
@@ -1052,6 +1053,24 @@ function printerPill(ctx, p) {
   return el;
 }
 
+/** A power-only device that is on as a pill: "Oven · On · 2.1 kW · for 35 min"; tap opens its popup. */
+function powerPill(ctx, d) {
+  const ic = icon(d.icon);
+  const name = h("b", {}, d.name);
+  const sub = h("small", {});
+  const el = h("div", { class: "hp-onpill appliance power on", role: "button", tabindex: "0", dataset: { key: `pwr:${d.id}` } },
+    h("span", { class: "hp-onpill-ic" }, ic), h("div", { class: "hp-onpill-text" }, name, sub));
+  bindTapHold(el, { canStart: () => !ctx.editing, tap: () => ctx.openDetails(d.id), hold: () => ctx.openDetails(d.id) });
+  el.update = (hass, now) => {
+    const x = now || d;
+    ic.icon = x.icon;
+    name.textContent = x.name;
+    sub.textContent = powerDeviceText(hass, x.status, null);
+  };
+  el.update(ctx.hass);
+  return el;
+}
+
 /** Lights and sockets that are on right now, and appliances that run, as small pills. */
 export function onNowBlock(ctx) {
   // Only lights (the 3D printer's too) and sockets meant for switching: no fans, robot settings, sprinklers, screens or helpers.
@@ -1087,23 +1106,34 @@ export function onNowBlock(ctx) {
   const el = h("section", { class: "hp-onnow-sec" }, h("div", { class: "hp-label hp-home-label" }, t("on_now"), count), box, more, empty);
   let sig = null;
   let tiles = [];
+  let pwrTimer = null;
+  // A power device's history loads later; then the list looks again.
+  const again = () => { if (el.isConnected) el.update(ctx.hass); };
   el.update = (hass) => {
     const apps = runningAppliances(hass);
     const prns = runningPrinters(hass);
+    const pwrs = runningPowerDevices(hass, ctx.settings.s.powerDevices, again);
     // A printing printer stands for its chamber light.
     const lightsOf = new Set(prns.map((p) => p.light).filter(Boolean));
-    const now = [...apps.map((a) => `app:${a.dev}`), ...prns.map((p) => `prn:${p.dev}`), ...ids().filter((id) => !lightsOf.has(id))];
+    const now = [...apps.map((a) => `app:${a.dev}`), ...prns.map((p) => `prn:${p.dev}`), ...pwrs.map((p) => `pwr:${p.id}`), ...ids().filter((id) => !lightsOf.has(id))];
     const next = now.join();
     if (next + all !== sig) {
       sig = next + all;
       const shown = all ? now : now.slice(0, LIMIT);
       tiles = shown.map((id) => (id.startsWith("app:") ? appliancePill(ctx, apps.find((a) => `app:${a.dev}` === id))
-        : id.startsWith("prn:") ? printerPill(ctx, prns.find((p) => `prn:${p.dev}` === id)) : onPill(ctx, id)));
+        : id.startsWith("prn:") ? printerPill(ctx, prns.find((p) => `prn:${p.dev}` === id))
+          : id.startsWith("pwr:") ? powerPill(ctx, pwrs.find((p) => `pwr:${p.id}` === id)) : onPill(ctx, id)));
       box.replaceChildren(...tiles);
       more.hidden = now.length <= LIMIT;
       more.replaceChildren(icon(all ? "mdi:chevron-up" : "mdi:chevron-down"), all ? t("show_less") : t("n_more", { n: now.length - LIMIT }));
     }
-    tiles.forEach((tl) => tl.update(hass));
+    tiles.forEach((tl) => tl.update(hass, tl.dataset.key?.startsWith("pwr:") ? pwrs.find((p) => `pwr:${p.id}` === tl.dataset.key) : undefined));
+    // Like its tile: off after a long enough pause, also when no new reading comes; "for 35 min" moves on too.
+    clearTimeout(pwrTimer);
+    if (pwrs.length) {
+      const wait = Math.min(60000, ...pwrs.map((p) => (p.status.offAt ? p.status.offAt - Date.now() + 500 : 60000)));
+      pwrTimer = setTimeout(again, Math.max(1000, wait));
+    }
     count.textContent = now.length ? String(now.length) : "";
     count.hidden = !now.length;
     box.hidden = !now.length;

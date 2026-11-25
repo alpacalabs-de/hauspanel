@@ -113,3 +113,49 @@ test("power device: only a power sensor gets the Device button (#44)", () => {
   assert.equal(isPowerSensor(hass, "sensor.oven_power"), true);
   assert.equal(isPowerSensor(hass, "switch.oven"), false);
 });
+
+// ---- "On now" lists power devices that are on, with the tile's own state (#44)
+const { runningPowerDevices } = await import(LIB + "powerdevice.js");
+
+test("power device: listed under On now while on, not when off, a short dip stays listed (#44)", async () => {
+  const now = Date.now();
+  const iso = (min) => new Date(now - min * MIN).toISOString();
+  const pw = (state, min, extra = {}) => ({ state, attributes: { device_class: "power", unit_of_measurement: "W", ...extra }, last_updated: iso(min) });
+  const hass = fakeHass({
+    states: {
+      "sensor.run_oven_power": pw("2400", 3),
+      "sensor.run_dip_power": pw("4", 1), // dropped a minute ago, after half an hour on
+      "sensor.run_off_power": pw("3", 10), // dropped ten minutes ago: off
+      "sensor.run_idle_power": pw("0", 60),
+      "sensor.run_lamp_power": pw("60", 5), // above the threshold, but not set as a device
+      "sensor.run_temp": { state: "200", attributes: { device_class: "temperature" } },
+    },
+    devices: { oven: { id: "oven", name: "Oven" }, dip: { id: "dip", name: "Kettle" }, off: { id: "off", name: "Heater" } },
+    entities: { "sensor.run_oven_power": { device_id: "oven" }, "sensor.run_dip_power": { device_id: "dip" }, "sensor.run_off_power": { device_id: "off" } },
+  });
+  const hist = {
+    "sensor.run_oven_power": [{ s: "1", lu: (now - 40 * MIN) / 1000 }, { s: "2400", lu: (now - 35 * MIN) / 1000 }],
+    "sensor.run_dip_power": [{ s: "2000", lu: (now - 30 * MIN) / 1000 }, { s: "4", lu: (now - 1 * MIN) / 1000 }],
+    "sensor.run_off_power": [{ s: "1800", lu: (now - 30 * MIN) / 1000 }, { s: "3", lu: (now - 10 * MIN) / 1000 }],
+    "sensor.run_idle_power": [{ s: "0", lu: (now - 60 * MIN) / 1000 }],
+  };
+  hass.callWS = (m) => Promise.resolve(m.type === "history/history_during_period" ? { [m.entity_ids[0]]: hist[m.entity_ids[0]] || [] } : {});
+  const conf = { "sensor.run_oven_power": {}, "sensor.run_dip_power": {}, "sensor.run_off_power": {}, "sensor.run_idle_power": { on: 10 }, "sensor.run_temp": {} };
+  let loaded = 0;
+  runningPowerDevices(hass, conf, () => loaded++);
+  await new Promise((r) => setTimeout(r, 10));
+  assert.ok(loaded >= 4, "the history loads once per device");
+  const list = runningPowerDevices(hass, conf);
+  assert.deepEqual(list.map((d) => d.id), ["sensor.run_oven_power", "sensor.run_dip_power"]);
+  const [oven, dip] = list;
+  assert.equal(oven.name, "Oven");
+  assert.equal(oven.icon, "mdi:stove");
+  assert.equal(oven.status.since, now - 35 * MIN, "running since the history says, like the tile");
+  assert.equal(powerDeviceText(hass, oven.status, null), "On · 2.4 kW · for 35 min");
+  // The dip: still on (the tile's hysteresis), going off two minutes after it began.
+  assert.equal(dip.status.on, true);
+  assert.equal(dip.status.offAt, now - 1 * MIN + 2 * MIN);
+  assert.equal(dip.icon, "mdi:kettle");
+  // No setting, nothing listed.
+  assert.deepEqual(runningPowerDevices(hass, undefined), []);
+});
