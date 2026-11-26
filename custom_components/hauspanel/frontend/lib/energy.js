@@ -282,6 +282,18 @@ function watts(ctx, st) {
   return Math.abs(w) >= 1000 ? `${formatNumber(ctx.hass, w / 1000, 2)} kW` : `${formatNumber(ctx.hass, w, 0)} W`;
 }
 
+/** A big number that is wider than its card (a long meter reading on a narrow tablet card) gets a smaller font, down to 11px. */
+function shrinkToFit(els) {
+  for (const el of els) {
+    el.style.removeProperty("font-size");
+    let size = parseFloat(getComputedStyle(el).fontSize) || 17;
+    while (el.scrollWidth > el.clientWidth + 1 && size > 11) {
+      size -= 1;
+      el.style.fontSize = `${size}px`;
+    }
+  }
+}
+
 function card(cls, ic, label, big, sub) {
   return h("div", { class: `hp-card hp-en-card ${cls}` },
     h("div", { class: "hp-card-label" }, h("div", { class: "hp-tile-icon" }, icon(ic)), label),
@@ -507,6 +519,7 @@ export function energyView(ctx) {
       cards.push(rcard);
     }
     body.replaceChildren(h("div", { class: "hp-en-cards" }, cards), chart(ctx, data, st.range), consumers(ctx, data, mainPrice));
+    requestAnimationFrame(() => shrinkToFit(body.querySelectorAll(".hp-en-card .hp-en-big")));
   }
   draw();
   // Fresh numbers every few minutes while the page is open.

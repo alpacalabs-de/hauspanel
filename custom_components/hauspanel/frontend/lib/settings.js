@@ -2,6 +2,7 @@
 import { h, icon, toggleSwitch } from "./util.js";
 import { openSheet, confirmDialog } from "./dialogs.js";
 import { LAYOUTS, CAT_DEFAULTS } from "./layouts.js";
+import { SIDE_DEFAULTS, sideCameras } from "./sidepanel.js";
 import { CAMS_PER_PAGE } from "./securitypanel.js";
 import { candidateEntities, hideMatcher } from "./model.js";
 import { t } from "./i18n.js";
@@ -231,6 +232,27 @@ export function openSettings(ctx) {
       rows.push(row(t("saver_preview"), tryBtn));
       return rows;
     };
+    // Side panel cameras: the chosen ones first, in their order (up moves one), then the others to switch on.
+    const sideCamsPick = (side, setSide) => {
+      const chosen = sideCameras(ctx.hass, side);
+      const nameOf = (id) => ctx.hass.states[id]?.attributes.friendly_name || id;
+      const rest = Object.keys(ctx.hass.states).filter((id) => id.startsWith("camera.") && !chosen.includes(id)).sort((a, b) => nameOf(a).localeCompare(nameOf(b)));
+      const list = h("div", { class: "hp-qlist hp-side-campick" }, ...[...chosen, ...rest].map((id) => {
+        const i = chosen.indexOf(id);
+        const on = i >= 0;
+        const sw = toggleSwitch(on, () => setSide({ cameras: on ? chosen.filter((x) => x !== id) : [...chosen, id] }));
+        const up = on && i > 0 ? h("button", { class: "hp-round small", "aria-label": t("move_up"), title: t("move_up") }, icon("mdi:chevron-up")) : null;
+        up?.addEventListener("click", () => {
+          const next = [...chosen];
+          [next[i - 1], next[i]] = [next[i], next[i - 1]];
+          setSide({ cameras: next });
+        });
+        return h("div", { class: `hp-qrow ${on ? "" : "off"}` }, h("span", { class: "hp-qrow-ic" }, on ? h("b", {}, String(i + 1)) : icon("mdi:cctv")),
+          h("div", { class: "hp-qrow-text" }, h("b", {}, nameOf(id))), up, sw);
+      }));
+      return h("div", { class: "hp-side-camset" }, h("p", { class: "hp-muted small" }, chosen.length ? t("side_cams_hint") : t("set_cams_motion_none")),
+        rest.length || chosen.length ? fold(list, "sidecams") : null);
+    };
     // Cameras: which ones the Security page shows (for everyone), and whose movements the security
     // popup lists (only for the signed-in user). Before, both were only in edit mode and the popup.
     const camerasSection = () => {
@@ -291,14 +313,24 @@ export function openSettings(ctx) {
           heights ? row(t("tile_height"), heights, t("tile_height_hint")) : null));
       }
       if (dev.layout === "sidebar") {
-        const side = { weather: true, agenda: true, status: true, scenes: true, onnow: false, rooms: false, ...(s.side || {}) };
-        add("device", section(t("side_panel"), h("p", { class: "hp-muted small" }, t("side_panel_hint")),
-          ...[["weather", "mdi:weather-partly-cloudy", t("weather")], ["agenda", "mdi:calendar-blank-outline", t("upcoming")],
-            ["status", "mdi:home-outline", t("home_status")], ["scenes", "mdi:palette-outline", t("scenes")], ["onnow", "mdi:lightbulb-on-outline", t("on_now")], ["rooms", "mdi:format-list-bulleted", t("side_rooms")]].map(([k, ic, label]) =>
-            row(h("span", {}, icon(ic), " ", label), toggleSwitch(side[k], () => {
-              S.update((x) => { x.side = { ...side, [k]: !side[k] }; });
-              draw();
-            })))));
+        const side = { ...SIDE_DEFAULTS, ...(s.side || {}) };
+        const setSide = (patch) => { S.update((x) => { x.side = { ...side, ...patch }; }); draw(); };
+        const rows = [];
+        for (const [k, ic, label] of [["weather", "mdi:weather-partly-cloudy", t("weather")], ["agenda", "mdi:calendar-blank-outline", t("upcoming")],
+          ["status", "mdi:home-outline", t("home_status")], ["scenes", "mdi:palette-outline", t("scenes")], ["onnow", "mdi:lightbulb-on-outline", t("on_now")],
+          ["rooms", "mdi:format-list-bulleted", t("side_rooms")], ["camera", "mdi:cctv", t("cameras")]]) {
+          rows.push(row(h("span", {}, icon(ic), " ", label), toggleSwitch(!!side[k], () => setSide({ [k]: !side[k] }))));
+          // Scenes: two small buttons per row, or one large one with the whole name.
+          if (k === "scenes" && side.scenes) {
+            rows.push(row(t("side_scenes_size"), h("div", { class: "hp-seg" }, [[false, t("side_scenes_small")], [true, t("side_scenes_big")]].map(([v, label2]) => {
+              const b = h("button", { class: !!side.scenesBig === v ? "active" : "" }, label2);
+              b.addEventListener("click", () => setSide({ scenesBig: v }));
+              return b;
+            }))));
+          }
+          if (k === "camera" && side.camera) rows.push(sideCamsPick(side, setSide));
+        }
+        add("device", section(t("side_panel"), h("p", { class: "hp-muted small" }, t("side_panel_hint")), ...rows));
       }
       add("device", section(t("set_screen"), sidebarRow(), liteRow(), dev.layout === "security" ? camsRow() : null, ...saverRows()));
       if (saverLayout(ctx.layout)) add("device", section(t("nv_title"), ...nightRows()));

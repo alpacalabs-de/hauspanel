@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.21.0
+
+- **Rooms tab**: the view buttons no longer sit on top of the edit and settings buttons.
+- **Rooms tab**: a fourth view, Fit to screen, sizes the rooms so all of them fit on the screen at once.
+- **Scenes in the sidebar** (*Settings → This screen → Sidebar panel*): the scene buttons can be large, one per row with the whole name, instead of two small ones per row.
+- **Cameras in the sidebar** (*Settings → This screen → Sidebar panel*): pick one or more cameras to show live, one below the other, in the left panel. A tap shows a camera full screen.
+- **Energy page**: the chart and the biggest consumers fill the screen on tablets, and the cards above no longer cut their labels.
+
 ## 1.20.1
 
 - **3D printers** with English entity names no longer show up a second time in their room as a washing machine.

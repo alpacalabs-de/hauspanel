@@ -1,13 +1,47 @@
-// Widgets for the left panel of the Sidebar layout: weather, what's coming up, home status, room list.
+// Widgets for the left panel of the Sidebar layout: weather, what's coming up, home status, scenes, room list, cameras.
 // Each one can be switched on or off in Settings → Layout.
-import { h, icon, formatNumber, formatTime, formatDate, sameDay, addDays, startOfDay } from "./util.js";
+import { h, icon, formatNumber, formatTime, formatDate, sameDay, addDays, startOfDay, entityName } from "./util.js";
+import { liveVideo, snapshotUrl, trackAspect, openCameraFull } from "./camera.js";
 import { WEATHER_ICONS } from "./domains.js";
 import { openWeather } from "./weather.js";
 import { openCalendar } from "./agenda.js";
 import { homeSecurity } from "./securityview.js";
 import { t } from "./i18n.js";
 
-export const SIDE_DEFAULTS = { weather: true, agenda: true, status: true, scenes: true, onnow: false, rooms: false };
+// scenesBig: one large scene button per row instead of two small ones. cameras: the chosen camera.* ids, in order.
+export const SIDE_DEFAULTS = { weather: true, agenda: true, status: true, scenes: true, scenesBig: false, onnow: false, rooms: false, camera: false, cameras: [] };
+
+/** The chosen cameras that exist, in their order. */
+export function sideCameras(hass, side) {
+  return [...new Set(Array.isArray(side?.cameras) ? side.cameras : [])].filter((id) => typeof id === "string" && id.startsWith("camera.") && hass.states[id]);
+}
+
+/** The chosen cameras live, one below the other; a tap shows one full screen. Streams end when the panel is redrawn. */
+function camerasWidget(ctx, ids) {
+  const el = h("div", { class: "hp-side-cams" });
+  for (const id of ids) {
+    const st = ctx.hass.states[id];
+    const still = h("img", { class: "hp-cam-still", alt: "" });
+    const url = snapshotUrl(st);
+    if (url) still.src = url;
+    const cam = h("div", { class: "hp-side-cam", role: "button", tabindex: "0", dataset: { key: id } }, still,
+      h("span", { class: "hp-side-cam-name" }, entityName(ctx.hass, id)));
+    // The frame takes the camera's shape: from the still first, from the live picture once it runs.
+    still.addEventListener("load", () => {
+      if (!cam.classList.contains("live-sized") && still.naturalWidth && still.naturalHeight) cam.style.setProperty("--ar", (still.naturalWidth / still.naturalHeight).toFixed(4));
+    });
+    if (st.state !== "unavailable") {
+      const video = liveVideo(ctx, id);
+      cam.insertBefore(video, cam.lastChild);
+      trackAspect(cam, video, { fit: "contain" });
+      cam.update = (hass) => video.update(hass);
+      ctx.live.push(cam);
+    } else cam.classList.add("unavail");
+    cam.addEventListener("click", () => !ctx.editing && openCameraFull(ctx, id, ids));
+    el.append(cam);
+  }
+  return el;
+}
 
 /** Now, high/low and the next hours; tap opens the full forecast. */
 function weatherWidget(ctx) {
@@ -90,11 +124,14 @@ export function sideWidgets(ctx, { statusBlock, roomNav, selected, scenes, onNow
   // Scenes, small, under gates and locks (on every page, so they are always at hand).
   if (on.scenes && scenes) {
     const sc = scenes();
-    if (sc) parts.push(h("div", { class: "hp-side-scenes" }, sc));
+    if (sc) parts.push(h("div", { class: `hp-side-scenes ${on.scenesBig ? "big" : ""}` }, sc));
   }
   // What is on right now (lights, sockets, machines), small and two per row, when switched on for this panel.
   if (on.onnow && onNow) parts.push(h("div", { class: "hp-side-onnow" }, onNow()));
   if (on.rooms || needRooms) parts.push(roomNav(ctx, selected, { overview: true }));
+  // Cameras last, live; the panel scrolls when they do not fit.
+  const cams = on.camera ? sideCameras(ctx.hass, on) : [];
+  if (cams.length) parts.push(camerasWidget(ctx, cams));
   for (const p of parts) if (p.sideRefresh) ctx.live.push(p);
   const out = [];
   parts.forEach((p, i) => {

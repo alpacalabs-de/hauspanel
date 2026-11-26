@@ -61,3 +61,14 @@ test("a live picture only plays sound where it was asked for", () => {
   assert.match(src, /export function liveVideo\(ctx, entityId, \{ controls = false, muted = true \} = \{\}\)/);
   assert.match(src, /openCameraFull\(ctx, entityId, list = \[entityId\], \{[^}]*sound = false/);
 });
+
+// Cameras in the left panel of the Sidebar layout (A67): the chosen ones that exist, in their order.
+test("side panel cameras: order kept, missing, doubled and foreign ids left out", async () => {
+  const { sideCameras, SIDE_DEFAULTS } = await import(`${LIB}sidepanel.js`);
+  const hass = { states: { "camera.front": {}, "camera.yard": {}, "light.x": {} } };
+  assert.deepEqual(sideCameras(hass, { cameras: ["camera.yard", "camera.gone", "camera.front", "camera.yard", "light.x"] }), ["camera.yard", "camera.front"]);
+  assert.deepEqual(sideCameras(hass, {}), []);
+  assert.deepEqual(sideCameras(hass, { cameras: "camera.front" }), []);
+  assert.equal(SIDE_DEFAULTS.camera, false);
+  assert.equal(SIDE_DEFAULTS.scenesBig, false);
+});

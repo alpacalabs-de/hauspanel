@@ -188,6 +188,19 @@ class HausPanelElement extends HTMLElement {
     this._resize = debounce(() => this.rerender(), 150);
     window.addEventListener("resize", this._resize);
     document.fonts?.ready.then(() => this._fit());
+    // The panel can change size without a window resize (Home Assistant's sidebar or toolbar, the app's bars):
+    // fit again then, or the energy page and the fitted grids keep the height of the first look.
+    if (window.ResizeObserver) {
+      let size = "";
+      new ResizeObserver(() => {
+        const r = this._main.getBoundingClientRect();
+        const now = `${Math.round(r.width)}x${Math.round(r.height)}`;
+        if (now === size) return;
+        const first = !size;
+        size = now;
+        if (!first) this._fit();
+      }).observe(this._main);
+    }
   }
 
   connectedCallback() {

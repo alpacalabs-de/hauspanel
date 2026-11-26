@@ -998,11 +998,31 @@ ha-icon.hp-rc-touch-ic { --mdc-icon-size: 40px; opacity: .3; pointer-events: non
 .hp-ph-room.mini .hp-ph-room-text small { font-size: 11.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* Rooms tab on tablet and desktop: every room, by floor (cards, rows or compact) */
 .hp-layout-roomsall { display: flex; flex-direction: column; gap: 6px; }
+/* Sidebar layout: the main side scrolls (and keeps room for the bar at the bottom), not a second box inside it */
+.hp-side-main > .hp-layout-roomsall { height: auto; overflow: visible; padding-bottom: 0; }
+/* A page fitted to the screen (energy, rooms "Fit to screen") does not need the room to scroll past the bar */
+.layout-sidebar .hp-side-main.hp-fitted { padding-bottom: 0 !important; }
+.hp-rooms-top { display: flex; align-items: center; justify-content: flex-end; gap: 14px; min-height: 38px; }
+.hp-rooms-top.side { justify-content: flex-start; padding-right: 260px; min-height: 44px; }
+.hp-rooms-title { font-size: 30px; font-weight: 600; letter-spacing: -.01em; line-height: 1.1; white-space: nowrap; }
 .hp-rooms-views { display: flex; justify-content: flex-end; gap: 4px; }
 .hp-rooms-all { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
 .hp-rooms-all.rows { grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 10px; }
 .hp-rooms-all.compact { grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 8px; }
 .hp-rooms-all > .hp-roomcard { min-height: 150px; }
+/* "Fit to screen": compact rows; fit.js sets the columns, the row height (--hp-fr-h) and a scale (--hp-fr-s) */
+.hp-rooms-all.fit { grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 8px; --s: var(--hp-fr-s, 1); }
+.hp-rooms-all.fit > .hp-ph-room.mini { height: var(--hp-fr-h, 58px); min-height: 0; gap: calc(8px * var(--s)); padding: 0 calc(6px * var(--s)) 0 calc(8px * var(--s)); }
+.hp-rooms-all.fit .hp-ph-room.mini .hp-tile-icon { width: calc(34px * var(--s)); height: calc(34px * var(--s)); border-radius: calc(11px * var(--s)); --mdc-icon-size: calc(18px * var(--s)); }
+.hp-rooms-all.fit .hp-ph-room.mini .hp-tile-icon ha-icon { --mdc-icon-size: calc(18px * var(--s)); }
+.hp-rooms-all.fit .hp-ph-room.mini .hp-power { width: calc(32px * var(--s)); height: calc(32px * var(--s)); }
+.hp-rooms-all.fit .hp-ph-room.mini .hp-power ha-icon { --mdc-icon-size: calc(17px * var(--s)); }
+.hp-rooms-all.fit .hp-ph-room.mini .hp-ph-room-text b { font-size: calc(14px * var(--s)); }
+.hp-rooms-all.fit .hp-ph-room.mini .hp-ph-room-text small { font-size: calc(11.5px * var(--s)); }
+.hp-rooms-all.fit .hp-ph-room.mini .hp-presence { width: calc(22px * var(--s)); height: calc(22px * var(--s)); --mdc-icon-size: calc(14px * var(--s)); }
+.hp-rooms-all.fit .hp-rooms-floor { margin-top: 4px; font-size: 12px; }
+.hp-rooms-all.fit .hp-rooms-floor:first-child { margin-top: 0; }
+.hp-rooms-all.fit .hp-floor-btn { width: 30px; height: 30px; --mdc-icon-size: 15px; }
 .hp-rooms-floor { grid-column: 1 / -1; display: flex; align-items: center; gap: 8px; margin: 12px 2px 0; color: var(--hp-sub); font-size: 13px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; --mdc-icon-size: 18px; }
 .hp-rooms-floor:first-child { margin-top: 0; }
 .hp-rooms-all .hp-ph-room-text b { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -1672,20 +1692,35 @@ ha-icon.hp-rc-touch-ic { --mdc-icon-size: 40px; opacity: .3; pointer-events: non
 .hp-side-scenes .hp-scene ha-icon { width: 24px; height: 24px; --mdc-icon-size: 14px; }
 .hp-side-scenes .hp-scene > span, .hp-side-scenes .hp-scene { overflow: hidden; text-overflow: ellipsis; }
 .hp-side-scenes .hp-scenes-wrap { flex-direction: column; align-items: stretch; }
+/* Scenes "large, one per row" (Settings → Layout) */
+.hp-side-scenes.big .hp-scenes { grid-template-columns: minmax(0, 1fr); gap: 6px; }
+.hp-side-scenes.big .hp-scene { height: 44px; border-radius: 14px; padding: 0 12px 0 8px; gap: 10px; font-size: 14px; }
+.hp-side-scenes.big .hp-scene ha-icon { width: 30px; height: 30px; --mdc-icon-size: 16px; }
+/* Cameras in the left panel: live, one below the other, in the camera's own shape */
+.hp-side-cams { display: flex; flex-direction: column; gap: 8px; }
+.hp-side-cam { --ar: 1.7778; position: relative; flex: none; aspect-ratio: var(--ar); border-radius: 14px; overflow: hidden; background: rgba(0,0,0,.3); cursor: pointer; }
+.hp-side-cam .hp-live-wrap, .hp-side-cam .hp-cam-live, .hp-side-cam .hp-cam-still { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; pointer-events: none; }
+.hp-side-cam.live-sized .hp-cam-still { opacity: 0; }
+.hp-side-cam.unavail { opacity: .5; }
+.hp-side-cam-name { position: absolute; left: 8px; bottom: 6px; max-width: calc(100% - 16px); font-size: 11.5px; font-weight: 500; color: #fff; text-shadow: 0 1px 3px rgba(0,0,0,.7); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hp-side-camset > .hp-muted { padding: 10px 14px 4px; margin: 0; }
+.hp-side-campick .hp-qrow-ic b { font-size: 14px; }
 
 /* ---------- energy page fitted to a tablet ---------- */
 .hp-energy.fit { gap: 10px; overflow: hidden; }
 .hp-energy.fit .hp-en-body { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) minmax(250px, 38%); grid-template-rows: auto minmax(0, 1fr); gap: 10px; }
-.hp-energy.fit .hp-en-cards { grid-column: 1 / -1; grid-template-columns: repeat(auto-fit, minmax(92px, 1fr)); gap: 6px; }
+/* Many cards wrap to a second row instead of cutting their labels; a label may take two lines,
+   a long reading gets a smaller font (energy.js, shrinkToFit). */
+.hp-energy.fit .hp-en-cards { grid-column: 1 / -1; grid-template-columns: repeat(auto-fit, minmax(124px, 1fr)); gap: 6px; }
 .hp-energy.fit .hp-en-card { padding: 8px 10px; gap: 2px; min-width: 0; }
-.hp-energy.fit .hp-en-card .hp-card-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; letter-spacing: .02em; }
+.hp-energy.fit .hp-en-card .hp-card-label { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; letter-spacing: .05em; line-height: 1.25; overflow-wrap: anywhere; }
 .hp-energy.fit .hp-en-card .hp-card-label .hp-tile-icon { display: none; }
 .hp-energy.fit .hp-en-row-top > small:not(.hp-en-live) { display: none; }
 .hp-energy.fit .hp-en-row-top .hp-en-live { flex: none; }
-.hp-energy.fit .hp-en-card .hp-card-label { font-size: 11.5px; gap: 6px; }
+.hp-energy.fit .hp-en-card .hp-card-label { font-size: 11px; gap: 6px; }
 .hp-energy.fit .hp-en-card .hp-tile-icon { width: 22px; height: 22px; }
 .hp-energy.fit .hp-en-card .hp-tile-icon ha-icon { --mdc-icon-size: 13px; }
-.hp-energy.fit .hp-en-big { font-size: 17px; }
+.hp-energy.fit .hp-en-big { font-size: 17px; overflow: hidden; text-overflow: ellipsis; }
 .hp-energy.fit .hp-en-card .hp-sub { font-size: 11.5px; }
 .hp-energy.fit .hp-en-chart { display: flex; flex-direction: column; min-height: 0; }
 .hp-energy.fit .hp-en-bars { flex: 1; height: auto; min-height: 60px; }

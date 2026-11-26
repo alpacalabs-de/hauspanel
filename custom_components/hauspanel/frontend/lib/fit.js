@@ -59,6 +59,19 @@ function spaceFor(scroller, el) {
   return scroller.clientHeight - top - padBottom - (last - bottom);
 }
 
+/**
+ * Height for el down to the bar at the bottom, for a page that does not scroll. In the Sidebar layout the main
+ * side keeps a lot of room below for scrolling past the bar; `hp-fitted` drops it (taken off again by the caller
+ * when the page has to scroll after all).
+ */
+function spaceToDock(scroller, el) {
+  scroller.classList.toggle("hp-fitted", scroller.classList.contains("hp-side-main"));
+  const H = spaceFor(scroller, el);
+  const dock = scroller.getRootNode().querySelector?.(".hp-dock");
+  const dockTop = dock?.getClientRects().length ? dock.getBoundingClientRect().top : Infinity;
+  return Math.min(H, dockTop - 12 - el.getBoundingClientRect().top);
+}
+
 /** Camera wall: the number of columns that shows every camera (16:9) as big as possible, without scrolling. */
 function fitCamWall(scroller, wall) {
   wall.style.removeProperty("grid-template-columns");
@@ -88,10 +101,63 @@ function fitEnergy(scroller, el) {
   el.classList.remove("fit");
   el.style.removeProperty("height");
   if (window.innerWidth < NARROW || window.innerHeight < 560) return;
-  const H = spaceFor(scroller, el);
-  if (H < 360) return;
+  const H = spaceToDock(scroller, el);
+  if (H < 360) return scroller.classList.remove("hp-fitted");
   el.classList.add("fit");
   el.style.height = `${Math.floor(H)}px`;
+}
+
+// Rooms tab, "Fit to screen": compact room rows, as many columns and as tall as the screen allows.
+const ROOM_H = 58; // a compact row at scale 1
+const ROOM_W = 230; // ... and the width it looks right at
+const ROOM_MIN_H = 40; // lowest row; below that the list scrolls
+const ROOM_MAX_H = 110;
+const ROOM_MIN_W = 150;
+
+/**
+ * Columns, row height and scale for `counts` rooms per floor in a W×H box. `headH` is the height of all floor
+ * headings together, `heads` how many there are (each is a grid row of its own). `scroll`: even the smallest
+ * rows do not fit.
+ */
+export function planRoomsFit(counts, W, H, { heads = 0, headH = 0, gap = 8 } = {}) {
+  const n = counts.reduce((a, b) => a + b, 0);
+  if (!n || W <= 0 || H <= 0) return null;
+  const maxC = Math.max(1, Math.min(n, Math.floor((W + gap) / (ROOM_MIN_W + gap))));
+  let best = null;
+  for (let c = 1; c <= maxC; c++) {
+    const rows = counts.reduce((a, k) => a + Math.ceil(k / c), 0);
+    const w = (W - gap * (c - 1)) / c;
+    const rh = (H - headH - gap * (rows + heads - 1)) / rows;
+    const score = Math.min(rh, w * (ROOM_H / ROOM_W)); // as big as possible, without flat or skinny rows
+    if (!best || score > best.score + 0.5) best = { c, w, rh, score };
+  }
+  const scroll = best.rh < ROOM_MIN_H;
+  const rh = Math.max(ROOM_MIN_H, Math.min(ROOM_MAX_H, best.rh));
+  const scale = Math.max(0.7, Math.min(1.35, rh / ROOM_H, best.w / ROOM_W));
+  return { cols: best.c, rowH: Math.floor(rh), scale: Math.round(scale * 100) / 100, scroll };
+}
+
+function fitRooms(scroller, box) {
+  for (const p of ["grid-template-columns", "--hp-fr-h", "--hp-fr-s"]) box.style.removeProperty(p);
+  box.classList.remove("sized");
+  if (window.innerWidth < NARROW) return; // a small window: compact rows that scroll
+  const heads = [...box.children].filter((el) => el.classList.contains("hp-rooms-floor"));
+  const counts = [];
+  for (const el of box.children) {
+    if (el.classList.contains("hp-rooms-floor")) counts.push(0);
+    else if (counts.length) counts[counts.length - 1]++;
+    else counts.push(1);
+  }
+  const headH = heads.reduce((a, el) => a + el.getBoundingClientRect().height + (parseFloat(getComputedStyle(el).marginTop) || 0), 0);
+  const gap = parseFloat(getComputedStyle(box).rowGap) || 8;
+  const H = spaceToDock(scroller, box) - 2;
+  const plan = planRoomsFit(counts.filter(Boolean), box.clientWidth, H, { heads: heads.length, headH, gap });
+  if (!plan || plan.scroll) scroller.classList.remove("hp-fitted");
+  if (!plan) return;
+  box.style.gridTemplateColumns = `repeat(${plan.cols}, minmax(0, 1fr))`;
+  box.style.setProperty("--hp-fr-h", `${plan.rowH}px`);
+  box.style.setProperty("--hp-fr-s", String(plan.scale));
+  box.classList.add("sized");
 }
 
 // Tile size per device: "auto" fills the screen (fewer tiles, bigger tiles, no scrolling); s/m/l is a fixed size.
@@ -108,8 +174,11 @@ export function fitToScreen(main, { editing = false, size = "auto", height = "no
   const scroller = main.querySelector(".hp-side-main") || main.querySelector(".hp-layout");
   // The room list on the left reaches down to the bottom of the screen.
   if (scroller) scroller.style.setProperty("--hp-avail", `${scroller.clientHeight}px`);
+  scroller?.classList.remove("hp-fitted");
   const wall = scroller?.querySelector(".hp-camwall:not(.edit)");
   if (wall) return fitCamWall(scroller, wall);
+  const rooms = scroller?.querySelector(".hp-rooms-all.fit");
+  if (rooms) return fitRooms(scroller, rooms);
   const energy = scroller?.querySelector(".hp-energy");
   if (energy) return fitEnergy(scroller, energy);
   const grid = scroller?.querySelector(".hp-overview, .hp-room-view .hp-items.grid");
