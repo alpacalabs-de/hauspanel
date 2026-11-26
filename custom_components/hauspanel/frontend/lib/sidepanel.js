@@ -9,7 +9,17 @@ import { homeSecurity } from "./securityview.js";
 import { t } from "./i18n.js";
 
 // scenesBig: one large scene button per row instead of two small ones. cameras: the chosen camera.* ids, in order.
-export const SIDE_DEFAULTS = { weather: true, agenda: true, status: true, scenes: true, scenesBig: false, onnow: false, rooms: false, camera: false, cameras: [] };
+// agendaMax: how many events (0 = as many as fit next to the rest). agendaDays: how far ahead, 1 = today only.
+export const SIDE_DEFAULTS = { weather: true, agenda: true, status: true, scenes: true, scenesBig: false, onnow: false, rooms: false, camera: false, cameras: [], agendaMax: 0, agendaDays: 14 };
+export const AGENDA_MAX = [0, 3, 5, 8, 12];
+export const AGENDA_DAYS = [1, 3, 7, 14];
+
+/** The events the panel lists: not over yet, starting within `days` days from today, at most `max`. */
+export function sideEvents(events, now, { max = 4, days = 14 } = {}) {
+  const today = startOfDay(now);
+  const until = addDays(today, Math.max(1, days || 14));
+  return (events || []).filter((e) => (e.allDay ? e.end > today : e.end > now) && e.start < until).slice(0, Math.max(1, max || 4));
+}
 
 /** The chosen cameras that exist, in their order. */
 export function sideCameras(hass, side) {
@@ -25,7 +35,9 @@ function camerasWidget(ctx, ids) {
     const url = snapshotUrl(st);
     if (url) still.src = url;
     const cam = h("div", { class: "hp-side-cam", role: "button", tabindex: "0", dataset: { key: id } }, still,
-      h("span", { class: "hp-side-cam-name" }, entityName(ctx.hass, id)));
+      h("span", { class: "hp-side-cam-name" }, entityName(ctx.hass, id)),
+      // Shows only while frames really arrive (the live picture marks itself "playing").
+      h("span", { class: "hp-pr-badge hp-side-cam-live" }, h("i"), t("live")));
     // The frame takes the camera's shape: from the still first, from the live picture once it runs.
     still.addEventListener("load", () => {
       if (!cam.classList.contains("live-sized") && still.naturalWidth && still.naturalHeight) cam.style.setProperty("--ar", (still.naturalWidth / still.naturalHeight).toFixed(4));
@@ -73,13 +85,13 @@ function weatherWidget(ctx) {
 }
 
 /** The next events (today, tomorrow, the days after) and reminders due today. */
-function agendaWidget(ctx, max = 4) {
+function agendaWidget(ctx, max = 4, days = 14) {
   const el = h("div", { class: "hp-side-agenda", role: "button", tabindex: "0" });
   el.addEventListener("click", (e) => !ctx.editing && openCalendar(ctx));
   el.sideRefresh = () => {
     const now = new Date();
     const today = startOfDay(now);
-    const evs = (ctx.agenda.events || []).filter((e) => (e.allDay ? e.end > today : e.end > now)).slice(0, max);
+    const evs = sideEvents(ctx.agenda.events, now, { max, days });
     const todos = [...ctx.agenda.overdue(), ...ctx.agenda.dueToday()].slice(0, 3);
     const dayLabel = (d) => (sameDay(d, now) || d < now ? t("today") : sameDay(d, addDays(today, 1)) ? t("tomorrow") : formatDate(ctx.hass, d, { weekday: "short", day: "numeric", month: "short" }));
     const rows = [];
@@ -115,7 +127,8 @@ export function sideWidgets(ctx, { statusBlock, roomNav, selected, scenes, onNow
   const parts = [];
   if (on.weather) parts.push(weatherWidget(ctx));
   // With the security chips under the home status there is room for three events.
-  if (on.agenda && (ctx.agenda.calendars().length || ctx.agenda.todoLists().length)) parts.push(agendaWidget(ctx, on.status && on.scenes && ctx.allScenes().length ? 2 : on.status ? 3 : 4));
+  if (on.agenda && (ctx.agenda.calendars().length || ctx.agenda.todoLists().length)) parts.push(agendaWidget(ctx,
+    on.agendaMax > 0 ? on.agendaMax : on.status && on.scenes && ctx.allScenes().length ? 2 : on.status ? 3 : 4, on.agendaDays));
   if (on.status) {
     // Gates, garage, locks and doors (lights and the rest are in the categories on the right).
     const sec = homeSecurity(ctx);

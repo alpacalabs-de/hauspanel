@@ -369,7 +369,7 @@ export default {
   side_panel: "Pannello laterale",
   side_panel_hint: "Extra nella colonna a sinistra del layout Pannello. Nelle Stanze mostra invece l'elenco delle stanze.",
   side_rooms: "Elenco stanze",
-  side_scenes_size: "Pulsanti scena", side_scenes_small: "Piccoli, due per riga", side_scenes_big: "Grandi, uno per riga", side_cams_hint: "In diretta, una sotto l'altra in quest'ordine. Tocca una nel pannello per vederla a schermo intero.",
+  side_scenes_size: "Pulsanti scena", side_scenes_small: "Piccoli, due per riga", side_scenes_big: "Grandi, uno per riga", side_cams_hint: "In diretta, una sotto l'altra in quest'ordine. Tocca una nel pannello per vederla a schermo intero.", side_agenda_count: "Eventi mostrati", side_agenda_days: "Fino a quando", side_agenda_hint: "Automatico adatta il numero agli altri elementi. Se non entrano, il pannello scorre.",
   cameras_order_hint: "Trascina le telecamere nell'ordine che vuoi; − ne nasconde una.",
   tile_size: "Dimensione riquadri",
   size_auto: "Riempi schermo",

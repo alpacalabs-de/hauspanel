@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.21.1
+
+- **Sidebar panel** (*Settings → This screen → Sidebar panel*): the cameras show a red Live dot once the live picture runs, and the calendar can show a chosen number of events and how far ahead (today, 3, 7 or 14 days).
+
 ## 1.21.0
 
 - **Rooms tab**: the view buttons no longer sit on top of the edit and settings buttons.

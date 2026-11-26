@@ -1702,6 +1702,9 @@ ha-icon.hp-rc-touch-ic { --mdc-icon-size: 40px; opacity: .3; pointer-events: non
 .hp-side-cam .hp-live-wrap, .hp-side-cam .hp-cam-live, .hp-side-cam .hp-cam-still { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; pointer-events: none; }
 .hp-side-cam.live-sized .hp-cam-still { opacity: 0; }
 .hp-side-cam.unavail { opacity: .5; }
+.hp-side-cam .hp-side-cam-live { left: 7px; top: 7px; padding: 2px 8px; gap: 5px; font-size: 10.5px; }
+.hp-side-cam .hp-side-cam-live i { width: 7px; height: 7px; }
+.hp-side-cam:has(.hp-live-wrap.playing) .hp-side-cam-live { display: inline-flex; }
 .hp-side-cam-name { position: absolute; left: 8px; bottom: 6px; max-width: calc(100% - 16px); font-size: 11.5px; font-weight: 500; color: #fff; text-shadow: 0 1px 3px rgba(0,0,0,.7); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .hp-side-camset > .hp-muted { padding: 10px 14px 4px; margin: 0; }
 .hp-side-campick .hp-qrow-ic b { font-size: 14px; }

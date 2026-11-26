@@ -369,7 +369,7 @@ export default {
   side_panel: "Zijpaneel",
   side_panel_hint: "Extra's in de linkerkolom van de paneelindeling. Bij Kamers toont het in plaats daarvan de kamerlijst.",
   side_rooms: "Kamerlijst",
-  side_scenes_size: "Scèneknoppen", side_scenes_small: "Klein, twee per rij", side_scenes_big: "Groot, één per rij", side_cams_hint: "Live, onder elkaar in deze volgorde. Tik er een aan in het paneel om hem schermvullend te zien.",
+  side_scenes_size: "Scèneknoppen", side_scenes_small: "Klein, twee per rij", side_scenes_big: "Groot, één per rij", side_cams_hint: "Live, onder elkaar in deze volgorde. Tik er een aan in het paneel om hem schermvullend te zien.", side_agenda_count: "Aantal afspraken", side_agenda_days: "Hoe ver vooruit", side_agenda_hint: "Automatisch past het aantal aan de andere onderdelen aan. Past het niet, dan scrollt het paneel.",
   cameras_order_hint: "Sleep camera's in de gewenste volgorde; − verbergt er een.",
   tile_size: "Tegelgrootte",
   size_auto: "Scherm vullen",

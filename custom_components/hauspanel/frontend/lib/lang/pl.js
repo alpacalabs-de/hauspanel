@@ -369,7 +369,7 @@ export default {
   side_panel: "Panel boczny",
   side_panel_hint: "Dodatki w lewej kolumnie układu Panel. W Pomieszczeniach pokazuje zamiast tego listę pomieszczeń.",
   side_rooms: "Lista pomieszczeń",
-  side_scenes_size: "Przyciski scen", side_scenes_small: "Małe, dwa w rzędzie", side_scenes_big: "Duże, jeden w rzędzie", side_cams_hint: "Na żywo, jedna pod drugą w tej kolejności. Dotknij jednej w panelu, aby zobaczyć ją na pełnym ekranie.",
+  side_scenes_size: "Przyciski scen", side_scenes_small: "Małe, dwa w rzędzie", side_scenes_big: "Duże, jeden w rzędzie", side_cams_hint: "Na żywo, jedna pod drugą w tej kolejności. Dotknij jednej w panelu, aby zobaczyć ją na pełnym ekranie.", side_agenda_count: "Liczba wydarzeń", side_agenda_days: "Jak daleko naprzód", side_agenda_hint: "Automatycznie dopasowuje liczbę do pozostałych elementów. Jeśli się nie mieszczą, panel się przewija.",
   cameras_order_hint: "Przeciągnij kamery w wybranej kolejności; − ukrywa kamerę.",
   tile_size: "Rozmiar kafelków",
   size_auto: "Wypełnij ekran",

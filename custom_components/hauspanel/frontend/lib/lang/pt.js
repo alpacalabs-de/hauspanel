@@ -369,7 +369,7 @@ export default {
   side_panel: "Barra lateral",
   side_panel_hint: "Extras na coluna esquerda do esquema Painel. Em Divisões mostra antes a lista de divisões.",
   side_rooms: "Lista de divisões",
-  side_scenes_size: "Botões de cena", side_scenes_small: "Pequenos, dois por linha", side_scenes_big: "Grandes, um por linha", side_cams_hint: "Em direto, uma por baixo da outra nesta ordem. Toca numa no painel para a ver em ecrã inteiro.",
+  side_scenes_size: "Botões de cena", side_scenes_small: "Pequenos, dois por linha", side_scenes_big: "Grandes, um por linha", side_cams_hint: "Em direto, uma por baixo da outra nesta ordem. Toca numa no painel para a ver em ecrã inteiro.", side_agenda_count: "Eventos mostrados", side_agenda_days: "Até quando", side_agenda_hint: "Automático ajusta o número aos outros elementos. Se não couberem, o painel rola.",
   cameras_order_hint: "Arrasta as câmaras para a ordem que quiseres; − esconde uma.",
   tile_size: "Tamanho dos ícones",
   size_auto: "Encher o ecrã",

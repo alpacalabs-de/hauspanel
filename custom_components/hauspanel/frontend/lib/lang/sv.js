@@ -369,7 +369,7 @@ export default {
   side_panel: "Sidopanel",
   side_panel_hint: "Extra innehåll i vänsterkolumnen i panellayouten. På Rum visas rumslistan istället.",
   side_rooms: "Rumslista",
-  side_scenes_size: "Scenknappar", side_scenes_small: "Små, två per rad", side_scenes_big: "Stora, en per rad", side_cams_hint: "Live, under varandra i den här ordningen. Tryck på en i panelen för att se den i helskärm.",
+  side_scenes_size: "Scenknappar", side_scenes_small: "Små, två per rad", side_scenes_big: "Stora, en per rad", side_cams_hint: "Live, under varandra i den här ordningen. Tryck på en i panelen för att se den i helskärm.", side_agenda_count: "Antal händelser", side_agenda_days: "Hur långt fram", side_agenda_hint: "Automatiskt anpassar antalet efter de andra delarna. Får de inte plats går panelen att scrolla.",
   cameras_order_hint: "Dra kamerorna i den ordning du vill; − döljer en.",
   tile_size: "Brickstorlek",
   size_auto: "Fyll skärmen",

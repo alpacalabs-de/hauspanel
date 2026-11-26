@@ -369,7 +369,7 @@ export default {
   side_panel: "Panel lateral",
   side_panel_hint: "Extras en la columna izquierda del diseño Panel. En Habitaciones muestra la lista de habitaciones.",
   side_rooms: "Lista de habitaciones",
-  side_scenes_size: "Botones de escena", side_scenes_small: "Pequeños, dos por fila", side_scenes_big: "Grandes, uno por fila", side_cams_hint: "En directo, una debajo de otra en este orden. Toca una en el panel para verla a pantalla completa.",
+  side_scenes_size: "Botones de escena", side_scenes_small: "Pequeños, dos por fila", side_scenes_big: "Grandes, uno por fila", side_cams_hint: "En directo, una debajo de otra en este orden. Toca una en el panel para verla a pantalla completa.", side_agenda_count: "Eventos mostrados", side_agenda_days: "Hasta cuándo", side_agenda_hint: "Automático ajusta el número al resto de elementos. Si no caben, el panel se desplaza.",
   cameras_order_hint: "Arrastra las cámaras al orden que quieras; − oculta una.",
   tile_size: "Tamaño de los iconos",
   size_auto: "Llenar pantalla",

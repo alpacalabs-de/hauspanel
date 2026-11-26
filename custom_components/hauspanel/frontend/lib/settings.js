@@ -2,7 +2,7 @@
 import { h, icon, toggleSwitch } from "./util.js";
 import { openSheet, confirmDialog } from "./dialogs.js";
 import { LAYOUTS, CAT_DEFAULTS } from "./layouts.js";
-import { SIDE_DEFAULTS, sideCameras } from "./sidepanel.js";
+import { SIDE_DEFAULTS, AGENDA_MAX, AGENDA_DAYS, sideCameras } from "./sidepanel.js";
 import { CAMS_PER_PAGE } from "./securitypanel.js";
 import { candidateEntities, hideMatcher } from "./model.js";
 import { t } from "./i18n.js";
@@ -327,6 +327,16 @@ export function openSettings(ctx) {
               b.addEventListener("click", () => setSide({ scenesBig: v }));
               return b;
             }))));
+          }
+          // Calendar: how many events and how far ahead.
+          if (k === "agenda" && side.agenda) {
+            const seg = (key, opts, label2) => h("div", { class: "hp-seg" }, opts.map((v) => {
+              const b = h("button", { class: (side[key] ?? SIDE_DEFAULTS[key]) === v ? "active" : "" }, label2(v));
+              b.addEventListener("click", () => setSide({ [key]: v }));
+              return b;
+            }));
+            rows.push(row(t("side_agenda_count"), seg("agendaMax", AGENDA_MAX, (v) => (v ? String(v) : t("automatic"))), t("side_agenda_hint")));
+            rows.push(row(t("side_agenda_days"), seg("agendaDays", AGENDA_DAYS, (v) => (v === 1 ? t("today") : t("maint_days", { n: v })))));
           }
           if (k === "camera" && side.camera) rows.push(sideCamsPick(side, setSide));
         }

@@ -369,7 +369,7 @@ export default {
   side_panel: "Panneau latéral",
   side_panel_hint: "Extras dans la colonne de gauche de la disposition Panneau. Dans Pièces, la liste des pièces s'affiche à la place.",
   side_rooms: "Liste des pièces",
-  side_scenes_size: "Boutons de scène", side_scenes_small: "Petits, deux par ligne", side_scenes_big: "Grands, un par ligne", side_cams_hint: "En direct, l'une sous l'autre dans cet ordre. Touche-en une dans le panneau pour la voir en plein écran.",
+  side_scenes_size: "Boutons de scène", side_scenes_small: "Petits, deux par ligne", side_scenes_big: "Grands, un par ligne", side_cams_hint: "En direct, l'une sous l'autre dans cet ordre. Touche-en une dans le panneau pour la voir en plein écran.", side_agenda_count: "Événements affichés", side_agenda_days: "Jusqu'à", side_agenda_hint: "Automatique adapte le nombre aux autres éléments. S'il y en a trop, le panneau défile.",
   cameras_order_hint: "Glissez les caméras dans l'ordre voulu ; − en masque une.",
   tile_size: "Taille des tuiles",
   size_auto: "Remplir l'écran",

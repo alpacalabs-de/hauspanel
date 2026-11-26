@@ -459,7 +459,7 @@ export default {
   side_panel: "Kenar çubuğu paneli",
   side_panel_hint: "Panel düzeninin sol sütunundaki ekstralar. Odalar sayfasında onun yerine oda listesi görünür.",
   side_rooms: "Oda listesi",
-  side_scenes_size: "Sahne düğmeleri", side_scenes_small: "Küçük, satırda iki", side_scenes_big: "Büyük, satırda bir", side_cams_hint: "Canlı, bu sırayla alt alta. Tam ekran görmek için paneldekilerden birine dokun.",
+  side_scenes_size: "Sahne düğmeleri", side_scenes_small: "Küçük, satırda iki", side_scenes_big: "Büyük, satırda bir", side_cams_hint: "Canlı, bu sırayla alt alta. Tam ekran görmek için paneldekilerden birine dokun.", side_agenda_count: "Gösterilen etkinlik", side_agenda_days: "Ne kadar ileri", side_agenda_hint: "Otomatik, sayıyı diğer bölümlere göre ayarlar. Sığmazsa panel kayar.",
   cameras_order_hint: "Kameraları istediğin sıraya sürükle; − birini gizler.",
   tile_size: "Döşeme boyutu",
   size_auto: "Ekranı doldur",

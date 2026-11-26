@@ -72,3 +72,19 @@ test("side panel cameras: order kept, missing, doubled and foreign ids left out"
   assert.equal(SIDE_DEFAULTS.camera, false);
   assert.equal(SIDE_DEFAULTS.scenesBig, false);
 });
+
+test("sideEvents: count and days ahead for the sidebar calendar", async () => {
+  const { sideEvents, SIDE_DEFAULTS } = await import(`${LIB}sidepanel.js`);
+  const now = new Date(2026, 10, 26, 12, 0);
+  const at = (d, h) => new Date(2026, 10, 26 + d, h, 0);
+  const ev = (d, h, name, allDay = false) => ({ start: at(d, h), end: at(d, h + 1), summary: name, allDay });
+  const events = [ev(0, 9, "past"), ev(0, 15, "today"), ev(1, 10, "tomorrow"), ev(4, 10, "in4"), ev(10, 10, "in10"), ev(20, 10, "in20")];
+  assert.deepEqual(sideEvents(events, now, { max: 10, days: 1 }).map((e) => e.summary), ["today"]);
+  assert.deepEqual(sideEvents(events, now, { max: 10, days: 3 }).map((e) => e.summary), ["today", "tomorrow"]);
+  assert.deepEqual(sideEvents(events, now, { max: 10, days: 14 }).map((e) => e.summary), ["today", "tomorrow", "in4", "in10"]);
+  assert.deepEqual(sideEvents(events, now, { max: 2, days: 14 }).map((e) => e.summary), ["today", "tomorrow"]);
+  // An all-day event today still counts after it "started" at midnight.
+  assert.deepEqual(sideEvents([{ start: at(0, 0), end: at(1, 0), allDay: true, summary: "x" }], now, {}).length, 1);
+  assert.equal(SIDE_DEFAULTS.agendaMax, 0);
+  assert.equal(SIDE_DEFAULTS.agendaDays, 14);
+});
