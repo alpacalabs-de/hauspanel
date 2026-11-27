@@ -18,8 +18,9 @@ export const XMAS_LABEL = /weihnacht|christmas|xmas/i;
 export const SECTIONS = ["out", "in", "other"];
 
 /**
- * The house setting: { on, add: [ids], hide: [ids], area: { id: "out"|"in"|"other" } }.
+ * The house setting: { on, add: [ids], hide: [ids], area: { id: "out"|"in"|"other" }, hideOnNow }.
  * `on` is the general switch: true on, false off, missing = not decided yet (off, the welcome window asks).
+ * `hideOnNow`: the Christmas devices stay out of "On now" on Home and in the side panel.
  */
 export const xmasPrefs = (s) => ({ add: [], hide: [], area: {}, ...(s?.xmas || {}) });
 export const xmasEnabled = (s) => xmasPrefs(s).on === true;
@@ -39,6 +40,18 @@ export function xmasDevices(hass, prefs) {
   const found = Object.keys(hass.states).filter((id) => isXmasEntity(hass, id));
   const ids = [...new Set([...found, ...(prefs.add || []).filter((id) => hass.states[id])])].filter((id) => !hide.has(id));
   return ids.sort((a, b) => entityName(hass, a).localeCompare(entityName(hass, b)));
+}
+
+/**
+ * For "On now": a test whether a device is Christmas decoration that should stay out of it, or null when nothing
+ * is left out (Christmas off, or `hideOnNow` not set). Same devices as `xmasDevices`, but checked one by one.
+ */
+export function xmasOnNowFilter(hass, s) {
+  const p = xmasPrefs(s);
+  if (p.on !== true || !p.hideOnNow) return null;
+  const add = new Set(p.add || []);
+  const hide = new Set(p.hide || []);
+  return (id) => !hide.has(id) && (add.has(id) || isXmasEntity(hass, id));
 }
 
 /**

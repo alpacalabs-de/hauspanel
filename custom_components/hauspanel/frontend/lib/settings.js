@@ -473,6 +473,11 @@ export function openSettings(ctx) {
         row(t("xm_switch"), toggleSwitch(xmOn, () => { S.update((x) => { x.xmas = { ...xmasPrefs(x), on: !xmOn }; }); draw(); ctx.rerender?.(); })),
         xmOn ? row(t("xm_devices"), xmBtns([["xm_edit", () => openXmasEdit(ctx)], ["xm_open", () => openChristmas(ctx)]]), t("xm_setting_hint", { n: xmasDevices(ctx.hass, xmasPrefs(s)).length })) : null,
         ...(xmOn ? xmasTimeRows() : []),
+        // Christmas lights out of "On now": they glow every evening and would push the rest down.
+        xmOn ? row(t("xm_hide_on_now"), toggleSwitch(!!xmasPrefs(s).hideOnNow, () => {
+          S.update((x) => { const q = xmasPrefs(x); if (q.hideOnNow) delete q.hideOnNow; else q.hideOnNow = true; x.xmas = q; });
+          draw(); ctx.rerender?.();
+        }), t("xm_hide_on_now_hint")) : null,
         row(t("xm_intro_again"), xmBtns([["wel_again", () => openXmasIntro(ctx)]])));
       const style = s.homeStyle === "favorites" ? "favorites" : "rooms";
       const pick = (v, ic, label, hint) => {

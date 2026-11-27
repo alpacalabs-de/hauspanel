@@ -3,7 +3,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { LIB, fakeHass } from "./fake.mjs";
 
-const { xmasDevices, xmasSection, xmasPrefs, xmasEnabled, xmasIntroDue, firstAdvent, xmasSeason, seasonStart, seasonEnd, nextAdvent, xmasChipShown, isXmasEntity, watts } = await import(LIB + "christmas.js");
+const { xmasDevices, xmasSection, xmasPrefs, xmasEnabled, xmasIntroDue, firstAdvent, xmasSeason, seasonStart, seasonEnd, nextAdvent, xmasChipShown, isXmasEntity, watts, xmasOnNowFilter } = await import(LIB + "christmas.js");
 
 const hass = fakeHass({
   states: {
@@ -116,4 +116,22 @@ test("watts from W and kW", () => {
   assert.equal(watts({ state: "40", attributes: { unit_of_measurement: "W" } }), 40);
   assert.equal(watts({ state: "0.2", attributes: { unit_of_measurement: "kW" } }), 200);
   assert.equal(watts({ state: "unavailable", attributes: {} }), null);
+});
+
+test("On now: Christmas devices only stay out when Christmas is on and the setting says so", () => {
+  assert.equal(xmasOnNowFilter(hass, {}), null);
+  assert.equal(xmasOnNowFilter(hass, { xmas: { on: true } }), null);
+  assert.equal(xmasOnNowFilter(hass, { xmas: { on: false, hideOnNow: true } }), null);
+  const out = xmasOnNowFilter(hass, { xmas: { on: true, hideOnNow: true, add: ["light.kitchen"], hide: ["switch.inflatable_snowman"] } });
+  // Found by name or label, and added by hand: left out.
+  assert.equal(out("switch.lichterkette_zaun"), true);
+  assert.equal(out("switch.smart_plug_8a82"), true);
+  assert.equal(out("light.kitchen"), true);
+  // Removed from Christmas by hand, or no Christmas device at all: stays in On now.
+  assert.equal(out("switch.inflatable_snowman"), false);
+  assert.equal(out("light.xmas_hidden"), false);
+  assert.equal(out("sensor.christmas_power"), false);
+  // The same devices as the Christmas popup.
+  const p = xmasPrefs({ xmas: { on: true, hideOnNow: true, add: ["light.kitchen"], hide: ["switch.inflatable_snowman"] } });
+  for (const id of Object.keys(hass.states)) assert.equal(out(id), xmasDevices(hass, p).includes(id), id);
 });

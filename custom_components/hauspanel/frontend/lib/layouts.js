@@ -31,7 +31,7 @@ import { snapshotUrl } from "./camera.js";
 import { ago, since } from "./popkit.js";
 import { wasteSources, loadPickups, openWaste, whenText } from "./waste.js";
 import { noticesBlock } from "./notices.js";
-import { xmasPrefs, xmasDevices, xmasChipShown, xmasEnabled, openChristmas } from "./christmas.js";
+import { xmasPrefs, xmasDevices, xmasChipShown, xmasEnabled, openChristmas, xmasOnNowFilter } from "./christmas.js";
 import { hasParcels, incomingParcels, deliveredParcels, parcelChipText, openParcels } from "./parcels.js";
 import { switchLights } from "./switching.js";
 import { gridRate } from "./energy.js";
@@ -1083,12 +1083,15 @@ export function onNowBlock(ctx) {
     return `${ctx.hass.states[id]?.attributes.friendly_name || ""} ${id} ${dev?.model || ""} ${dev?.name || ""}`;
   };
   let plugs = new Set();
-  const ids = () => (plugs = linkedPlugEntities(ctx.hass, ctx.settings.s.plugPick), ctx.model.all).filter((id) => {
+  // Christmas decoration, when the Christmas settings say so (null = keep it).
+  let xmas = null;
+  const ids = () => (plugs = linkedPlugEntities(ctx.hass, ctx.settings.s.plugPick), xmas = xmasOnNowFilter(ctx.hass, ctx.settings.s), ctx.model.all).filter((id) => {
     const d = domainOf(id);
     const st = ctx.hass.states[id];
     if (!isOn(st)) return false;
     if (HELPER_PLATFORMS.has(ctx.hass.entities?.[id]?.platform)) return false;
     if (plugs.has(id)) return false;
+    if (xmas?.(id)) return false;
     if (d === "light") return !NOT_A_LAMP.test(label(id));
     if (d === "switch") {
       if (ctx.settings.s.meters?.[id]) return false;

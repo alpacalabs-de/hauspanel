@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.22.0
+
+- **Christmas** (*Settings → Home → Christmas*): a new switch keeps the Christmas devices out of On now, so the lights that glow every evening no longer push everything else down.
+
 ## 1.21.1
 
 - **Sidebar panel** (*Settings → This screen → Sidebar panel*): the cameras show a red Live dot once the live picture runs, and the calendar can show a chosen number of events and how far ahead (today, 3, 7 or 14 days).
